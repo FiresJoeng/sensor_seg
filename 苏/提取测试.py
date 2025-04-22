@@ -27,7 +27,6 @@ EXTRACTION_SCHEMA = {
                     "传感器输入": {"类型": "number", "描述": "测量元件数量，1或2"},
                     "说明书语言": {"类型": "string", "描述": "中文/English"}
                 },
-                "必要项": ["位号", "输出信号", "防爆等级", "壳体代码", "接线口", "传感器输入"]
             }
         }
     }
@@ -72,14 +71,15 @@ def split_content(content, chunk_size=30000):
     return chunks
 
 def call_deepseek_api(md_content):
-    """改进的API调用函数，添加上下文继承"""
+    """改进的API调用函数，添加上下文继承和去重功能"""
     try:
         # 更精确的token估算
         estimated_tokens = len(md_content) * 1.33 + 100  # 基础token + 系统消息
         
         if estimated_tokens > 30000:  # 设置更保守的阈值
             chunks = split_content(md_content)
-            combined_result = {}
+            combined_result = {"设备列表": []}
+            seen_tags = set()  # 用于记录已处理的位号
             
             for chunk in chunks:
                 # 添加上下文继承（前一块的最后一段作为本块的上下文）
@@ -116,7 +116,12 @@ def call_deepseek_api(md_content):
                 if response.choices:
                     try:
                         chunk_result = json.loads(response.choices[0].message.content)
-                        combined_result.update(chunk_result)
+                        if "设备列表" in chunk_result:
+                            for device in chunk_result["设备列表"]:
+                                tag = device.get("位号")
+                                if tag not in seen_tags:  # 只添加未处理过的设备
+                                    combined_result["设备列表"].append(device)
+                                    seen_tags.add(tag)
                     except json.JSONDecodeError:
                         print("API返回的JSON解析失败，原始内容:", response.choices[0].message.content)
             return combined_result
@@ -157,7 +162,7 @@ def call_deepseek_api(md_content):
         print(f"API调用失败: {str(e)}")
         return {}
     
-with open(r"S363B-INS-DTS-1112_A_Data_Sheet_for_Temperature_transmitter.md", "r", encoding="utf-8") as f:
+with open(r"P2021-180008温度变送器规格书.md", "r", encoding="utf-8") as f:
         md_content = f.read()
 
 result = call_deepseek_api(md_content)
