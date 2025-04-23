@@ -28,33 +28,49 @@ class InfoExtractor:
         def md_to_json(md_path):
             pass
 
-        # 检查json
+        # 提供人工检查json可选项
         def json_check():
             pass
 
 
-# 语义搜索
-class SamanticSearch:
-    def __init__(self, text):
-        self.text = text
+# 语义搜索/向量知识库库/知识图谱知识库，在这三种中选择一种，测试准度，择优
+class ParameterOutput:
+    class KnowledgeBase:
+        # 语义搜索
+        class SemanticSearch:
+            def func():
+                pass
 
-    # 语义搜索逻辑
-    def search(self, query):
+        # 向量知识库
+        class VectorKB:
+            def func():
+                pass
+
+        # 知识图谱
+        class KG:
+            def func():
+                pass
+
+    class ResultCompare:
+        """
+        比较上面的结果，择优
+        知识库之外的参数输出出来，比如说一个参数没有出现在知识库中，那么就输出出来
+        """
+        def func():
+            pass
+
+    def Output_Info():
         pass
-
-    def __call__(self, query):
-        return self.search(query)
 
 
 # 标准匹配
 class StandardMatch:
-    def func():
+    # 从标准参数库提取参数（注意技术实现路径：规则匹配/大模型检索）
+    def load_standard_params():
         pass
 
-
-# 型号输出
-class ModelOutput:
-    def func():
+    # 型号生成
+    def generate_model():
         pass
 
 
