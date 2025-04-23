@@ -12,7 +12,6 @@ client = OpenAI(
 )
 
 
-
 def split_content(content, chunk_size=30000):
     """改进的语义分块函数，保留关键上下文"""
     # 首先按章节分割（假设文档使用Markdown标题结构）
@@ -20,16 +19,16 @@ def split_content(content, chunk_size=30000):
     chunks = []
     current_chunk = []
     current_length = 0
-    
+
     # 重建章节结构（re.split会保留分隔符）
     for i in range(0, len(sections), 2):
         if i+1 < len(sections):
             section = sections[i] + sections[i+1]
         else:
             section = sections[i]
-        
+
         section_length = len(section) * 1.33
-        
+
         # 关键章节（如参数部分）不分割
         if re.search(r'^#{1,2}\s*(参数|规格|技术指标)', section, re.IGNORECASE):
             if current_chunk:  # 先保存当前块
@@ -37,7 +36,7 @@ def split_content(content, chunk_size=30000):
                 current_chunk = []
             chunks.append(section)  # 关键章节单独成块
             continue
-            
+
         # 普通章节处理
         if current_length + section_length > chunk_size:
             chunks.append(''.join(current_chunk))
@@ -46,28 +45,30 @@ def split_content(content, chunk_size=30000):
         else:
             current_chunk.append(section)
             current_length += section_length
-    
+
     if current_chunk:
         chunks.append(''.join(current_chunk))
     return chunks
+
 
 def call_deepseek_api(md_content):
     """改进的API调用函数，添加上下文继承和去重功能"""
     try:
         # 更精确的token估算
         estimated_tokens = len(md_content) * 1.33 + 100  # 基础token + 系统消息
-        
+
         if estimated_tokens > 30000:  # 设置更保守的阈值
             chunks = split_content(md_content)
             combined_result = {"设备列表": []}
             seen_tags = set()  # 用于记录已处理的位号
-            
+
             for chunk in chunks:
                 # 添加上下文继承（前一块的最后一段作为本块的上下文）
-                context = chunks[chunks.index(chunk)-1].split('\n\n')[-1] if chunks.index(chunk) > 0 else ""
-                
+                context = chunks[chunks.index(
+                    chunk)-1].split('\n\n')[-1] if chunks.index(chunk) > 0 else ""
+
                 print(f"正在处理分块 {chunks.index(chunk)+1}/{len(chunks)}")
-                
+
                 response = client.chat.completions.create(
                     model=DEEPSEEK_MODEL,
                     messages=[
@@ -139,21 +140,22 @@ def call_deepseek_api(md_content):
                             "content": f"上文上下文：{context}" if context else ""
                         },
                         {
-                            "role": "user", 
+                            "role": "user",
                             "content": f"这是文档的第{chunks.index(chunk)+1}部分，请从中提取参数：\n{chunk}"
                         }
                     ],
                     response_format={
                         "type": "json_object",
-                        
+
                     },
                     temperature=0.1,
                     max_tokens=8096
                 )
-                
+
                 if response.choices:
                     try:
-                        chunk_result = json.loads(response.choices[0].message.content)
+                        chunk_result = json.loads(
+                            response.choices[0].message.content)
                         if "设备列表" in chunk_result:
                             for device in chunk_result["设备列表"]:
                                 tag = device.get("位号")
@@ -161,9 +163,10 @@ def call_deepseek_api(md_content):
                                     combined_result["设备列表"].append(device)
                                     seen_tags.add(tag)
                     except json.JSONDecodeError:
-                        print("API返回的JSON解析失败，原始内容:", response.choices[0].message.content)
+                        print("API返回的JSON解析失败，原始内容:",
+                              response.choices[0].message.content)
             return combined_result
-        
+
         # 原始的单次调用逻辑（内容不超过阈值时使用）
         response = client.chat.completions.create(
             model=DEEPSEEK_MODEL,
@@ -243,12 +246,12 @@ def call_deepseek_api(md_content):
             ],
             response_format={
                 "type": "json_object",
-                
+
             },
             temperature=0.1,
             max_tokens=8096
         )
-        
+
         # 处理响应
         if response.choices:
             message = response.choices[0].message
@@ -257,17 +260,21 @@ def call_deepseek_api(md_content):
             except json.JSONDecodeError:
                 print("API返回的JSON解析失败，原始内容:", message.content)
         return {}
-        
+
     except Exception as e:
         print(f"API调用失败: {str(e)}")
         return {}
-    
-with open(r"C:\\Users\\41041\Desktop\\项目文件\\系统仓库\\sensor_seg\\苏\\提取后的json数据及原文件\S19008NPEP-500-IN-DAS-0102 温度变送器规格书.md", "r", encoding="utf-8") as f:
+
+
+if __name__ == "__main__":
+    md_path = None
+    json_path = f"./output/{md_path}.json"
+
+    with open(md_path, "r", encoding="utf-8") as f:
         md_content = f.read()
 
-result = call_deepseek_api(md_content)
-print(result)
+    result = call_deepseek_api(md_content)
+    print(result)
 
-# 新增代码：将结果保存到JSON文件
-with open("C:\\Users\\41041\\Desktop\\项目文件\\系统仓库\\sensor_seg\\苏\\提取后的json数据及原文件\\S19008NPEP-500-IN-DAS-0102 温度变送器规格书.json", "w", encoding="utf-8") as f:
-    json.dump(result, f, ensure_ascii=False, indent=4)
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=4)
