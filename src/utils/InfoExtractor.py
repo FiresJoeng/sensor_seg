@@ -4,6 +4,7 @@ import re
 from openai import OpenAI
 from docling.document_converter import DocumentConverter
 from typing import Dict, List, Any, Optional, Union, Tuple
+from dotenv import load_dotenv
 
 
 class InfoExtractor:
@@ -554,9 +555,11 @@ class InfoExtractor:
 
 # 使用示例
 if __name__ == "__main__":
+    load_dotenv()
+    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
     # 初始化提取器
     extractor = InfoExtractor(
-        api_key="sk-28e66466f44148b4b6135f6e92d18651",  # 替换为你的API密钥
+        api_key=deepseek_api_key,
         output_dir="output"
     )
 
