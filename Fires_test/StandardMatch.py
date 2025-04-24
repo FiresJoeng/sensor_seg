@@ -1,14 +1,13 @@
+# 导入依赖
 import pandas as pd
 import json
 import os
 import random
 import re
 
-# 获取项目根目录的路径
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# 设置标准库和语义库的路径
-standard_lib_path = os.path.join(root_dir, "libs", "standard.xlsx")
-semantic_lib_path = os.path.join(root_dir, "libs", "semantic.xlsx")
+
+# 定义变量
+standard_lib_path = "./libs/standard.xlsx"
 
 
 def load_standard_params(standard_para, method="rule_matching"):
@@ -17,25 +16,25 @@ def load_standard_params(standard_para, method="rule_matching"):
 
     参数:
         standard_para (str): 从语义库中获得的标准参数
-        method (str): 使用的方法，可选 "rule_matching" 或 "llm_retrieval"
+        method (str): 使用的方法，可选 "rule_matching" 或 "llm_searching"
 
     返回:
         dict: 提取的标准参数
     """
-    if method not in ["rule_matching", "llm_retrieval"]:
-        raise ValueError("方法必须是 'rule_matching' 或 'llm_retrieval'")
+    if method not in ["rule_matching", "llm_searching"]:
+        raise ValueError("方法必须是 'rule_matching' 或 'llm_searching'")
 
     # 加载标准库
     try:
         standard_df = pd.read_excel(standard_lib_path, sheet_name=None)
     except Exception as e:
         print(f"加载标准库失败: {e}")
-        return None
+        exit()
 
     if method == "rule_matching":
         return rule_matching(standard_para, standard_df)
     else:
-        return llm_retrieval(standard_para, standard_df)
+        return llm_searching(standard_para, standard_df)
 
 
 def rule_matching(standard_para, standard_df):
@@ -60,15 +59,20 @@ def rule_matching(standard_para, standard_df):
         if 'B' not in df.columns:
             continue
 
-        # 在B列中查找匹配项
-        # 使用正则表达式进行更精确的匹配
+        # 创建正则表达式模式
         pattern = re.compile(
             r'\b' + re.escape(standard_para) + r'\b', re.IGNORECASE)
 
+        # 在除B列外的所有列中查找匹配项
         matches = []
-        for item in df['B'].dropna():
-            if pattern.search(str(item)):
-                matches.append(item)
+        for idx, row in df.iterrows():
+            # 检查除B列外的所有列
+            for col in df.columns:
+                if col != 'B' and isinstance(row[col], str) and pattern.search(row[col]):
+                    # 找到匹配项，添加该行的B列值
+                    if isinstance(row['B'], str) and row['B'].strip():
+                        matches.append(row['B'])
+                    break  # 一行中找到匹配就跳到下一行
 
         if matches:
             result[sheet_name] = matches
@@ -76,7 +80,7 @@ def rule_matching(standard_para, standard_df):
     return result
 
 
-def llm_retrieval(standard_para, standard_df):
+def llm_searching(standard_para, standard_df):
     """
     使用大模型检索从标准库中提取参数
 
@@ -94,7 +98,7 @@ def llm_retrieval(standard_para, standard_df):
             if 'B' in df.columns:
                 data[sheet_name] = df['B'].dropna().tolist()
 
-        # 构建提示词
+        # 提示词，需要改
         prompt = f"""
         我有一个标准参数: {standard_para}
         请从以下数据中找出与该参数最相关的项:
@@ -102,26 +106,13 @@ def llm_retrieval(standard_para, standard_df):
         
         请以JSON格式返回结果，格式为:
         {{
-            "sheet_name1": ["匹配项1", "匹配项2"],
-            "sheet_name2": ["匹配项3"]
+            "sheet_name1": ["参数1", "参数2"],
+            "sheet_name2": ["参数3"]
         }}
         """
 
-        # 这里应该调用大模型API
-        # 以下为示例代码，实际使用时需要替换为真实的API调用
 
-        # 示例：使用DeepSeek API
-        # from deepseek import DeepSeekAPI
-        # api = DeepSeekAPI(api_key="your_api_key")
-        # response = api.chat.completions.create(
-        #     model="deepseek-chat",
-        #     messages=[{"role": "user", "content": prompt}]
-        # )
-        # result = json.loads(response.choices[0].message.content)
-
-        # 由于没有实际API调用，这里返回模拟结果
-        print("注意: 这是模拟的大模型检索结果，实际使用时需要替换为真实API调用")
-        result = {"模拟结果": ["这是大模型检索的模拟结果，请替换为实际API调用"]}
+        result = {"TEST_KEY": ["TEST_VALUE"]}
 
         return result
 
@@ -233,7 +224,7 @@ if __name__ == "__main__":
 
     # 使用大模型检索提取参数
     print("使用大模型检索:")
-    llm_params = load_standard_params(standard_para, method="llm_retrieval")
+    llm_params = load_standard_params(standard_para, method="llm_searching")
     print("检索结果:", llm_params)
 
     # 生成型号
