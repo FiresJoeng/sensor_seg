@@ -1,0 +1,196 @@
+﻿规格书代码的说明（多个值用|隔开）,对应代码,Actual_Value_Variation,标准参数,元器件部位
+4-20 mA DC，HART通信型,-J,"4-20 mA DC，HART通信；4~20mA，HART；4~20mA+HART；4~20mA two wires，HART；4-20mA(2-wire)/HART；4~20mA/24VDC loop power/hart；4-20 mA DC+HART；两线制 4～20mA HART ；4-20mA+HART；4 - 20mA.DC, Hart；4～20mA,Dc+Hart协议；4～20mA+Hart；4~20mA DC HART；4～20mA；4~20 mA带Hart；4-20mA/HART；4~20mA +HART；4~20mA w/HART；4～20mADC+HART；4~20mA Hart,4～20mA＋HART；4～20mA DC+HART；4-20mA@24VDC,4～20mA HART；4～20mA +HART；4～20mADC （二线制 2-wire）；4～20mA/HART；4-20mA+Hart；4-20MA+HART7.0；4-20mA（开方输出）；4-20mA Hart；4-20ma2wires；4~20mA 2-Wire；二线制4~20mA；4～20mA+HAR；4-20mA(2-wire)/HART；4…20 mA； HART7/Smart；4~20mA DC+HART；4-20mADC+HART；智能型、两线 4～20mA DC 叠加HART协议、具有宽量程比、高精度、自诊断、快速响应和良好重复性的特点；4~20mA 带HART协议；4～20mA.DC；4-20mA + HART；4～20mA/HART；2-WIRE,4~20mADC/HART 7 smart type；4~20mA.DC+Hart协议； 4～20mADC （二线制 2-wire）；24VDC /4～20mA+HART 二线制；4～20mADC with HART 7；4～20mA+HART；24VDC,4-20mA； HART/4-20mA；带HART协议；4～20mA+HART 两线制 DC24V",输出信号,变送器
+Foundation现场总线通信型,-F,FF；FOUNDATION；FF ITK(LATEST),输出信号,变送器
+Glob,A,Glob；英语；English,说明书语言,变送器
+中文,B,中文，带中文说明,说明书语言,变送器
+单支输入,1,单支输入；单支式温度传感器,传感器输入,变送器
+双支输入,2,双支输入；双支式温度传感器,传感器输入,变送器
+铝,A,"合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting
+聚氨酯涂层低铜铝合金；",壳体代码,变送器
+不锈钢,C,不锈钢；316SS；304SS；316；不锈钢SS；316SST；S.S 316；304SS不锈钢,壳体代码,变送器
+G1/2 内螺纹 ,0,G1/2,接线口,变送器
+1/2NPT 内螺纹,2,"1/2""NPT(F)；1/2""NPT(内螺纹)；1/2NPT；1/2NPT(F)；NPT1/2内螺纹口；NPT1/2""；1/2""NPTF；1/2""FNPT；1/2”NPT(F)；1/2”NPT；1/2NPT内螺纹；NPT(F)1/2” ；1/2“NPT(F)；1/2''NPT；1/2""NPT（F）",接线口,变送器
+M20 内螺纹,4,M20×1.5；M20x1.5(F)；M20*1.5；M20X1.5；M20×1.5（F）；M20×1.5(F)；M20X1.5(F)；M20*1.5(F)；M20,接线口,变送器
+数字指示器(带现场参数设定功能),D,LCD DISPLAY；带；YES；带可修改量程显示屏；液晶数显LCD；带；LCD；液晶显示；LCD显示屏；带；液晶数字表头；带LCD；LCD表头；LCD带背光,内置指示器,变送器
+无,N,无；NA；不带,内置指示器,变送器
+304 SST或ASTM304L 2B 水平管道安装用,B,"支架安装,2""管装,2“钢管,2''管安装,有,304水平安装支架, 2""横管安装 不锈钢材质, 2""横管安装,支架材质304SS,2″管装平板支架,带2""管支架及U型栓,带，304SS,YES",安装支架,变送器
+304 SST或ASTM304L 2B 垂直管道安装用,D,"304垂直安装支架,2""管垂直安装",安装支架,变送器
+316 SST或ASTM316L 2B 水平管道安装用,J,316水平安装支架，316安装支架,安装支架,变送器
+316 SST或ASTM316L 2B 垂直管道安装用,K,316垂直安装支架,安装支架,变送器
+无,N,"无,不带,N/A",安装支架,变送器
+允许电流：最大6000 A (8×20 µs)，反复1000 A (8×20 µs) 100次,/A,带；带装配式浪涌；带电涌保护器；内置；Yes；需要；内置(T1),带避雷器,变送器附加选项
+涂层颜色：蒙塞尔N1.5 (黑色) 涂层：高防腐涂层,/P1,黑色环氧漆；黑色,涂层,变送器附加选项
+涂层颜色：蒙塞尔7.5BG4/1.5 (翠绿色) 涂层：高防腐涂层,/P2,绿色环氧漆；绿色,涂层,变送器附加选项
+涂层颜色：金属银 涂层：高防腐涂层,/P7,银色环氧漆；银色,涂层,变送器附加选项
+涂层颜色：蒙塞尔7.5R4/14或相当颜色 涂层：高防腐涂层,/PR,红色环氧漆；红色,涂层,变送器附加选项
+高防腐涂层,/X2,环氧漆；防腐涂层,涂层,变送器附加选项
+位号牌,/N4,提供位号牌；位号牌,位号牌,变送器附加选项
+4-20 mA和现场总线：[防火和防尘隔爆认证]|4-20 mA：[本安认证],/NF2,"ExdⅡ；隔爆；ExdⅡBT4；Exd II CT4；Ex dⅡ CT4 Gb；Ex dbIICT6；ExdIIBT4；Ex d IIB T4 Gc；Exd IIB T4,Ex tD A21 T265℃ /dIICT4；隔爆型flame proof,ExdIICT4；Ex D IIC T6；Exd IIBT4；Exd II BT4；Ex d IIC T4；Ex dIIBT4；ExdⅡCT4；Ex.d IIB T4；Exd IICT6；Ex d II BT4 (min.)；ExdⅡBT4/ Ex tD A22 IIIB T135°C Db,Exd IICT4；EExdIIBT4+DIPA22T135；Ex d ⅡCT4；Exd IIC T4",NEPSI,变送器附加选项
+4-20 mA：[本安认证],/NS2,"本安，Ex ia,ExiaⅡCT4,ExiaIICT4,ia Ⅱ CT4,ExiaⅡCT4+Extb lllBT130°C,Ex iaⅡCT4,iaIICT4,Exia IICT4,Ex iaIICT4,ExiaⅡCT4 Gb,IP66/ExiaⅡCT4,Exia IIC T4 Gb,Ex ia IICT4&Ex ia IICT,Exia II CT4 Ga,NEPSI Ex ia IIC T4/T5 GaExiaCT4,ExiaIICT4~T6,Exia ⅡBT4,Exia II CT4,Ex ia II CT4",NEPSI,变送器附加选项
+现场总线： [本安认证],/NS25,"本安，Ex ia,ExiaⅡCT4,ExiaIICT4,ia Ⅱ CT4,ExiaⅡCT4+Extb lllBT130°C,Ex iaⅡCT4,iaIICT4,Exia IICT4,Ex iaIICT4,ExiaⅡCT4 Gb,IP66/ExiaⅡCT4,Exia IIC T4 Gb,Ex ia IICT4&Ex ia IICT,Exia II CT4 Ga,NEPSI Ex ia IIC T4/T5 GaExiaCT4,ExiaIICT4~T6,Exia ⅡBT4,Exia II CT4,Ex ia II CT4",NEPSI,变送器附加选项
+热电阻,HZ,热电阻；RTD；铂电阻；Pt100；铠装式热电阻；铠装双支热电阻；IEC标准PT100；3-WIRE Pt100 ohm@ 0℃；铂热电阻；铠装热电阻；Resistance Temperature Detector；陶瓷元件,元件类型,温度传感器
+热电偶,HR,"热电偶；热电偶 T.C；IEC 60584；IEC标准K,K型,thermocouple；TC；K型；N型；S型；B型；T型；R型；E型；J型；Type K",元件类型,温度传感器
+单支式,S,"1；单支；Simplex；单支单点；单元件；单只；Single,单支铠装；Single,,1支；one",元件数量,温度传感器
+双支式,D,2；双支；Double；Duplex；Two；双支式；双元件；,元件数量,温度传感器
+φ3mm,3,3；3mm；φ3；φ3mm,铠套外径(d),温度传感器
+φ4mm,4,4；4mm；φ4；φ4mm,铠套外径(d),温度传感器
+φ5mm,5,5mm；φ5mm；5；φ5,铠套外径(d),温度传感器
+φ6mm,6,6；φ6；6mm；Φ6mm,铠套外径(d),温度传感器
+φ8mm,8,8；8mm；φ8；φ8mm,铠套外径(d),温度传感器
+φ10mm,10,10；10mm；φ10；φ10mm,铠套外径(d),温度传感器
+其它,Z,□□□,铠套外径(d),温度传感器
+304SS,PN,304SS；AISI 304；304；30408；S30408；06Cr19Ni10,铠套材质,温度传感器
+321SS,SN,321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti,铠套材质,温度传感器
+316SS,RN,316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2,铠套材质,温度传感器
+316LSS,RL,316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2,铠套材质,温度传感器
+310SS,QN,S31008；310S；310；310SS；06Cr25Ni20,铠套材质,温度传感器
+GH3030,GH,GH3030,铠套材质,温度传感器
+GH3039,GN,GH3039,铠套材质,温度传感器
+其它,Z,□□□,铠套材质,温度传感器
+□□□；|□□□-□□□（全长-插深）,□□□,□□□；□□□mm,加强管长度（N）,温度传感器
+□□□；|□□□-□□□（全长-插深）,□□□,□□□/□□□；□□□/□□□mm,加强管长度（N）,温度传感器
+PT100三线,3,"RTD Pt100 三线制；Pt100（三线制）；三线制；Pt100；Pt100（A级 三线制)；CLASS A/三线制；IEC60751 CLASS A / 三线制；RTD Pt100 三线制；三线制 Three wire；热电阻Pt100三线制；Pt100（A级 三线制）；3线制；3线制RTD；Pt100(3-wire) IEC60751 Class A；3 wires；3线RTD；PT100 3线； PT100 AT 0℃ 3WIRE (DIN TYPE)；3-wire；3线 IEC 60751；PT100-3WIRE；Pt100 ohm,3W,Class B；3 WIRE",分度号,温度传感器
+PT100四线,4,四线制；Pt100（四线制）；4WIRE；4线；,分度号,温度传感器
+E,E,E；镍铬-铜镍,分度号,温度传感器
+J,J,J；铁-铜镍,分度号,温度传感器
+K,K,K；IEC标准 K；镍铬-镍硅,分度号,温度传感器
+T,T,T；铜-铜镍,分度号,温度传感器
+N,N,N；镍铬硅-镍硅镁,分度号,温度传感器
+S,S,S；铂-铂铑10,分度号,温度传感器
+R,R,R；铂-铂铑13,分度号,温度传感器
+B,B,B；铂铑30-铂铑6,分度号,温度传感器
+其它,Z,□□□,分度号,温度传感器
+YTA610、YTA710,-1,一体式；一体化铠装热电阻-带外套管；一体化温度变送器；Head Mount；Integrate；一体式温度变送器；一体化安装；变送器一体式；一体化；Integral RTD Field Mounted Tran.；一体化温变；Integral；就地⼀体式；智能一体化；一体式温度变送器；一体化变送器；一体化温度计；integrated；就地一体式,接线盒形式,温度传感器
+接线盒、1/2NPT电气接口,-2,分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器,接线盒形式,温度传感器
+接线盒、M20*1.5电气接口,-3,分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器,接线盒形式,温度传感器
+弹簧压紧式,1,带；弹簧压紧式；弹簧压着式；有；带压紧弹簧；Yes；压簧式；接触传热；Y；弹顶装配式；压着式铠装；压着式；带弹簧铠装,接头结构,温度传感器
+固定式,2,不带；NO，防内漏；,接头结构,温度传感器
+无,0,无；NA.,连接螺纹,温度传感器
+M12×1.5,1,M12；M12*1.5；M12×1.5,连接螺纹,温度传感器
+M16×1.5,2,M16；M16*1.5；M16×1.5,连接螺纹,温度传感器
+M27×2,3,M27；M27*2；M27×2；M27X2；固定外螺纹 M27×2；FIXED THREAD M27x2；Screw ThreadM27X2,连接螺纹,温度传感器
+G1/2,4,G1/2；G1/2外螺纹(M)；G1/2(M),连接螺纹,温度传感器
+M20×1.5,5,M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；固定外螺纹M20x1.5,连接螺纹,温度传感器
+1/2NPT,6,"1/2NPT；1/2""NPT；NPT1/2；NPT1/2""；1/2NPT(M)；1/2""NPT(M)；NPT1/2(M)；NPT1/2""(M)；1/2""NPT(外螺纹)；1/2""NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2""NPT；MFR STD",连接螺纹,温度传感器
+其它,Z,□□□,连接螺纹,温度传感器
+□□□|取□□□/□□□斜杠前后较小值,-□□□,□□□mm，□□□；,插入长度（L）,温度传感器
+□□□|取□□□/□□□斜杠前后较小值,-□□□,□□□/□□□；□□□/□□□mm,插入长度（L）,温度传感器
+一体化温度变送器隔爆证书,/N1,需一体化温度变送器与变送器NEPSI选项为NF2同时生效,附加选项,温度传感器
+一体化温度变送器本安证书,/N2,需一体化温度变送器与变送器NEPSI选项为NS2或NS25同时生效,附加选项,温度传感器
+"接线盒材质；外壳材质；表壳材质；Case Material；变送器外壳材质 Mat'l；通用接线盒材质；接线盒材质 HEAD MATERIAL；接线盒形式；Terminal Box Style；接线盒材料；TERMINAL BOX MATERIAL；变送器外壳材质；Housing Material；Terminal Box Mat'l；外壳；Housing；外壳材料；保护外壳；Case Material；Body Material；本体材质；Transmitter Housing Material；Teminal Box Material；Case Mat'l；Housing Mtl.；Terminal Box Mtl.；Joint Box M.；Housing Mtl.；表体材质；SHELL MATERIAL；接线盒盖和链 Screw Cap & Chain；MATERIAL OF SHELL；Enclosure Material；表头外壳材质；HEAD SHELL MATERIAL；BODY MAT,L；",/B11,"合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting
+聚氨酯涂层低铜铝合金；",接线盒,温度传感器
+"接线盒材质；外壳材质；表壳材质；Case Material；变送器外壳材质 Mat'l；通用接线盒材质；接线盒材质 HEAD MATERIAL；接线盒形式；Terminal Box Style；接线盒材料；TERMINAL BOX MATERIAL；变送器外壳材质；Housing Material；Terminal Box Mat'l；外壳；Housing；外壳材料；保护外壳；Case Material；Body Material；本体材质；Transmitter Housing Material；Teminal Box Material；Case Mat'l；Housing Mtl.；Terminal Box Mtl.；Joint Box M.；Housing Mtl.；表体材质；SHELL MATERIAL；接线盒盖和链 Screw Cap & Chain；MATERIAL OF SHELL；Enclosure Material；表头外壳材质；HEAD SHELL MATERIAL；BODY MAT,L；",/B12,不锈钢；316SS；304SS；316；不锈钢SS；316SST；S.S 316；304SS不锈钢,接线盒,温度传感器
+"1/2""NPT",-12,"1/2NPT；1/2""NPT；NPT1/2；NPT1/2""；1/2NPT(M)；1/2""NPT(M)；NPT1/2(M)；NPT1/2""(M)；1/2""NPT(外螺纹)；1/2""NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2""NPT；MFR STD",过程连接（螺纹）,保护套管
+"3/4""NPT",-34,"3/4NPT；3/4""NPT；NPT3/4；NPT3/4""；3/4NPT(M)；3/4""NPT(M)；NPT3/4(M)；NPT3/4""(M)；3/4""NPT(外螺纹)；3/4""NPT螺纹；热电阻(弹簧式3/4”NPT外螺纹连接)；固定外螺纹 3/4""NPT；MFR STD",过程连接（螺纹）,保护套管
+"1""NPT",-10,"1""NPT；NPT1""；1""NPT(M)；NPT1""(M)",过程连接（螺纹）,保护套管
+M20×1.5,-20,M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；,过程连接（螺纹）,保护套管
+M27×2,-27,M27；M27*2；M27×2；M27*2(M)；M27×2(M)；M27X2；M27x2(M)；,过程连接（螺纹）,保护套管
+M33×2,-33,M33；M33*2；M33×2；M33*2(M)；M33×2(M)；M33X2；M33x2(M)；,过程连接（螺纹）,保护套管
+"G1/2""",-G12,"G1/2；G1/2(M)；G1/2""；G1/2""(M)",过程连接（螺纹）,保护套管
+"G3/4""",-G34,"G3/4；G3/4(M)；G3/4""；G3/4""(M)",过程连接（螺纹）,保护套管
+"G1""",-G10,"G1""；G1""(M)",过程连接（螺纹）,保护套管
+其它,-Z,□□□,过程连接（螺纹）,保护套管
+ANSI,-A,ANSI；ANSI □□； ASME；ASME□□,过程连接（法兰标准）,保护套管
+DIN,-D,DIN；DIN □□,过程连接（法兰标准）,保护套管
+GB/T9123,-G,GB/T9123；GB/T9123 □□,过程连接（法兰标准）,保护套管
+HG/T20592、HG/T20615,-H,HG□□；化工法兰,过程连接（法兰标准）,保护套管
+其它,-Z,GB□□；SH□□；JIS□□；API□□；,过程连接（法兰标准）,保护套管
+"DN25(1"")",1,"DN25；□□DN25□□；1""；□□1""□□； 25-□□",过程连接（法兰尺寸（Fs））,保护套管
+"DN40(1-1/2"")",2,"DN40；□□DN40□□；1-1/2""；□□1-1/2""□□；1 1/2""；□□1 1/2""□□；40-□□",过程连接（法兰尺寸（Fs））,保护套管
+"DN50(2"")",3,"DN50；□□DN50□□；2""；□□2""□□；50-□□",过程连接（法兰尺寸（Fs））,保护套管
+其它,Z,□□,过程连接（法兰尺寸（Fs））,保护套管
+PN2.0(150#) RF,1,PN2.0 RF；150# RF；PN20 RF；Class150 RF；150LB RF；□□-20 RF；CL150 RF；,过程连接（法兰等级）,保护套管
+PN5.0(300#) RF,2,PN5.0 RF；300# RF；PN50 RF；Class300 RF；300LB RF；□□-50 RF；CL300 RF；PN5.0 □□ RF；300# □□ RF；PN50 □□ RF；Class300 □□ RF；300LB □□ RF；CL300 □□ RF；,过程连接（法兰等级）,保护套管
+PN11.0(600#) RF,3,PN11.0 RF；600# RF；PN110 RF；Class600 RF；600LB RF；□□-110 RF；CL600 RF；,过程连接（法兰等级）,保护套管
+PN15.0(900#) RJ,4,PN15.0 RJ；900# RJ；PN150 RJ；Class900 RJ；900LB RJ；□□-150 RJ；CL900 RJ；,过程连接（法兰等级）,保护套管
+PN26.0(1500#) RJ,5,PN26.0 RJ；1500# RJ；PN260 RJ；Class1500 RJ；1500LB RJ；□□-260 RJ；CL1500 RJ；,过程连接（法兰等级）,保护套管
+PN42.0(2500#) RJ,6,PN42.0 RJ；2500# RJ；PN420 RJ；Class2500 RJ；2500LB RJ；□□-420 RJ；CL2500 RJ；,过程连接（法兰等级）,保护套管
+PN1.0 RF,7,PN1.0 RF；PN10 RF；□□-10 RF；,过程连接（法兰等级）,保护套管
+PN1.6 RF,8,PN1.6 RF；PN16 RF；□□-16 RF；,过程连接（法兰等级）,保护套管
+PN2.5 RF,9,PN2.5 RF；PN25 RF；□□-25 RF；,过程连接（法兰等级）,保护套管
+PN4.0 RF,10,PN4.0 RF；PN40 RF；□□-40 RF；,过程连接（法兰等级）,保护套管
+PN6.3 RF,11,PN6.3 RF；PN63 RF；□□-63 RF；,过程连接（法兰等级）,保护套管
+热电阻,HZ,热电阻；RTD；铂电阻；Pt100；铠装式热电阻；铠装双支热电阻；IEC标准PT100；3-WIRE Pt100 ohm@ 0℃；铂热电阻；铠装热电阻；Resistance Temperature Detector；陶瓷元件,元件类型,温度传感器
+热电偶,HR,"热电偶；热电偶 T.C；IEC 60584；IEC标准K,K型,thermocouple；TC；K型；N型；S型；B型；T型；R型；E型；J型；Type K",元件类型,温度传感器
+单支式,S,"1；单支；Simplex；单支单点；单元件；单只；Single,单支铠装；Single,,1支；one",元件数量,温度传感器
+双支式,D,2；双支；Double；Duplex；Two；双支式；双元件；,元件数量,温度传感器
+φ3mm,3,3；3mm；φ3；φ3mm,铠套外径(d),温度传感器
+φ4mm,4,4；4mm；φ4；φ4mm,铠套外径(d),温度传感器
+φ5mm,5,5mm；φ5mm；5；φ5,铠套外径(d),温度传感器
+φ6mm,6,6；φ6；6mm；Φ6mm,铠套外径(d),温度传感器
+φ8mm,8,8；8mm；φ8；φ8mm,铠套外径(d),温度传感器
+φ10mm,10,10；10mm；φ10；φ10mm,铠套外径(d),温度传感器
+其它,Z,□□□,铠套外径(d),温度传感器
+304SS,PN,304SS；AISI 304；304；30408；S30408；06Cr19Ni10,铠套材质,温度传感器
+321SS,SN,321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti,铠套材质,温度传感器
+316SS,RN,316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2,铠套材质,温度传感器
+316LSS,RL,316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2,铠套材质,温度传感器
+310SS,QN,S31008；310S；310；310SS；06Cr25Ni20,铠套材质,温度传感器
+GH3030,GH,GH3030,铠套材质,温度传感器
+GH3039,GN,GH3039,铠套材质,温度传感器
+其它,Z,□□□,铠套材质,温度传感器
+□□□；|□□□-□□□（全长-插深）,□□□,□□□；□□□mm,加强管长度（N）,温度传感器
+□□□；|□□□-□□□（全长-插深）,□□□,□□□/□□□；□□□/□□□mm,加强管长度（N）,温度传感器
+PT100三线,3,"RTD Pt100 三线制；Pt100（三线制）；三线制；Pt100；Pt100（A级 三线制)；CLASS A/三线制；IEC60751 CLASS A / 三线制；RTD Pt100 三线制；三线制 Three wire；热电阻Pt100三线制；Pt100（A级 三线制）；3线制；3线制RTD；Pt100(3-wire) IEC60751 Class A；3 wires；3线RTD；PT100 3线； PT100 AT 0℃ 3WIRE (DIN TYPE)；3-wire；3线 IEC 60751；PT100-3WIRE；Pt100 ohm,3W,Class B；3 WIRE",分度号,温度传感器
+PT100四线,4,四线制；Pt100（四线制）；4WIRE；4线；,分度号,温度传感器
+E,E,E；镍铬-铜镍,分度号,温度传感器
+J,J,J；铁-铜镍,分度号,温度传感器
+K,K,K；IEC标准 K；镍铬-镍硅,分度号,温度传感器
+T,T,T；铜-铜镍,分度号,温度传感器
+N,N,N；镍铬硅-镍硅镁,分度号,温度传感器
+S,S,S；铂-铂铑10,分度号,温度传感器
+R,R,R；铂-铂铑13,分度号,温度传感器
+B,B,B；铂铑30-铂铑6,分度号,温度传感器
+其它,Z,□□□,分度号,温度传感器
+YTA610、YTA710,-1,一体式；一体化铠装热电阻-带外套管；一体化温度变送器；Head Mount；Integrate；一体式温度变送器；一体化安装；变送器一体式；一体化；Integral RTD Field Mounted Tran.；一体化温变；Integral；就地⼀体式；智能一体化；一体式温度变送器；一体化变送器；一体化温度计；integrated；就地一体式,接线盒形式,温度传感器
+接线盒、1/2NPT电气接口,-2,分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器,接线盒形式,温度传感器
+接线盒、M20*1.5电气接口,-3,分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器,接线盒形式,温度传感器
+弹簧压紧式,1,带；弹簧压紧式；弹簧压着式；有；带压紧弹簧；Yes；压簧式；接触传热；Y；弹顶装配式；压着式铠装；压着式；带弹簧铠装,接头结构,温度传感器
+固定式,2,不带；NO，防内漏；,接头结构,温度传感器
+无,0,无；NA.,连接螺纹,温度传感器
+M12×1.5,1,M12；M12*1.5；M12×1.5,连接螺纹,温度传感器
+M16×1.5,2,M16；M16*1.5；M16×1.5,连接螺纹,温度传感器
+M27×2,3,M27；M27*2；M27×2；M27X2；固定外螺纹 M27×2；FIXED THREAD M27x2；Screw ThreadM27X2,连接螺纹,温度传感器
+G1/2,4,G1/2；G1/2外螺纹(M)；G1/2(M),连接螺纹,温度传感器
+M20×1.5,5,M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；固定外螺纹M20x1.5,连接螺纹,温度传感器
+1/2NPT,6,"1/2NPT；1/2""NPT；NPT1/2；NPT1/2""；1/2NPT(M)；1/2""NPT(M)；NPT1/2(M)；NPT1/2""(M)；1/2""NPT(外螺纹)；1/2""NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2""NPT；MFR STD",连接螺纹,温度传感器
+其它,Z,□□□,连接螺纹,温度传感器
+□□□|取□□□/□□□斜杠前后较小值,-□□□,□□□mm，□□□；,插入长度（L）,温度传感器
+□□□|取□□□/□□□斜杠前后较小值,-□□□,□□□/□□□；□□□/□□□mm,插入长度（L）,温度传感器
+一体化温度变送器隔爆证书,/N1,需一体化温度变送器与变送器NEPSI选项为NF2同时生效,一体化温度变送器隔爆证书,温度传感器
+一体化温度变送器本安证书,/N2,需一体化温度变送器与变送器NEPSI选项为NS2或NS25同时生效,一体化温度变送器本安证书,温度传感器
+"接线盒材质；外壳材质；表壳材质；Case Material；变送器外壳材质 Mat'l；通用接线盒材质；接线盒材质 HEAD MATERIAL；接线盒形式；Terminal Box Style；接线盒材料；TERMINAL BOX MATERIAL；变送器外壳材质；Housing Material；Terminal Box Mat'l；外壳；Housing；外壳材料；保护外壳；Case Material；Body Material；本体材质；Transmitter Housing Material；Teminal Box Material；Case Mat'l；Housing Mtl.；Terminal Box Mtl.；Joint Box M.；Housing Mtl.；表体材质；SHELL MATERIAL；接线盒盖和链 Screw Cap & Chain；MATERIAL OF SHELL；Enclosure Material；表头外壳材质；HEAD SHELL MATERIAL；BODY MAT,L；",/B11,"合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting
+聚氨酯涂层低铜铝合金；",接线盒,温度传感器
+"接线盒材质；外壳材质；表壳材质；Case Material；变送器外壳材质 Mat'l；通用接线盒材质；接线盒材质 HEAD MATERIAL；接线盒形式；Terminal Box Style；接线盒材料；TERMINAL BOX MATERIAL；变送器外壳材质；Housing Material；Terminal Box Mat'l；外壳；Housing；外壳材料；保护外壳；Case Material；Body Material；本体材质；Transmitter Housing Material；Teminal Box Material；Case Mat'l；Housing Mtl.；Terminal Box Mtl.；Joint Box M.；Housing Mtl.；表体材质；SHELL MATERIAL；接线盒盖和链 Screw Cap & Chain；MATERIAL OF SHELL；Enclosure Material；表头外壳材质；HEAD SHELL MATERIAL；BODY MAT,L；",/B12,不锈钢；316SS；304SS；316；不锈钢SS；316SST；S.S 316；304SS不锈钢,接线盒,温度传感器
+电气接口弯头,/W,电气接口弯头；带,电气接口弯头,温度传感器（附加选项）
+材质□□□ 长□□□mm,/A1,材质□□□ 长□□□mm；□□□焊接安装座，长□□□mm,焊接座,温度传感器（附加选项）
+"1/2""NPT",-12,"1/2NPT；1/2""NPT；NPT1/2；NPT1/2""；1/2NPT(M)；1/2""NPT(M)；NPT1/2(M)；NPT1/2""(M)；1/2""NPT(外螺纹)；1/2""NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2""NPT；MFR STD",过程连接（螺纹）,保护套管
+"3/4""NPT",-34,"3/4NPT；3/4""NPT；NPT3/4；NPT3/4""；3/4NPT(M)；3/4""NPT(M)；NPT3/4(M)；NPT3/4""(M)；3/4""NPT(外螺纹)；3/4""NPT螺纹；热电阻(弹簧式3/4”NPT外螺纹连接)；固定外螺纹 3/4""NPT；MFR STD",过程连接（螺纹）,保护套管
+"1""NPT",-10,"1""NPT；NPT1""；1""NPT(M)；NPT1""(M)",过程连接（螺纹）,保护套管
+M20×1.5,-20,M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；,过程连接（螺纹）,保护套管
+M27×2,-27,M27；M27*2；M27×2；M27*2(M)；M27×2(M)；M27X2；M27x2(M)；,过程连接（螺纹）,保护套管
+M33×2,-33,M33；M33*2；M33×2；M33*2(M)；M33×2(M)；M33X2；M33x2(M)；,过程连接（螺纹）,保护套管
+"G1/2""",-G12,"G1/2；G1/2(M)；G1/2""；G1/2""(M)",过程连接（螺纹）,保护套管
+"G3/4""",-G34,"G3/4；G3/4(M)；G3/4""；G3/4""(M)",过程连接（螺纹）,保护套管
+"G1""",-G10,"G1""；G1""(M)",过程连接（螺纹）,保护套管
+其它,-Z,□□□,过程连接（螺纹）,保护套管
+ANSI,-A,ANSI；ANSI □□； ASME；ASME□□,过程连接（法兰标准）,保护套管
+DIN,-D,DIN；DIN □□,过程连接（法兰标准）,保护套管
+GB/T9123,-G,GB/T9123；GB/T9123 □□,过程连接（法兰标准）,保护套管
+HG/T20592、HG/T20615,-H,HG□□；化工法兰,过程连接（法兰标准）,保护套管
+其它,-Z,GB□□；SH□□；JIS□□；API□□；,过程连接（法兰标准）,保护套管
+"DN25(1"")",1,"DN25；□□DN25□□；1""；□□1""□□； 25-□□",过程连接（法兰尺寸（Fs））,保护套管
+"DN40(1-1/2"")",2,"DN40；□□DN40□□；1-1/2""；□□1-1/2""□□；1 1/2""；□□1 1/2""□□；40-□□",过程连接（法兰尺寸（Fs））,保护套管
+"DN50(2"")",3,"DN50；□□DN50□□；2""；□□2""□□；50-□□",过程连接（法兰尺寸（Fs））,保护套管
+其它,Z,□□,过程连接（法兰尺寸（Fs））,保护套管
+PN2.0(150#) RF,1,PN2.0 RF；150# RF；PN20 RF；Class150 RF；150LB RF；□□-20 RF；CL150 RF；,过程连接（法兰等级）,保护套管
+PN5.0(300#) RF,2,PN5.0 RF；300# RF；PN50 RF；Class300 RF；300LB RF；□□-50 RF；CL300 RF；PN5.0 □□ RF；300# □□ RF；PN50 □□ RF；Class300 □□ RF；300LB □□ RF；CL300 □□ RF；,过程连接（法兰等级）,保护套管
+PN11.0(600#) RF,3,PN11.0 RF；600# RF；PN110 RF；Class600 RF；600LB RF；□□-110 RF；CL600 RF；,过程连接（法兰等级）,保护套管
+PN15.0(900#) RJ,4,PN15.0 RJ；900# RJ；PN150 RJ；Class900 RJ；900LB RJ；□□-150 RJ；CL900 RJ；,过程连接（法兰等级）,保护套管
+PN26.0(1500#) RJ,5,PN26.0 RJ；1500# RJ；PN260 RJ；Class1500 RJ；1500LB RJ；□□-260 RJ；CL1500 RJ；,过程连接（法兰等级）,保护套管
+PN42.0(2500#) RJ,6,PN42.0 RJ；2500# RJ；PN420 RJ；Class2500 RJ；2500LB RJ；□□-420 RJ；CL2500 RJ；,过程连接（法兰等级）,保护套管
+PN1.0 RF,7,PN1.0 RF；PN10 RF；□□-10 RF；,过程连接（法兰等级）,保护套管
+PN1.6 RF,8,PN1.6 RF；PN16 RF；□□-16 RF；,过程连接（法兰等级）,保护套管
+PN2.5 RF,9,PN2.5 RF；PN25 RF；□□-25 RF；,过程连接（法兰等级）,保护套管
+PN4.0 RF,10,PN4.0 RF；PN40 RF；□□-40 RF；,过程连接（法兰等级）,保护套管
+PN6.3 RF,11,PN6.3 RF；PN63 RF；□□-63 RF；,过程连接（法兰等级）,保护套管
