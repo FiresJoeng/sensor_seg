@@ -7,7 +7,7 @@ import re
 
 
 # 定义变量
-standard_lib_path = "./libs/standard.xlsx"
+standard_lib_path = "libs/standard.xlsx"
 
 
 # 类: 标准表检索器
@@ -53,7 +53,6 @@ class Retriever:
             return None
 
     # 规则匹配
-
     def rule_matching(standard_params, standard_df):
         """
         使用规则匹配从标准库中提取参数
@@ -89,12 +88,13 @@ class Retriever:
                             matches.append(row['B'])
                         break
 
+            # 判断匹配结果
             if matches:
                 result[sheet_name] = matches
             else:
                 selector = input('未找到匹配项，是否使用大模型查找? (Y/N) : ')
                 if selector.upper() == 'Y':
-                    result = llm_searching(standard_params, standard_df)
+                    result = Retriever.llm_searching(standard_params, standard_df)
                 else:
                     result[sheet_name] = matches
         return result
@@ -128,7 +128,7 @@ class Retriever:
 
 # 类: 型号生成器
 class Generator:
-    def func():
+    def temp_func():
         pass
 
 
@@ -138,5 +138,6 @@ if __name__ == "__main__":
 
     # 使用规则匹配提取参数
     print("使用规则匹配:")
-    rule_params = Retriever.load_retriever(standard_params, method="rule_matching")
+    rule_params = Retriever.load_retriever(
+        standard_params, method="rule_matching")
     print("匹配结果:", rule_params)
