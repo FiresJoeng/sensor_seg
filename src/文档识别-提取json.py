@@ -542,12 +542,12 @@ if __name__ == "__main__":
     # 初始化提取器
     extractor = InfoExtractor(
         api_key="sk-28e66466f44148b4b6135f6e92d18651",  # 替换为你的API密钥
-        output_dir="文档识别和json测试结果"
+        output_dir="output"
     )
     
     # 将PDF转换为Markdown
-    pdf_path = "C:\\Users\\41041\\Desktop\\项目文件\\系统仓库\\sensor_seg\\input\\P2021-180008温度变送器规格书.pdf"
-    md_path = extractor.md_conv.pdf_to_md(pdf_path)
+    pdf_path = "input/温变规格书.pdf"
+    md_path = extractor.md_conv.pdf_to_md(pdf_path, "output/result.md")
     
     # 从Markdown提取参数到JSON
     # 注意：md_to_json返回解析后的JSON数据和保存路径

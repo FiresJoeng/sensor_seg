@@ -11,7 +11,6 @@ class InfoExtractor:
             pass
 
     # JSON 处理器
-
     class JSONProc:
         # 使用LLMs将md转json
         def md_to_json(md_path):

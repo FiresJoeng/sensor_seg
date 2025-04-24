@@ -51,7 +51,11 @@
 ### 文件结构 / File Structure
 - main.py - 主程序文件
 - src/ - 源代码目录
+  - utils/ - 工具函数目录
+  - ui/ - 用户界面目录
 - libs/ - 知识库目录
+  - semantic.xlsx - 语义库
+  - standard.xlsx - 标准库
 - input/ - 输入文档目录
 - output/ - 输出结果目录
 - README.md - 项目说明文档
