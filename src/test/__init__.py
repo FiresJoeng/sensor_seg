@@ -1,4 +1,4 @@
-# src/__init__.py
+# src/test/__init__.py
 
 __repo__ = "sensor_seg"
 

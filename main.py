@@ -37,19 +37,16 @@ class InfoExtractor:
 class ParameterOutput:
     class KnowledgeBase:
         # 语义搜索
-        class SemanticSearch:
-            def func():
-                pass
+        def SemanticSearch():
+            pass
 
         # 向量知识库
-        class VectorKB:
-            def func():
-                pass
+        def VectorKB():
+            pass
 
         # 知识图谱
-        class KG:
-            def func():
-                pass
+        def KG():
+            pass
 
     class ResultCompare:
         """
