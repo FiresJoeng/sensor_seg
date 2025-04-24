@@ -6,23 +6,12 @@ import os
 class InfoExtractor:
     # Markdown 转换器
     class MDConv:
-        # pdf转md
+        # 文件转md
         def pdf_to_md(pdf_path):
             pass
 
-        # xlsx转md
-        def xlsx_to_md(pdf_path):
-            pass
-
-        # docx转md
-        def docx_to_md(docx_path):
-            pass
-
-        # 图片转md
-        def img_to_md(img_path):
-            pass
-
     # JSON 处理器
+
     class JSONProc:
         # 使用LLMs将md转json
         def md_to_json(md_path):
@@ -66,7 +55,7 @@ class StandardMatch:
     def load_standard_params():
         pass
 
-    # 型号生成
+    # 型号生成 + 人工审核
     def generate_model():
         pass
 
