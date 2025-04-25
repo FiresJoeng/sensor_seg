@@ -1,3 +1,11 @@
+'''
+逻辑：
+遍历不同的标准参数，
+筛选规格代码，
+再通过LLM模糊检索实际参数值以
+'''
+
+
 # 导入依赖
 import pandas as pd
 import json
@@ -6,6 +14,7 @@ import random
 import re
 from dotenv import load_dotenv
 from openai import OpenAI
+from src.utils import xlsx2md
 
 # 定义变量
 standard_lib_path = "libs/standard.xlsx"
@@ -34,15 +43,13 @@ class ParamsFilters:
                 raise ValueError("未找到DEEPSEEK_API_KEY环境变量")
 
             # 函数: 将Excel转换为Markdown格式的文本
-            func=None
-
-            print(f"标准库内容: {df_text}")
+            standard_lib = xlsx2md(standard_lib_path)
 
             # 构造系统提示
             system_prompt = f'''
             你是一个大模型检索器，你的任务是在标准库中，筛选与“标准参数”相关的所有“部件”，然后输出其对应的“规格代码”。“部件”在标准表的第一列，“规格代码”在标准表的第二列（规格代码）。
             “标准参数”会在接下来的对话中给出，“标准参数”不一定与“部件”逐字对应。因此检索相关“部件”时要考虑模糊性。若确实没有检索到与“标准参数”相关的“部件”则忽略。
-            以下为标准库: ```{df_text}```
+            以下为标准库: ```{standard_lib}```
             输出格式为: ```{{"表格名称": ["规格代码"]}}```，其中列表里的“规格代码”数量是若干个，未检索到则为空列表。
             '''
 
