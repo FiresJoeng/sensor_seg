@@ -5,3 +5,4 @@ output/
 .env
 libs/semantic (副本).xlsx
 ~$*
+temp_*
