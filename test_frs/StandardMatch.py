@@ -2,7 +2,7 @@
 逻辑：
 遍历不同的标准参数，
 筛选规格代码，
-再通过LLM模糊检索实际参数值以
+再通过LLM模糊检索实际参数值以确认型号
 '''
 
 
@@ -21,7 +21,7 @@ standard_lib_path = "libs/standard.xlsx"
 
 
 # 类: 规格代码筛选器
-class ParamsFilters:
+class Fliters:
     # 大模型检索
     @staticmethod
     def llm_retrieval(standard_params, standard_df):
@@ -138,7 +138,7 @@ class ParamsFilters:
             selector = input(
                 f'未找到标准参数"{standard_params}"，是否使用大模型检索? (Y/N) : ')
             if selector.strip().upper() == 'Y':
-                return ParamsFilters.llm_retrieval(standard_params, standard_df)
+                return Fliters.llm_retrieval(standard_params, standard_df)
 
         return result
 
@@ -165,9 +165,9 @@ class ParamsFilters:
             exit(1)
 
         if method == "rule_matching":
-            return ParamsFilters.rule_matching(standard_params, standard_df)
+            return Fliters.rule_matching(standard_params, standard_df)
         else:
-            return ParamsFilters.llm_retrieval(standard_params, standard_df)
+            return Fliters.llm_retrieval(standard_params, standard_df)
 
 
 # 类: 型号生成器
@@ -184,6 +184,6 @@ if __name__ == "__main__":
 
     # 使用规则匹配提取规格代码
     print("使用规则匹配:")
-    model_list = ParamsFilters.load_filters(
+    model_list = Fliters.load_filters(
         standard_params, "rule_matching")
     print("匹配结果:", model_list)
