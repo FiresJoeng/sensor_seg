@@ -5,7 +5,6 @@ import os
 import random
 import re
 
-
 # 定义变量
 standard_lib_path = "libs/standard.xlsx"
 
@@ -13,6 +12,7 @@ standard_lib_path = "libs/standard.xlsx"
 # 类: 标准表检索器
 class Retriever:
     # 大模型搜寻
+    @staticmethod
     def llm_searching(standard_params, standard_df):
         """
         使用大模型检索从标准库中提取参数
@@ -28,8 +28,9 @@ class Retriever:
             # 准备数据
             data = {}
             for sheet_name, df in standard_df.items():
-                if 'B' in df.columns:
-                    data[sheet_name] = df['B'].dropna().tolist()
+                # 如果存在至少第二列，则取第二列（索引1）
+                if df.shape[1] >= 2:
+                    data[sheet_name] = df.iloc[:, 1].dropna().tolist()
 
             # 暂定提示词
             prompt = f"""
@@ -44,8 +45,8 @@ class Retriever:
             }}
             """
 
+            # 调用实际大模型接口，这里先返回示例
             result = {"TEST_KEY": ["TEST_VALUE"]}
-
             return result
 
         except Exception as e:
@@ -53,6 +54,7 @@ class Retriever:
             return None
 
     # 规则匹配
+    @staticmethod
     def rule_matching(standard_params, standard_df):
         """
         使用规则匹配从标准库中提取参数
@@ -69,36 +71,43 @@ class Retriever:
 
         result = {}
 
+        # 正则表达式设置
+        pattern = re.compile(
+            re.escape(standard_params), re.IGNORECASE)
+
         # 遍历所有表格
         for sheet_name, df in standard_df.items():
-            if 'B' not in df.columns:
+            # 如果少于两列则跳过
+            if df.shape[1] < 2:
                 continue
 
-            # 正则表达式设置
-            pattern = re.compile(
-                r'\b' + re.escape(standard_params) + r'\b', re.IGNORECASE)
-
-            # 查找匹配项（除B列外的所有列）
             matches = []
+            # 遍历行
             for idx, row in df.iterrows():
-                for col in df.columns:
-                    if col != 'B' and isinstance(row[col], str) and pattern.search(row[col]):
-                        # 找到匹配项，添加该行的B列值
-                        if isinstance(row['B'], str) and row['B'].strip():
-                            matches.append(row['B'])
+                # 遍历除第二列之外的其他列
+                for j, col in enumerate(df.columns):
+                    if j == 1:
+                        continue
+                    cell = row[col]
+                    if isinstance(cell, str) and pattern.search(cell):
+                        # 匹配成功，取第二列的值
+                        val = row.iloc[1]
+                        if isinstance(val, str) and val.strip():
+                            matches.append(val)
                         break
 
             # 判断匹配结果
             if matches:
                 result[sheet_name] = matches
             else:
-                selector = input('未找到匹配项，是否使用大模型查找? (Y/N) : ')
-                if selector.upper() == 'Y':
-                    result = Retriever.llm_searching(standard_params, standard_df)
+                selector = input(f'在"{sheet_name}"中未找到"{standard_params}"，是否使用大模型查找? (Y/N) : ')
+                if selector.strip().upper() == 'Y':
+                    return Retriever.llm_searching(standard_params, standard_df)
                 else:
                     result[sheet_name] = matches
         return result
 
+    @staticmethod
     def load_retriever(standard_params, method="rule_matching"):
         """
         从标准参数库提取参数
@@ -118,7 +127,7 @@ class Retriever:
             standard_df = pd.read_excel(standard_lib_path, sheet_name=None)
         except Exception as e:
             print(f"加载标准库失败: {e}")
-            exit()
+            exit(1)
 
         if method == "rule_matching":
             return Retriever.rule_matching(standard_params, standard_df)
@@ -128,13 +137,15 @@ class Retriever:
 
 # 类: 型号生成器
 class Generator:
+    @staticmethod
     def temp_func():
         pass
 
 
+# 测试或示例执行
 if __name__ == "__main__":
     # 示例标准参数
-    standard_params = "TG套管形式"
+    standard_params = "输出信号"
 
     # 使用规则匹配提取参数
     print("使用规则匹配:")
