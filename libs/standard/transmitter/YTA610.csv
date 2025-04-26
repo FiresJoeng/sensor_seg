@@ -1,9 +1,9 @@
 model,code,description,remark
-YTA610,YTA610,温度变送器,NaN
+变送器,YTA610,温度变送器,NaN
 输出信号,-J,4~20 mA DC，HART 通信型,NaN
 输出信号,-F,FOUNDATION现场总线通信型 ,NaN
-NaN,A,Global,NaN
-NaN,B,中文 *2 *3,*2： 不能在中国以外的国家或地区销售。 ；*3： 中国国内生产的产品随附中文铭牌和中文IM手册。 
+说明书语言,A,Global,NaN
+说明书语言,B,中文 *2 *3,*2： 不能在中国以外的国家或地区销售。 ；*3： 中国国内生产的产品随附中文铭牌和中文IM手册。 
 传感器输入,1,单支输入,NaN
 传感器输入,2,双支输入,NaN
 壳体代码,A,铝,NaN

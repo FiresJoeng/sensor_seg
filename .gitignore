@@ -5,4 +5,5 @@ output/
 .env
 libs/semantic (副本).xlsx
 ~$*
-temp_*semantic_parameter_project/vector_store/
+temp_*
+semantic_parameter_project/vector_store/

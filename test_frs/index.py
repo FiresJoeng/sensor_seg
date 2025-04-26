@@ -67,8 +67,8 @@ def vector(target_key: str, target_value: str, input_params: Dict[str, str],
     return best_match_key, best_match_model, best_score
 
 
-# 主函数，支持"精确匹配"和"模糊匹配(阈值为0.85)"两种匹配方式
-def main(input_params: Dict[str, Any], index_path: str, similarity_threshold: float = 0.85) -> Tuple[str, List[str]]:
+# 主函数，支持"精确匹配"和"模糊匹配(阈值为0.8)"两种匹配方式
+def main(input_params: Dict[str, Any], index_path: str, similarity_threshold: float = 0.8) -> Tuple[str, List[str]]:
     """确定产品主型号并定位关联的CSV数据源文件，支持精确匹配和模糊匹配"""
     if not input_params:
         raise ValueError("输入参数不能为空")
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
     # 测试精确匹配
     input_params = {
-        '温度变送器': 'YTA710',
+        '变 送器': 'YTA系列710',
         '输出信号': '4~20mA DC',
         '说明书语言': '英语',
         '传感器输入': '双支输入',
@@ -158,50 +158,10 @@ if __name__ == "__main__":
         '安装支架': '2"管垂直安装',
         'NEPSI': 'GB3836.1-2010、GB3836.2-2010、GB12476.1-2013、GB12476.5-2013'
     }
-
-    # 测试模糊匹配 - 键不同
-    input_params_fuzzy_key = {
-        '变送器': 'YTA710',
-        '输出信号': '4~20mA DC',
-        '说明书语言': '英语'
-    }
-
-    # 测试模糊匹配 - 值有空格
-    input_params_fuzzy_value = {
-        '温度变送器': 'YTA 710',
-        '输出信号': '4~20mA DC',
-        '说明书语言': '英语'
-    }
-
-    # 测试模糊匹配 - 键和值都不同
-    input_params_fuzzy_both = {
-        '变送器': 'YTA 610',
-        '输出信号': '4~20mA DC',
-        '说明书语言': '英语'
-    }
-
-    # 测试更复杂的情况
-    input_params_complex = {
-        '温度 变送器': 'YTA系列50',
-        '输出': '4-20mA',
-        '语言': '英文'
-    }
-
-    test_cases = [
-        ("精确匹配测试", input_params),
-        ("模糊匹配测试 - 键不同", input_params_fuzzy_key),
-        ("模糊匹配测试 - 值有空格", input_params_fuzzy_value),
-        ("模糊匹配测试 - 键和值都不同", input_params_fuzzy_both),
-        ("模糊匹配测试 - 复杂情况", input_params_complex)
-    ]
-
-    for test_name, test_params in test_cases:
-        print(f"\n===== {test_name} =====")
-        try:
-            main_model, csv_files = main(test_params, index_path)
-            print(f"主型号: {main_model}")
-            print(f"关联的CSV文件:")
-            for csv_file in csv_files:
-                print(f"  - {csv_file}")
-        except Exception as e:
-            print(f"错误: {e}")
+    try:
+        main_model, csv_files = main(input_params, index_path)
+        print(f"主型号: {main_model}")
+        print(f"关联的CSV文件:")
+        print(f"{csv_files}")
+    except Exception as e:
+        print(f"错误: {e}")

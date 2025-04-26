@@ -1,5 +1,5 @@
 model,code,description,remark
-YTA70,YTA70,温度变送器（顶部安装）,*1：输出信号代码J可选HART5或者HART7型号.订货时指定HART5或者HART7。信号代码J适用设备标记如下：Ex ia IIC T6 ... T4 Ga， Ex ia IIIC Da， Ex ia I Ma 
+变送器,YTA70,温度变送器（顶部安装）,*1：输出信号代码J可选HART5或者HART7型号.订货时指定HART5或者HART7。信号代码J适用设备标记如下：Ex ia IIC T6 ... T4 Ga， Ex ia IIIC Da， Ex ia I Ma 
 输出信号,-E,4 ~ 20mA DC 数字通讯（HART 5 协议）,NaN
 输出信号,-J,4 ~ 20mA DC 数字通讯（HART 5 / HART 7 协议） *1,NaN
 附加规格,/KS2,ATEX本安许可 *2 适用标准： EN 60079-0: 2006， EN 60079-11: 2007， Uo=9.6V； Io=28mA； Po=67mW； Co=3.5F； Lo=35mH,NaN
