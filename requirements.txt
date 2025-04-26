@@ -1,3 +1,10 @@
 docling
 openai
 python-dotenv
+pandas>=1.0.0
+numpy>=1.18.0
+sentence-transformers>=2.0.0
+chromadb>=0.4.0 # 请使用您安装的 chromadb 版本
+scikit-learn>=0.24.0
+openpyxl>=3.0.0 # 用于读取 .xlsx 文件
+tabulate>=0.8.0 # 用于 data_processor.py 的美观打印 (可选)
