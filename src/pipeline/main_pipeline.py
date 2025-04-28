@@ -71,61 +71,38 @@ def process_document(input_file_path: Path) -> Optional[Dict[str, str]]:
     # --- 2. 文档转换 (例如 PDF -> Markdown) ---
     md_file_path: Optional[Path] = None
     try:
-        # 使用输入文件名作为输出 MD 文件名的一部分
-        md_output_filename = f"{input_file_path.stem}_extracted.md"
-        md_file_path = info_extractor.md_conv.convert_to_md(input_file_path, md_output_filename)
-        if md_file_path is None:
-            logger.error("文档转换为 Markdown 失败。")
+        # 直接调用InfoExtractor的PDF提取方法
+        extracted_data = info_extractor.extract_parameters_from_pdf(input_file_path)
+        if extracted_data is None:
+            logger.error("从PDF提取参数失败。")
             return None # 无法继续
+            
+        # 跳过Markdown转换步骤，直接进入参数标准化
+        logger.info("PDF提取成功，跳过Markdown转换步骤")
     except Exception as e:
         logger.exception(f"文档转换过程中发生意外错误: {e}")
         return None
 
-    # --- 3. 信息提取 (Markdown -> JSON) ---
-    extracted_data: Optional[Dict[str, Any]] = None
+    # --- 3. JSON 验证 ---
     try:
-        extracted_data = info_extractor.json_proc.md_to_json(md_file_path)
-        if extracted_data is None:
-            logger.error("从 Markdown 提取 JSON 数据失败。")
-            # 可选：删除临时的 md 文件
-            # if md_file_path and md_file_path.exists(): md_file_path.unlink()
-            return None # 无法继续
-
-        # 可选：保存提取的 JSON 数据到文件
-        json_output_filename = f"{input_file_path.stem}_extracted.json"
-        json_output_path = settings.OUTPUT_DIR / json_output_filename
-        try:
-            with open(json_output_path, 'w', encoding='utf-8') as f:
-                json.dump(extracted_data, f, ensure_ascii=False, indent=4)
-            logger.info(f"提取的 JSON 数据已保存至: {json_output_path}")
-        except Exception as e:
-            logger.error(f"保存提取的 JSON 数据时出错: {e}", exc_info=True)
-            # 即使保存失败，也继续处理内存中的数据
-
+        logger.info("开始验证提取的 JSON 数据...")
+        validation_result = info_extractor.json_proc.json_check(extracted_data)
+        extracted_data = validation_result["data"] # 使用可能被修正的数据
+        if validation_result["issues"]:
+            logger.warning(f"JSON 验证发现 {len(validation_result['issues'])} 个问题。详情请查看日志或备注。")
+            
+        if validation_result["modified"]:
+            # 如果数据被修改，保存验证后的版本
+            validated_json_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_validated.json"
+            try:
+                with open(validated_json_path, 'w', encoding='utf-8') as f:
+                    json.dump(extracted_data, f, ensure_ascii=False, indent=4)
+                logger.info(f"验证并修正后的 JSON 数据已保存至: {validated_json_path}")
+            except Exception as e:
+                logger.error(f"保存验证后的 JSON 数据时出错: {e}", exc_info=True)
     except Exception as e:
-        logger.exception(f"信息提取过程中发生意外错误: {e}")
-        return None
-
-    # --- 4. (可选) JSON 验证 ---
-    # try:
-    #     logger.info("开始验证提取的 JSON 数据...")
-    #     validation_result = info_extractor.json_proc.json_check(extracted_data)
-    #     extracted_data = validation_result["data"] # 使用可能被修正的数据
-    #     if validation_result["issues"]:
-    #         logger.warning(f"JSON 验证发现 {len(validation_result['issues'])} 个问题。详情请查看日志或备注。")
-    #         # 可以选择是否在验证失败时中止
-    #     if validation_result["modified"]:
-    #         # 如果数据被修改，可以选择保存验证后的版本
-    #         validated_json_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_validated.json"
-    #         try:
-    #             with open(validated_json_path, 'w', encoding='utf-8') as f:
-    #                 json.dump(extracted_data, f, ensure_ascii=False, indent=4)
-    #             logger.info(f"验证并修正后的 JSON 数据已保存至: {validated_json_path}")
-    #         except Exception as e:
-    #             logger.error(f"保存验证后的 JSON 数据时出错: {e}", exc_info=True)
-    # except Exception as e:
-    #     logger.exception(f"JSON 验证过程中发生意外错误: {e}")
-        # 根据需要决定是否中止
+        logger.exception(f"JSON 验证过程中发生意外错误: {e}")
+        return None  # 验证过程中出现异常时中止处理
 
     # --- 5. 参数标准化与代码生成 (逐个设备处理) ---
     device_list = extracted_data.get("设备列表", [])

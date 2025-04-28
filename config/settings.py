@@ -16,23 +16,20 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 # --- API Configuration ---
 # 从环境变量获取 API 密钥
-# 明确尝试加载 DEEPSEEK_API_KEY，如果不存在则回退到 LLM_API_KEY
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-LLM_API_KEY = DEEPSEEK_API_KEY if DEEPSEEK_API_KEY else os.getenv("LLM_API_KEY") # Use DeepSeek key if available, else fallback
+# 明确尝试加载 OPENAI_API_KEY，如果不存在则回退到 LLM_API_KEY
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+LLM_API_KEY = OPENAI_API_KEY if OPENAI_API_KEY else os.getenv("LLM_API_KEY") # Use DeepSeek key if available, else fallback
 
 # 如果未设置环境变量，发出警告
 if not LLM_API_KEY:
     # 使用 print 因为 logging 可能尚未配置
-    print("警告: 未在 .env 文件中找到 DEEPSEEK_API_KEY 或 LLM_API_KEY。信息提取功能可能无法使用。") # Updated message
+    print("警告: 未在 .env 文件中找到 OPENAI_API_KEY 或 LLM_API_KEY。信息提取功能可能无法使用。") # Updated message
     # 或者可以设置一个默认的无效值，让后续代码处理
     # LLM_API_KEY = "YOUR_API_KEY_HERE"
 
-LLM_MODEL_NAME = "deepseek-chat"  # 用于信息提取的 LLM 模型 (Switched to DeepSeek)
-LLM_API_URL = "https://api.deepseek.com/v1" # LLM API 地址 (Switched to DeepSeek)
-LLM_CHUNK_SIZE = 10000 # LLM 处理 Markdown 的块大小 (Reduced from 20000 to attempt to avoid max_tokens limit)
-LLM_CHUNK_OVERLAP = 500 # LLM 处理 Markdown 的块重叠大小
-LLM_MAX_TOKENS = 8096 # LLM 最大输出 token (Restored larger value for DeepSeek)
-LLM_TEMPERATURE = 0.1 # LLM 温度参数
+LLM_MODEL_NAME = "gemini-2.5-pro-exp-03-25"  # 用于信息提取的 LLM 模型 (Switched to DeepSeek)
+LLM_API_URL = "https://api.skyi.cc/v1" # LLM API 地址 (Switched to DeepSeek)
+LLM_TEMPERATURE = 0.3 # LLM 温度参数
 LLM_REQUEST_TIMEOUT = 300 # LLM API 请求超时时间 (秒) - Kept increased timeout
 
 # --- File Paths ---
@@ -40,6 +37,7 @@ LLM_REQUEST_TIMEOUT = 300 # LLM API 请求超时时间 (秒) - Kept increased ti
 DATA_DIR = BASE_DIR / "data"
 INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
+
 
 # 知识库目录
 KNOWLEDGE_BASE_DIR = BASE_DIR / "knowledge_base"

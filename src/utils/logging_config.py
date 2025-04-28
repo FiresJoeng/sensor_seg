@@ -5,7 +5,7 @@ from logging.handlers import RotatingFileHandler
 
 # 尝试从 .config 导入设置，如果失败（例如，直接运行此脚本），则从 config 导入
 try:
-    from ..config import settings
+    from config import settings
 except ImportError:
     # 如果作为脚本直接运行或在不同上下文中导入，尝试不同的导入路径
     # 这对于确保模块在不同执行方式下都能找到配置很有用

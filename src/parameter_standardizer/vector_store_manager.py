@@ -10,7 +10,7 @@ import pandas as pd
 
 # 导入项目配置
 try:
-    from ..config import settings
+    from config import settings
 except ImportError:
     # 适应不同的导入上下文
     from config import settings
