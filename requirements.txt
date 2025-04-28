@@ -1,10 +1,18 @@
-docling
-openai
-python-dotenv
+# Core dependencies based on refactored code
 pandas>=1.0.0
 numpy>=1.18.0
-sentence-transformers>=2.0.0
-chromadb>=0.4.0 # 请使用您安装的 chromadb 版本
-scikit-learn>=0.24.0
-openpyxl>=3.0.0 # 用于读取 .xlsx 文件
-tabulate>=0.8.0 # 用于 data_processor.py 的美观打印 (可选)
+openai         # For InfoExtractor LLM calls
+python-dotenv  # For loading .env file
+chromadb>=0.4.0 # For VectorStoreManager (use the version you have installed)
+sentence-transformers>=2.0.0 # For EmbeddingGenerator
+
+# Optional but recommended
+openpyxl>=3.0.0 # For reading .xlsx files with pandas (DataProcessor)
+
+# Dependencies from original project (verify if still needed)
+docling        # Used by InfoExtractor.MDConv
+scikit-learn>=0.24.0 # Might be used implicitly by sentence-transformers or other libs
+tabulate>=0.8.0 # Was potentially used in old data_processor.py (check if needed)
+
+# It's recommended to pin specific versions for better reproducibility:
+# Example: pandas==2.1.4
