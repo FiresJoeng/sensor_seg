@@ -17,7 +17,7 @@ if str(project_root) not in sys.path:
 try:
     from config import settings
     # Import utils from the same directory using relative import
-    from .utils import calculate_string_similarity, sort_results_by_csv_order
+    from src.standard_matcher.utils import calculate_string_similarity, sort_results_by_csv_order
 except ImportError as e:
     print(f"ERROR in matcher.py: Failed to import modules - {e}. Check project structure and PYTHONPATH.", file=sys.stderr)
     raise
