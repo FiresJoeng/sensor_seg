@@ -27,8 +27,17 @@ if not LLM_API_KEY:
     # 或者可以设置一个默认的无效值，让后续代码处理
     # LLM_API_KEY = "YOUR_API_KEY_HERE"
 
-LLM_MODEL_NAME = "gemini-2.5-pro-exp-03-25"  # 用于信息提取的 LLM 模型 (Switched to DeepSeek)
-LLM_API_URL = "https://api.skyi.cc/v1" # LLM API 地址 (Switched to DeepSeek)
+# Load LLM Model and URL from environment variables
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "default-model-name") # Provide a default or handle if missing
+LLM_API_URL = os.getenv("LLM_API_URL", "default-api-url") # Provide a default or handle if missing
+
+# Add warnings if the environment variables are not set
+if LLM_MODEL_NAME == "default-model-name":
+    print("警告: 未在 .env 文件中找到 LLM_MODEL_NAME。将使用默认值 'default-model-name'。")
+if LLM_API_URL == "default-api-url":
+    print("警告: 未在 .env 文件中找到 LLM_API_URL。将使用默认值 'default-api-url'。")
+
+
 LLM_TEMPERATURE = 0.3 # LLM 温度参数
 LLM_REQUEST_TIMEOUT = 300 # LLM API 请求超时时间 (秒) - Kept increased timeout
 
@@ -119,5 +128,7 @@ print(f"Input Directory: {INPUT_DIR}")
 print(f"Output Directory: {OUTPUT_DIR}")
 print(f"Vector Store Directory: {KB_VECTOR_STORE_DIR}")
 print(f"Standard Libs Directory: {STANDARD_LIBS_DIR}")
-print(f"LLM API Key Loaded: {'Yes' if LLM_API_KEY else 'No'}") # Updated variable name
+print(f"LLM API Key Loaded: {'Yes' if LLM_API_KEY else 'No'}")
+print(f"LLM Model Name: {LLM_MODEL_NAME}")
+print(f"LLM API URL: {LLM_API_URL}")
 print(f"--- End Configuration ---")

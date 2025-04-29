@@ -59,7 +59,7 @@ class InfoExtractor:
             Optional[Dict[str, Any]]: JSON格式的提取数据字典，如果失败则返回None
         """
         # 固定输出目录为项目data/output目录
-        self.output_dir = Path("C:/Users/41041/Desktop/项目文件/new_sensor_project/data/output")
+        self.output_dir = Path(r"data/output")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         # 自动生成输出文件名: 输入文件名(不含扩展名) + .json
@@ -91,7 +91,6 @@ class InfoExtractor:
                 with open(output_path, 'w', encoding='utf-8') as f:
                     json.dump(result_dict, f, ensure_ascii=False, indent=2)
                 logger.info(f"提取结果已自动保存至: {output_path}")
-                
                 return result_dict
             else:
                 logger.error(f"参数提取失败或返回空结果 (来自 {pdf_path.name})。")
