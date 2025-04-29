@@ -152,3 +152,4 @@ dmypy.json
 prompts.md
 *.bk
 *.bak
+.clinerules

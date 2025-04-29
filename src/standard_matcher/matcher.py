@@ -1,8 +1,9 @@
 # new_sensor_project/src/standard_matcher/matcher.py
 import json
 import logging
+import os # 新增导入 os
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple, Optional, Set
 import pandas as pd
 import sys
 
@@ -28,254 +29,171 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 # ==============================================================================
-# 类 1: 标准参数匹配阶段
+# 类 1: 标准库加载器 (修改后)
 # ==============================================================================
 
-
-class StandardParamMatcher:
+class StandardLoader:
     """
-    处理将输入参数与标准库定义进行匹配的初始阶段。
-    - 确定主要产品型号。
-    - 加载并合并相关的标准库 CSV 文件。
-    - 根据标准参数名称在合并数据中查找候选行。
+    负责加载所有标准库 CSV 文件，并维护主型号到关联标准库的映射。
     """
 
-    def __init__(self, index_data: Dict[str, List[str]], base_dir: Path):
-        """
-        初始化 StandardParamMatcher。
+    def __init__(self):
+        """初始化 StandardLoader。"""
+        # 存储所有加载的标准 DataFrame，键是标准的唯一标识符 (例如 'category/csv_name_stem')
+        self.all_standards: Dict[str, pd.DataFrame] = {}
+        # 存储每个标准 DataFrame 中定义的参数名集合
+        self.standard_param_names: Dict[str, Set[str]] = {}
+        # 存储每个标准键关联的主型号名称
+        self.standard_main_models: Dict[str, Optional[str]] = {}
+        # 新增：存储主型号到其关联的标准键列表的映射
+        self.main_model_to_keys: Dict[str, List[str]] = {}
+        # 新增：存储 index.json 中定义的 CSV 文件顺序，用于后续排序
+        self.main_model_csv_order: Dict[str, List[str]] = {}
 
-        Args:
-            index_data: 从标准库 index.json 加载的数据。
-            base_dir: 包含 index.json 文件的目录（用于解析相对 CSV 路径）。
+    def load_all(self) -> bool:
         """
-        self.index_data = index_data
-        self.base_dir = base_dir
-        self.combined_df: Optional[pd.DataFrame] = None
-        self.main_model: Optional[str] = None
-        self.absolute_csv_files: List[Path] = []
-
-    def find_main_model(self, standardized_params: Dict[str, str]) -> Optional[str]:
-        """
-        根据标准化参数确定主要产品型号。
-        优先考虑像 '温度变送器' 这样的键的精确匹配，然后尝试模糊匹配。
-
-        Args:
-            standardized_params: 标准化参数字典 {standard_param_name: standard_param_value}。
+        加载 libs/standard/ 下所有子目录中 index.json 定义的 CSV 文件。
+        并构建主型号到标准键列表的映射。
 
         Returns:
-            Optional[str]: 匹配的主要型号名称，如果未找到则为 None。
+            bool: 如果至少成功加载了一个标准则为 True，否则为 False。
         """
-        logger.debug("开始确定产品主型号...")
-        available_models = list(self.index_data.keys())
-        target_keys = ["温度变送器", "变送器", "YTA",
-                       "HZ", "HR", "SZ", "HR"]  # 可能指示主要型号的潜在键
-        main_model_value = None
-        match_method = "未找到"
+        base_path = settings.STANDARD_LIBS_DIR
+        if not base_path.is_dir():
+            logger.error(f"标准库根目录未找到或不是目录: {base_path}")
+            return False
 
-        # 1. 尝试使用 standardized_params 中的主要型号键进行精确匹配
-        for key in target_keys:
-            if key in standardized_params:
-                value = standardized_params[key]
-                if value in self.index_data:
-                    main_model_value = value
-                    match_method = f"精确匹配 (键: '{key}', 值: '{value}')"
-                    logger.info(f"确定主型号: {main_model_value} ({match_method})")
-                    self.main_model = main_model_value
-                    return main_model_value
-                else:
-                    logger.debug(
-                        f"键 '{key}' 的值 '{value}' 不在 index.json 的主型号列表中。")
+        logger.info(f"开始从 {base_path} 加载所有标准库...")
+        loaded_count = 0
+        # 清空旧数据，确保每次调用都重新加载
+        self.all_standards.clear()
+        self.standard_param_names.clear()
+        self.standard_main_models.clear()
+        self.main_model_to_keys.clear()
+        self.main_model_csv_order.clear()
 
-        # 2. 如果精确匹配失败，尝试模糊匹配
-        logger.info("主型号精确匹配失败，尝试模糊匹配...")
-        best_match_key = None
-        best_match_model = None
-        best_score = 0.0
-
-        for input_key, input_value in standardized_params.items():
-            if not input_key or not input_value:
+        # 遍历 libs/standard/ 下的每个子目录 (例如 sensor, transmitter)
+        for category_dir in base_path.iterdir():
+            if not category_dir.is_dir():
                 continue
 
-            key_score = 0.0
-            for target_key in target_keys:
-                key_score = max(key_score, calculate_string_similarity(
-                    target_key, input_key))
+            index_path = category_dir / "index.json"
+            if not index_path.is_file():
+                logger.debug(f"在目录 '{category_dir.name}' 中未找到 index.json，跳过。")
+                continue
 
-            for model in available_models:
-                model_score = calculate_string_similarity(input_value, model)
-                combined_score = (key_score * 0.4) + \
-                    (model_score * 0.6)  # 组合键和值的相似度
-
-                if combined_score > best_score:
-                    best_score = combined_score
-                    best_match_key = input_key
-                    best_match_model = model
-
-        threshold = settings.MAIN_MODEL_SIMILARITY_THRESHOLD
-        if best_score >= threshold:
-            main_model_value = best_match_model
-            match_method = f"模糊匹配 (最佳匹配键: '{best_match_key}', 值: '{standardized_params.get(best_match_key)}', 匹配型号: '{best_match_model}', 得分: {best_score:.4f})"
-            logger.info(f"确定主型号: {main_model_value} ({match_method})")
-            self.main_model = main_model_value
-            return main_model_value
-        else:
-            logger.error(
-                f"无法确定主型号。最佳模糊匹配得分 {best_score:.4f} 低于阈值 {threshold}。")
-            logger.error(
-                f"(最佳模糊匹配详情: 键='{best_match_key}', 值='{standardized_params.get(best_match_key)}', 型号='{best_match_model}')")
-            self.main_model = None
-            return None
-
-    def load_and_combine_data(self) -> bool:
-        """
-        加载并合并与确定的主要型号关联的 CSV 文件。
-
-        Returns:
-            bool: 如果数据加载和合并成功则为 True，否则为 False。
-        """
-        if not self.main_model:
-            logger.error("主型号未确定，无法加载 CSV 数据。")
-            return False
-
-        relative_csv_files = self.index_data.get(self.main_model)
-        if not relative_csv_files:
-            logger.error(f"索引文件中未找到主型号 '{self.main_model}' 关联的 CSV 文件列表。")
-            return False
-
-        self.absolute_csv_files = [self.base_dir /
-                                   Path(f) for f in relative_csv_files]
-        logger.debug(
-            f"找到与主型号 '{self.main_model}' 关联的 CSV 文件: {[p.name for p in self.absolute_csv_files]}")
-
-        if not self.absolute_csv_files:
-            logger.error("没有提供要加载的 CSV 文件列表。")
-            return False
-
-        dfs = []
-        logger.debug(f"开始加载和合并 {len(self.absolute_csv_files)} 个 CSV 文件...")
-        for file_path in self.absolute_csv_files:
             try:
-                if not file_path.is_file():
-                    logger.warning(f"标准库 CSV 文件未找到，跳过: {file_path}")
-                    continue
-                df = pd.read_csv(file_path, dtype=str)  # 将所有内容读取为字符串
-                dfs.append(df)
-                logger.debug(f"已加载 CSV: {file_path.name} ({len(df)} 行)")
-            except Exception as e:
-                logger.error(
-                    f"加载 CSV 文件 '{file_path.name}' 时出错: {e}", exc_info=True)
-                continue  # 跳过有错误的文件
+                with open(index_path, 'r', encoding='utf-8') as f:
+                    index_data = json.load(f)
+                logger.debug(f"已加载索引: {index_path.name}")
 
-        if not dfs:
-            logger.error("未能成功加载任何指定的 CSV 文件。")
-            self.combined_df = None
+                if isinstance(index_data, dict):
+                    for main_model, relative_csv_files in index_data.items():
+                        if not isinstance(relative_csv_files, list):
+                            logger.warning(f"索引 '{index_path.name}' 中的条目 '{main_model}' 的值不是列表，跳过。")
+                            continue
+
+                        # 初始化该主型号的列表
+                        self.main_model_to_keys[main_model] = []
+                        self.main_model_csv_order[main_model] = [] # 存储原始 CSV 文件名用于排序
+
+                        for relative_csv in relative_csv_files:
+                            if not isinstance(relative_csv, str):
+                                logger.warning(f"索引 '{index_path.name}' -> '{main_model}' 中的文件名不是字符串，跳过: {relative_csv}")
+                                continue
+                            csv_path = category_dir / Path(relative_csv)
+                            standard_key = f"{category_dir.name}/{csv_path.stem}" # 使用去除 .csv 的文件名
+
+                            # 加载单个 CSV
+                            if self._load_single_standard(standard_key, csv_path, main_model):
+                                loaded_count += 1
+                                # 将有效的 standard_key 添加到主型号的映射列表中
+                                self.main_model_to_keys[main_model].append(standard_key)
+                                self.main_model_csv_order[main_model].append(relative_csv) # 存储原始文件名
+                            else:
+                                logger.warning(f"未能加载标准 '{standard_key}' (主型号: {main_model})，将不会包含在映射中。")
+
+                elif isinstance(index_data, list): # 处理 index.json 是简单列表的情况
+                    # 这种格式无法利用新的主型号映射逻辑，但保持加载能力
+                    for relative_csv in index_data:
+                        if not isinstance(relative_csv, str):
+                            logger.warning(f"索引 '{index_path.name}' 中的文件名不是字符串，跳过: {relative_csv}")
+                            continue
+                        csv_path = category_dir / Path(relative_csv)
+                        standard_key = f"{category_dir.name}/{csv_path.stem}"
+                        # 没有明确的主型号，可以设为 None 或目录名
+                        if self._load_single_standard(standard_key, csv_path, category_dir.name): # 使用目录名作为可能的 main_model
+                            loaded_count += 1
+                else:
+                    logger.warning(f"无法识别的 index.json 格式: {index_path.name}")
+
+            except Exception as e:
+                logger.error(f"处理索引文件 '{index_path.name}' 时出错: {e}", exc_info=True)
+                continue # 继续处理下一个目录
+
+        if loaded_count > 0:
+            logger.info(f"成功加载 {loaded_count} 个标准 CSV 文件。")
+            logger.debug(f"构建的主型号到标准键映射: {self.main_model_to_keys}")
+            return True
+        else:
+            logger.error("未能成功加载任何标准 CSV 文件。")
             return False
 
+    def _load_single_standard(self, standard_key: str, csv_path: Path, main_model: Optional[str]) -> bool:
+        """
+        加载单个 CSV 文件并存储其信息，包括关联的主型号。
+        (代码基本不变)
+        """
         try:
-            self.combined_df = pd.concat(dfs, ignore_index=True)
-            self.combined_df.fillna('', inplace=True)  # 用空字符串填充 NaN
-            logger.info(
-                f"成功合并 {len(dfs)} 个 CSV 文件，总计 {len(self.combined_df)} 行。")
+            if not csv_path.is_file():
+                logger.warning(f"标准库 CSV 文件未找到，跳过: {csv_path}")
+                return False
+            df = pd.read_csv(csv_path, dtype=str)
+            df.fillna('', inplace=True) # 用空字符串填充 NaN
+
+            if 'model' not in df.columns:
+                logger.error(f"CSV 文件 '{csv_path.name}' 缺少必需的 'model' 列，无法加载。")
+                return False
+
+            self.all_standards[standard_key] = df
+            # 提取 'model' 列的唯一值作为该标准的参数名集合
+            self.standard_param_names[standard_key] = set(df['model'].unique()) - {''} # 移除空字符串
+            # 存储关联的主型号
+            self.standard_main_models[standard_key] = main_model
+            logger.debug(f"已加载标准 '{standard_key}' (主型号: {main_model}, {len(df)} 行)")
             return True
         except Exception as e:
-            logger.error(f"合并 DataFrame 时出错: {e}", exc_info=True)
-            self.combined_df = None
+            logger.error(f"加载 CSV 文件 '{csv_path.name}' 时出错: {e}", exc_info=True)
             return False
 
-    def find_candidate_rows(self, standard_param_name: str) -> pd.DataFrame:
+    def find_candidate_rows(self, standard_param_name: str, target_df: pd.DataFrame) -> pd.DataFrame:
         """
-        在合并的 DataFrame 中查找与标准参数名称匹配的候选行。
-        首先使用精确匹配，然后对 'model' 列进行模糊匹配。
-
-        Args:
-            standard_param_name: 标准参数名称（例如，'输出信号'）。
-
-        Returns:
-            pd.DataFrame: 包含匹配行的 DataFrame，如果未找到则为空 DataFrame。
+        在 *目标* DataFrame 中查找与标准参数名称匹配的候选行。
+        (修改日志级别)
         """
-        if self.combined_df is None or self.combined_df.empty:
-            logger.error("合并后的 DataFrame 为空或未加载，无法查找候选行。")
+        if target_df is None or target_df.empty:
+            # 改为 debug 级别，因为会遍历多个 DF，为空是正常情况
+            logger.debug(f"目标 DataFrame 为空或未提供，无法为 '{standard_param_name}' 查找候选行。")
             return pd.DataFrame()
 
-        logger.debug(f"为参数 '{standard_param_name}' 查找候选行...")
-        if 'model' not in self.combined_df.columns:
-            logger.error("合并的 DataFrame 中缺少 'model' 列。无法查找候选行。")
+        logger.debug(f"在当前 DataFrame 中为参数 '{standard_param_name}' 查找候选行...")
+        if 'model' not in target_df.columns:
+            logger.error("目标 DataFrame 中缺少 'model' 列。无法查找候选行。")
             return pd.DataFrame()
 
-        # 1. 对 'model' 列进行精确匹配
-        exact_matches = self.combined_df[self.combined_df['model']
-                                         == standard_param_name]
+        # 仅进行精确匹配 'model' 列
+        exact_matches = target_df[target_df['model'] == standard_param_name]
         if not exact_matches.empty:
             logger.debug(f"找到 {len(exact_matches)} 个精确匹配行。")
             return exact_matches
-
-        # 2. 对 'model' 列进行模糊匹配
-        logger.debug("未找到精确匹配，尝试模糊匹配 'model' 列...")
-        fuzzy_matches_models = []
-        threshold = settings.FUZZY_MATCH_THRESHOLD
-        for model_in_df in self.combined_df['model'].unique():
-            similarity = calculate_string_similarity(
-                standard_param_name, model_in_df)
-            if similarity >= threshold:
-                fuzzy_matches_models.append(model_in_df)
-                logger.debug(
-                    f"  - 模糊匹配到 model: '{model_in_df}' (相似度: {similarity:.4f})")
-
-        if fuzzy_matches_models:
-            fuzzy_matches_df = self.combined_df[self.combined_df['model'].isin(
-                fuzzy_matches_models)]
-            logger.debug(f"找到 {len(fuzzy_matches_df)} 个模糊匹配行 (基于 model 列)。")
-            return fuzzy_matches_df
         else:
-            logger.warning(
-                f"参数 '{standard_param_name}' 在标准库的 'model' 列中未找到精确或模糊匹配项。尝试 LLM 检索...")
+            logger.debug(f"参数 '{standard_param_name}' 在当前 DataFrame 的 'model' 列中未找到精确匹配项。")
+            return pd.DataFrame()
 
-            # 3. LLM 后备方案
-            unique_models = list(self.combined_df['model'].unique())
-            if not unique_models:
-                logger.warning("合并后的 DataFrame 中没有唯一的 'model' 值可供 LLM 检索。")
-                return pd.DataFrame()
-
-            system_prompt = """
-            你是一位专门研究工业传感器规格的专家助手。
-            你的任务是将输入的参数名称与提供的列表中最可能的标准参数名称（'model'）进行匹配。
-            分析输入参数名称和标准名称列表。
-            仅以 JSON 对象响应，其中包含列表中最佳匹配的标准名称。
-            响应示例：{"matched_model": "标准参数名称"}
-            如果未找到合适的匹配项，请响应：{"error": "未找到合适的匹配项"}
-            请勿在 JSON 对象之外包含任何解释或对话性文本。
-            """
-            user_prompt = f"""
-            输入参数名称："{standard_param_name}"
-
-            标准参数名称列表（'model' 列的值）：
-            {json.dumps(unique_models, ensure_ascii=False)}
-
-            从列表中为输入参数名称识别出唯一的最佳匹配项。
-            """
-
-            llm_result = call_llm_for_match(system_prompt, user_prompt)
-
-            if llm_result and "matched_model" in llm_result and llm_result["matched_model"] in unique_models:
-                matched_model_name = llm_result["matched_model"]
-                logger.info(
-                    f"LLM 匹配到 model: '{matched_model_name}' (来自输入参数 '{standard_param_name}')")
-                llm_matches_df = self.combined_df[self.combined_df['model']
-                                                  == matched_model_name]
-                return llm_matches_df
-            else:
-                logger.warning(
-                    f"LLM 未能为参数 '{standard_param_name}' 找到匹配的 model。LLM 结果: {llm_result}")
-                return pd.DataFrame()  # 如果 LLM 失败或未找到匹配项，则返回空 DataFrame
-
-    def get_reference_csv(self) -> Optional[Path]:
-        """返回第一个 CSV 文件的路径，用于排序。"""
-        return self.absolute_csv_files[0] if self.absolute_csv_files else None
 
 # ==============================================================================
-# 类 2: 规格代码匹配规则
+# 类 2: 规格代码匹配器 (代码不变)
 # ==============================================================================
-
 
 class SpecCodeMatcher:
     """
@@ -286,13 +204,7 @@ class SpecCodeMatcher:
     def select_best_match(self, standard_param_value: str, candidate_rows: pd.DataFrame) -> Optional[Dict[str, Any]]:
         """
         根据标准参数值从候选行中选择最佳匹配行。
-
-        Args:
-            standard_param_value: 标准参数的值（例如，'4~20mA DC'）。
-            candidate_rows: 包含候选匹配行的 DataFrame。
-
-        Returns:
-            Optional[Dict[str, Any]]: 最佳匹配行的字典表示，如果未找到合适的匹配项则为 None。
+        (代码不变)
         """
         if candidate_rows.empty:
             logger.debug("没有候选行可供选择最佳匹配。")
@@ -330,11 +242,12 @@ class SpecCodeMatcher:
                 logger.warning(
                     f"模糊匹配得分 {best_score:.4f} 低于阈值 {threshold} (来自字段 '{match_field}')。尝试 LLM 检索...")
             else:
-                logger.warning(
-                    f"未能为值 '{standard_param_value}' 在候选行中找到模糊匹配项。尝试 LLM 检索...")
+                # 只有在完全没有模糊匹配时才记录这个警告，避免重复
+                if best_score <= 0: # 确保是完全没找到任何相似的
+                     logger.warning(
+                         f"未能为值 '{standard_param_value}' 在候选行中找到模糊匹配项。尝试 LLM 检索...")
 
             # 3. LLM 后备方案，用于根据值选择最佳行
-            # 将候选行转换为字典列表以用于提示，如有必要限制大小
             candidate_dicts = candidate_rows.to_dict('records')
             # TODO: 如果 candidate_dicts 对于 LLM 提示来说太大，则实现限制其大小的逻辑
 
@@ -360,12 +273,9 @@ class SpecCodeMatcher:
 
             if llm_result and "best_match" in llm_result and isinstance(llm_result["best_match"], dict):
                 best_match_dict_llm = llm_result["best_match"]
-                # 基本验证：检查返回的字典是否看起来合理（例如，是否包含 'code'）
                 if 'code' in best_match_dict_llm:
                     logger.info(
                         f"LLM 选择了最佳匹配行 (来自值 '{standard_param_value}'). Code: '{best_match_dict_llm.get('code')}'")
-                    # 确保所有原始列都存在，如果需要则填充缺失的列？还是信任 LLM 的格式？
-                    # 目前，按从 LLM 收到的原样返回字典。
                     return best_match_dict_llm
                 else:
                     logger.warning(
@@ -374,85 +284,111 @@ class SpecCodeMatcher:
             else:
                 logger.warning(
                     f"LLM 未能为值 '{standard_param_value}' 选择最佳匹配行。LLM 结果: {llm_result}")
-                return None  # 如果 LLM 失败或未找到匹配项，则返回 None
+                return None # 如果 LLM 失败或未找到匹配项，则返回 None
+        else: # best_score == -1.0 and best_item_dict is None
+             logger.debug(f"未能为值 '{standard_param_value}' 在候选行中找到任何模糊匹配项。")
+             return None
+
 
 # ==============================================================================
-# 类 3: 规格代码占位符格式（排序）
+# 类 3: 型号代码生成器 (重大修改)
 # ==============================================================================
-
-
-class SpecCodeFormatter:
-    """
-    根据参考 CSV 文件中定义的顺序对匹配的规格代码进行排序。
-    """
-
-    def sort_matches(self, final_matches: Dict[str, Optional[Dict[str, Any]]], reference_csv: Optional[Path]) -> Dict[str, Optional[Dict[str, Any]]]:
-        """
-        根据参考 CSV 中 'model' 条目的顺序对最终匹配项进行排序。
-
-        Args:
-            final_matches: {standard_param_name: best_match_row_dict} 的字典。
-            reference_csv: 用作排序参考的 CSV 文件的路径。
-
-        Returns:
-            Dict[str, Optional[Dict[str, Any]]]: 已排序的匹配项字典。
-        """
-        if reference_csv and reference_csv.is_file():
-            logger.info(f"使用 '{reference_csv.name}' 作为参考对结果进行排序...")
-            try:
-                # 使用从 utils 导入的工具函数
-                sorted_matches = sort_results_by_csv_order(
-                    final_matches, reference_csv)
-                return sorted_matches
-            except Exception as e:
-                logger.error(
-                    f"使用 '{reference_csv.name}' 排序时出错: {e}. 将返回原始顺序。", exc_info=True)
-                return final_matches
-        elif reference_csv:
-            logger.warning(f"参考 CSV 文件 '{reference_csv.name}' 未找到，将使用原始匹配顺序。")
-            return final_matches
-        else:
-            logger.warning("没有提供参考 CSV 文件进行排序，将使用原始匹配顺序。")
-            return final_matches
-
-# ==============================================================================
-# 类 4: 型号代码推荐与理由生成
-# ==============================================================================
-
 
 class SpecCodeGenerator:
     """
     协调推荐最终产品型号代码及生成推荐理由的过程。
-    使用 StandardParamMatcher、SpecCodeMatcher 和 SpecCodeFormatter。
+    使用 StandardLoader 和 SpecCodeMatcher。
+    能够处理与主型号关联的多个标准库文件。
     """
 
     def __init__(self):
         """初始化 SpecCodeGenerator。"""
-        self.param_matcher: Optional[StandardParamMatcher] = None
+        self.loader = StandardLoader()
         self.code_matcher = SpecCodeMatcher()
-        self.formatter = SpecCodeFormatter()
+        # 假设主型号参数的键是 '温度变送器'，可以根据实际情况调整或配置化
+        self.main_model_param_key = '温度变送器' # TODO: 考虑从配置加载
 
-    def _initialize_param_matcher(self) -> bool:
-        """加载索引数据并初始化 StandardParamMatcher。"""
-        index_path = settings.STANDARD_INDEX_JSON
-        if not index_path.is_file():
-            logger.error(f"标准库索引文件未找到: {index_path}")
-            return False
-        try:
-            with open(index_path, 'r', encoding='utf-8') as f:
-                index_data = json.load(f)
-            logger.debug(f"成功加载标准库索引: {index_path.name}")
-            base_dir = index_path.parent
-            self.param_matcher = StandardParamMatcher(index_data, base_dir)
-            return True
-        except Exception as e:
-            logger.error(
-                f"加载或解析标准库索引 '{index_path.name}' 时出错: {e}", exc_info=True)
-            return False
+    def _find_best_main_model(self, standardized_params: Dict[str, str]) -> Optional[Tuple[str, List[str]]]:
+        """
+        根据输入参数名称和主型号值，选择最佳匹配的主型号及其关联的标准键列表。
+
+        Args:
+            standardized_params: 标准化参数字典 {standard_param_name: standard_param_value}。
+
+        Returns:
+            Optional[Tuple[str, List[str]]]:
+                包含最佳主型号名称和关联标准键列表的元组，
+                如果未找到合适的主型号则为 None。
+        """
+        if not self.loader.main_model_to_keys:
+            logger.error("主型号到标准键的映射为空，无法选择最佳主型号。请确保 StandardLoader 已成功加载。")
+            return None
+
+        input_param_names = set(standardized_params.keys())
+        if not input_param_names:
+            logger.error("输入参数名称集合为空，无法选择最佳主型号。")
+            return None
+
+        # 提取输入的主型号值
+        input_main_model_value = standardized_params.get(self.main_model_param_key)
+        logger.info(f"开始为输入参数 {input_param_names} (主型号值: {input_main_model_value}) 选择最佳匹配主型号...")
+
+        best_score = -1.0
+        best_main_model: Optional[str] = None
+        best_standard_keys: List[str] = []
+
+        # 主型号匹配的加权分数
+        MAIN_MODEL_MATCH_BONUS = 1000
+
+        # 遍历所有已识别的主型号及其关联的标准键
+        for main_model, standard_keys in self.loader.main_model_to_keys.items():
+            if not standard_keys: # 如果某个主型号没有关联的 key，跳过
+                continue
+
+            # 收集该主型号下所有标准库定义的参数名称
+            combined_standard_names = set()
+            for key in standard_keys:
+                combined_standard_names.update(self.loader.standard_param_names.get(key, set()))
+
+            if not combined_standard_names:
+                logger.debug(f"主型号 '{main_model}' 关联的标准库没有有效的参数名称，跳过。")
+                continue
+
+            # 1. 计算基础得分 (参数名称交集)
+            # 只考虑非主型号参数的交集，因为主型号参数用于 bonus
+            non_main_model_input_names = input_param_names - {self.main_model_param_key}
+            intersection = non_main_model_input_names.intersection(combined_standard_names)
+            base_score = len(intersection)
+
+            # 2. 计算主型号匹配加分
+            model_bonus = 0
+            if input_main_model_value and main_model and input_main_model_value == main_model:
+                model_bonus = MAIN_MODEL_MATCH_BONUS
+                logger.debug(f"    主型号匹配! ('{input_main_model_value}' == '{main_model}')，加分 {model_bonus}")
+            # 如果输入没有主型号，但标准库有，给一个较小的 bonus？或者不给？当前不给。
+
+            # 3. 计算总分
+            total_score = base_score + model_bonus
+
+            logger.debug(f"  - 主型号 '{main_model}' (关联键: {standard_keys}): 参数名 {combined_standard_names}, 交集 {intersection} (基础分 {base_score}), 主型号加分 {model_bonus}, 总分 {total_score}")
+
+            # 更新最佳匹配
+            if total_score > best_score:
+                best_score = total_score
+                best_main_model = main_model
+                best_standard_keys = standard_keys # 存储关联的标准键列表
+
+        if best_main_model and best_standard_keys:
+            logger.info(f"选择的最佳匹配主型号: '{best_main_model}' (关联标准键: {best_standard_keys}, 得分: {best_score})")
+            return best_main_model, best_standard_keys
+        else:
+            logger.error(f"未能为输入参数找到合适的匹配主型号。最高得分: {best_score}")
+            return None
 
     def generate(self, standardized_params: Dict[str, str]) -> Optional[Tuple[str, str]]:
         """
         根据标准化参数推荐产品型号代码并生成推荐理由。
+        能够处理与主型号关联的多个标准库文件。
 
         Args:
             standardized_params: 标准化参数字典 {standard_param_name: standard_param_value}。
@@ -461,98 +397,167 @@ class SpecCodeGenerator:
             Optional[Tuple[str, str]]: 包含推荐型号代码和推荐理由的元组 (code, reason)，
                                        如果发生错误则为 None。
         """
-        logger.info("--- 开始型号代码推荐与理由生成 ---")
+        logger.info("--- 开始型号代码推荐与理由生成 (多文件处理逻辑) ---")
         if not standardized_params:
             logger.error("输入参数为空，无法推荐型号代码。")
             return None
 
-        # 1. 初始化参数匹配器（加载 index.json）
-        if not self._initialize_param_matcher() or self.param_matcher is None:
-            # 错误已在 _initialize_param_matcher 中记录
+        # 1. 加载所有标准库 (确保映射已构建)
+        if not self.loader.load_all():
+            # 错误已在 load_all 中记录
             return None
 
-        # 2. 确定主要型号
-        main_model = self.param_matcher.find_main_model(standardized_params)
-        if main_model is None:
-            # 错误已在 find_main_model 中记录
+        # 2. 根据输入参数选择最佳匹配的主型号及其关联的标准键列表
+        best_model_result = self._find_best_main_model(standardized_params)
+        if not best_model_result:
+            # 错误已在 _find_best_main_model 中记录
             return None
+        selected_main_model, associated_standard_keys = best_model_result
 
-        # 3. 加载并合并主要型号的 CSV 数据
-        if not self.param_matcher.load_and_combine_data():
-            # 错误已在 load_and_combine_data 中记录
-            return None
+        # 3. 初始化代码列表，将主型号作为第一部分
+        product_code_parts: List[Tuple[str, Optional[Dict[str, Any]]]] = [] # 存储 (code, match_details)
+        if selected_main_model and selected_main_model.strip():
+            # 主型号本身没有 match_details，用 None 占位
+            product_code_parts.append((selected_main_model.strip(), None))
+            logger.info(f"已添加基础型号代码: '{selected_main_model.strip()}'")
+        else:
+            logger.warning("未能确定有效的基础型号代码，最终代码可能不完整。")
+            # 即使没有主型号，也继续尝试匹配其他参数
 
-        # 4. 匹配每个标准化参数
-        final_matches: Dict[str, Optional[Dict[str, Any]]] = {}
-        logger.info("开始匹配每个标准化参数到标准库...")
+        # 4. 遍历 *所有* 输入参数 (除了主型号)，在关联的标准键列表中查找匹配
+        final_matches: Dict[str, Optional[Dict[str, Any]]] = {} # 存储最终匹配结果 {param_name: match_details}
+        matched_param_names = set() # 跟踪已成功匹配的参数名
+
+        logger.info(f"开始在主型号 '{selected_main_model}' 的关联标准库 {associated_standard_keys} 中匹配其余输入参数...")
+
         for std_param_name, std_param_value in standardized_params.items():
-            # 跳过可能用于主要型号识别的参数（启发式）
-            # TODO: 改进主要型号参数的识别方法
-            if std_param_name in ["温度变送器", "变送器"] and std_param_value == main_model:
+            # 跳过主型号参数
+            if std_param_name == self.main_model_param_key:
                 logger.debug(f"跳过主型号参数 '{std_param_name}' 的匹配。")
                 continue
+            # 跳过空的参数名或值
+            if not std_param_name or not std_param_value:
+                logger.debug(f"跳过空参数: 名称='{std_param_name}', 值='{std_param_value}'")
+                continue
+            # 如果参数已匹配，跳过 (防止重复添加代码)
+            if std_param_name in matched_param_names:
+                logger.debug(f"参数 '{std_param_name}' 已在之前的标准库中匹配，跳过。")
+                continue
 
-            logger.debug(
-                f"--- 匹配参数: '{std_param_name}' = '{std_param_value}' ---")
-            # a. 查找候选行（基于标准参数名称）
-            candidate_rows_df = self.param_matcher.find_candidate_rows(
-                std_param_name)
+            logger.debug(f"--- 尝试匹配参数: '{std_param_name}' = '{std_param_value}' ---")
+            found_match_for_param = False
+            best_match_row_dict: Optional[Dict[str, Any]] = None
 
-            # b. 从候选者中选择最佳匹配（基于标准参数值）
-            best_match_row_dict = self.code_matcher.select_best_match(
-                std_param_value, candidate_rows_df)
+            # 遍历与主型号关联的 *所有* 标准键 (CSV 文件)
+            for standard_key in associated_standard_keys:
+                logger.debug(f"  在标准 '{standard_key}' 中查找...")
+                target_df = self.loader.all_standards.get(standard_key)
+                if target_df is None or target_df.empty:
+                    logger.debug(f"  标准 '{standard_key}' 的 DataFrame 为空或未加载，跳过。")
+                    continue
 
-            # c. 存储最佳匹配结果（可能为 None）
-            final_matches[std_param_name] = best_match_row_dict
-            if best_match_row_dict:
-                logger.debug(
-                    f"参数 '{std_param_name}' 的最佳匹配代码: '{best_match_row_dict.get('code', 'N/A')}'")
-            else:
-                logger.warning(f"参数 '{std_param_name}' 未能找到合适的标准代码。")
+                # a. 查找候选行 (基于标准参数名称，在当前 DF 内精确匹配)
+                candidate_rows_df = self.loader.find_candidate_rows(std_param_name, target_df)
 
-        # 5. 根据参考 CSV 顺序对结果进行排序
-        reference_csv = self.param_matcher.get_reference_csv()
-        sorted_matches = self.formatter.sort_matches(
-            final_matches, reference_csv)
+                if not candidate_rows_df.empty:
+                    # b. 从候选者中选择最佳匹配 (基于标准参数值)
+                    current_best_match = self.code_matcher.select_best_match(
+                        std_param_value, candidate_rows_df)
 
-        # 6. 组装推荐型号代码
-        product_code_parts: List[str] = []
-        logger.info("开始拼接推荐型号代码...")
-        for std_param_name, match_info in sorted_matches.items():
-            if match_info and 'code' in match_info:
-                code_part = match_info['code']
-                if pd.isna(code_part) or code_part == '':
-                    logger.warning(f"参数 '{std_param_name}' 匹配到的标准代码为空，将跳过。")
-                else:
-                    product_code_parts.append(str(code_part))  # 确保是字符串
+                    if current_best_match:
+                        best_match_row_dict = current_best_match
+                        # 记录匹配来源的标准键，可能用于排序或调试
+                        best_match_row_dict['_source_standard_key'] = standard_key
+                        logger.debug(f"  在 '{standard_key}' 中为参数 '{std_param_name}' 找到匹配。")
+                        found_match_for_param = True
+                        break # 找到匹配后，停止在此参数的其他标准库中查找
+
+            # c. 处理匹配结果
+            if found_match_for_param and best_match_row_dict:
+                final_matches[std_param_name] = best_match_row_dict # 存储完整匹配信息
+                code_part = best_match_row_dict.get('code')
+                if pd.notna(code_part) and str(code_part).strip():
+                    code_value = str(code_part).strip()
+                    # 存储代码和匹配详情，用于后续排序和生成理由
+                    product_code_parts.append((code_value, best_match_row_dict))
+                    matched_param_names.add(std_param_name) # 标记为已匹配
                     logger.debug(
-                        f"添加代码部分: '{code_part}' (来自参数 '{std_param_name}')")
+                        f"参数 '{std_param_name}' 的匹配代码: '{code_value}' (来自: {best_match_row_dict.get('_source_standard_key', '未知')})")
+                else:
+                    logger.warning(f"参数 '{std_param_name}' 匹配到的代码为空或无效 ('{code_part}')，将跳过。")
+                    final_matches[std_param_name] = None # 标记为未找到有效代码
             else:
-                logger.warning(
-                    f"参数 '{std_param_name}' 没有匹配到标准代码或匹配信息为 None，无法添加到推荐型号代码中。")
+                logger.warning(f"参数 '{std_param_name}' 未能在任何关联的标准库中找到合适的标准代码。")
+                final_matches[std_param_name] = None # 标记为未找到匹配
 
-        if not product_code_parts:
-            logger.error("未能从任何参数中提取有效的代码部分，无法生成推荐型号代码。")
-            return None
+        # 5. 排序附加代码 (基于 index.json 中 CSV 文件的顺序)
+        # 提取基础型号代码 (第一个元素)
+        base_model_code = product_code_parts[0][0] if product_code_parts else ""
+        # 提取附加代码及其来源信息 (从第二个元素开始)
+        additional_codes_with_details = product_code_parts[1:]
 
-        recommended_code = f"{main_model}" + "".join(product_code_parts)
+        # 获取用于排序的 CSV 文件顺序列表
+        csv_order_list = self.loader.main_model_csv_order.get(selected_main_model, [])
+        logger.debug(f"用于排序的 CSV 文件顺序 (主型号: {selected_main_model}): {csv_order_list}")
+
+        # 定义排序函数
+        def get_sort_key(item: Tuple[str, Optional[Dict[str, Any]]]) -> int:
+            code, details = item
+            if details and '_source_standard_key' in details:
+                source_key = details['_source_standard_key'] # e.g., 'transmitter/YTA710_addon'
+                # 从 source_key 提取原始 CSV 文件名 (需要去掉目录前缀和可能的 _stem)
+                parts = source_key.split('/', 1)
+                if len(parts) == 2:
+                    stem = parts[1]
+                    # 尝试在 csv_order_list 中找到对应的原始文件名
+                    for csv_file in csv_order_list:
+                        if Path(csv_file).stem == stem:
+                            try:
+                                index = csv_order_list.index(csv_file)
+                                logger.debug(f"  排序: 代码 '{code}' (来自 {source_key}, 对应 {csv_file}) 的索引为 {index}")
+                                return index
+                            except ValueError:
+                                pass # 文件名不在顺序列表中
+                # 如果无法确定顺序，放到最后
+                logger.warning(f"无法确定代码 '{code}' (来自 {source_key}) 的排序位置，将置于末尾。")
+                return len(csv_order_list) # 放到最后
+            logger.warning(f"代码 '{code}' 缺少来源信息，无法排序，将置于末尾。")
+            return len(csv_order_list) # 没有来源信息，放到最后
+
+        # 对附加代码进行排序
+        sorted_additional_codes_with_details = sorted(additional_codes_with_details, key=get_sort_key)
+        sorted_additional_codes = [code for code, details in sorted_additional_codes_with_details]
+
+        logger.debug(f"排序后的附加代码: {sorted_additional_codes}")
+
+        # 6. 组装推荐型号代码 (拼接基础型号和排序后的附加代码)
+        if not base_model_code and not sorted_additional_codes:
+             logger.error("未能生成任何代码部分，无法生成最终型号代码。")
+             return None
+        elif not sorted_additional_codes and base_model_code:
+             logger.warning("只生成了基础型号代码，没有匹配到任何附加选项代码。")
+
+        # 如果需要分隔符，在这里添加
+        recommended_code = base_model_code + "".join(sorted_additional_codes) # 直接拼接
         logger.info(f"--- 型号代码推荐完成 ---")
         logger.info(f"推荐型号代码: {recommended_code}")
 
-        # 7. 生成推荐理由 (新增步骤)
+        # 7. 生成推荐理由 (使用 final_matches 获取所有参数的匹配信息)
         recommendation_reason = self._generate_recommendation_reason(
-            standardized_params, sorted_matches, recommended_code)
+            standardized_params, final_matches, recommended_code, selected_main_model, associated_standard_keys)
 
         return recommended_code, recommendation_reason
 
-    def _generate_recommendation_reason(self, user_requirements: Dict[str, str], matched_details: Dict[str, Optional[Dict[str, Any]]], recommended_code: str) -> str:
+    def _generate_recommendation_reason(self, user_requirements: Dict[str, str], matched_details: Dict[str, Optional[Dict[str, Any]]], recommended_code: str, selected_main_model: str, source_keys: List[str]) -> str:
         """
-        调用 LLM 生成推荐理由。
+        调用 LLM 生成推荐理由。 (增加了 selected_main_model 和 source_keys 参数, 处理未匹配参数)
 
         Args:
             user_requirements: 用户输入的标准化参数字典。
-            matched_details: 匹配到的每个参数的详细信息字典。
+            matched_details: 匹配到的每个参数的详细信息字典 (None 表示未匹配)。
             recommended_code: 最终推荐的型号代码。
+            selected_main_model: 选定的主型号名称。
+            source_keys: 用于匹配的标准库键列表。
 
         Returns:
             str: LLM 生成的推荐理由，如果失败则返回默认提示信息。
@@ -561,31 +566,46 @@ class SpecCodeGenerator:
         try:
             # 准备 LLM 输入
             relevant_details = []
-            for param, details in matched_details.items():
+            unmatched_params = []
+            # 遍历原始需求，检查匹配结果
+            for param, req_value in user_requirements.items():
+                # 跳过主型号参数本身
+                if param == self.main_model_param_key:
+                    continue
+
+                details = matched_details.get(param) # 获取匹配结果
                 if details:
-                    # 提取关键信息用于生成理由，可以根据需要调整提取的字段
-                    detail_str = f"参数 '{param}': 匹配值 '{details.get('description', 'N/A')}' (代码: {details.get('code', 'N/A')})"
+                    # 提取关键信息用于生成理由
+                    detail_str = f"参数 '{param}': 需求 '{req_value}', 匹配值 '{details.get('description', 'N/A')}' (代码: {details.get('code', 'N/A')}, 来源: {details.get('_source_standard_key', '未知')})"
                     if details.get('remark'):
                         detail_str += f", 备注: {details['remark']}"
                     relevant_details.append(detail_str)
+                elif param in matched_details: # 存在于 matched_details 但值为 None，表示尝试过但未匹配
+                    unmatched_params.append(f"'{param}' (需求值: '{req_value}')")
+                # else: 参数不在 matched_details 中，可能因为是空值被跳过，不计入未匹配
 
-            system_prompt = """
-            你是一位专业的工业自动化产品选型顾问，尤其擅长温度变送器。
-            你的任务是根据用户提供的需求参数和系统匹配到的产品规格细节，为推荐的产品型号代码生成一段简洁、专业且易于理解的推荐理由。
-            重点突出推荐型号的关键特性如何满足了用户的核心需求。
+            system_prompt = f"""
+            你是一位专业的工业自动化产品选型顾问，尤其擅长温度变送器和传感器。
+            你的任务是根据用户提供的需求参数、系统匹配到的产品规格细节（包括来源标准库）、未匹配的参数（如有）以及最终推荐的型号代码，生成一段简洁、专业且易于理解的推荐理由。
+            重点突出推荐型号（基于主型号 '{selected_main_model}'）的关键特性如何满足了用户的核心需求。
+            如果存在未匹配的参数，请在理由中提及，并说明当前推荐是基于已匹配参数的最佳选择。
             语言风格应专业、客观、自信。避免口语化表达。
             直接输出推荐理由文本，不要包含任何额外的前缀或解释性文字 (例如不要说 "推荐理由如下：")。
+            使用中文回答。
             """
             user_prompt = f"""
             用户需求 (标准化参数):
             {json.dumps(user_requirements, indent=2, ensure_ascii=False)}
 
-            系统匹配到的规格细节:
-            {chr(10).join(relevant_details)}
+            系统匹配到的规格细节 (来自标准库: {source_keys}):
+            {chr(10).join(relevant_details) if relevant_details else "无成功匹配的附加规格。"}
+
+            未能匹配的参数:
+            {', '.join(unmatched_params) if unmatched_params else "所有参数均成功匹配或找到对应代码。"}
 
             最终推荐型号代码: {recommended_code}
 
-            请基于以上信息，生成推荐理由：
+            请基于以上信息，为型号 '{selected_main_model}' 生成推荐理由：
             """
             # 调用 LLM，明确告知不需要 JSON 格式
             llm_response = call_llm_for_match(
@@ -594,23 +614,19 @@ class SpecCodeGenerator:
             reason = "未能生成有效的推荐理由。"  # 默认值
 
             if isinstance(llm_response, str):
-                # 成功获取到字符串响应
                 reason = llm_response.strip()
                 if reason:
                     logger.info(f"成功生成推荐理由 (纯文本): {reason[:100]}...")
                 else:
                     logger.warning("LLM 返回了空的推荐理由字符串。")
-                    reason = "未能生成有效的推荐理由 (LLM 返回空)。"  # 提供更具体的默认信息
+                    reason = "未能生成有效的推荐理由 (LLM 返回空)。"
             elif isinstance(llm_response, dict) and "error" in llm_response:
-                # LLM 调用或处理过程中发生错误 (例如 API 错误)
                 logger.error(f"LLM 生成推荐理由时返回错误字典: {llm_response}")
                 reason = f"无法生成推荐理由：LLM 调用出错 ({llm_response.get('error', '未知错误')}: {llm_response.get('details', '无详情')})"
             elif llm_response is None:
-                # LLM 调用被跳过 (例如，没有 API 密钥) 或其他原因返回 None
                 logger.error("LLM 生成推荐理由调用未返回任何结果 (返回 None)。")
                 reason = "无法生成推荐理由：LLM 调用未返回结果。"
             else:
-                # 收到意外的类型
                 logger.error(
                     f"LLM 生成推荐理由时返回了意外的类型: {type(llm_response)} - {llm_response}")
                 reason = f"无法生成推荐理由：LLM 返回类型无效 ({type(llm_response)})。"
@@ -622,49 +638,45 @@ class SpecCodeGenerator:
             return f"无法生成推荐理由：内部错误 ({e})"
 
 
-# --- 主执行 / 测试块 ---
+# --- 主执行 / 测试块 (保持不变) ---
 if __name__ == '__main__':
     # 配置基本日志记录以进行测试
     logging.basicConfig(
         level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    # 模拟标准化参数
-    mock_standardized_params = {
+    # 模拟标准化参数 - 仅保留变送器测试用例，并包含基础型号参数
+    mock_standardized_params_tx = {
         '输出信号': '4~20mA DC BRAIN通信型',
-        '温度变送器': 'YTA710',  # 假定的主要型号
+        '温度变送器': 'YTA710',
         '说明书语言': '英语',
         '传感器输入': '双支输入',
         '壳体代码': '不锈钢',
-        '接线口': '1/2 NPT 内螺纹',  # 为模糊测试稍作修改
-        '内置指示器': '数字LCD',  # 稍作修改
-        '安装支架': 'SUS304 2寸管道平装',  # 稍作修改
-        '防爆认证': 'NEPSI 隔爆型'  # 假定的标准化名称
+        '接线口': '1/2 NPT 内螺纹',
+        '内置指示器': '数字LCD',
+        '安装支架': 'SUS304 2寸管道平装',
+        'NEPSI': 'GB3836.1-2010、GB3836.4-2010、GB3836.20-2010、GB3836.19-2010、 GB12476.1-2013、GB12476.4-2010 '
     }
-    print(
-        f"模拟输入 (标准化参数): \n{json.dumps(mock_standardized_params, indent=2, ensure_ascii=False)}")
+    print(f"模拟输入 (标准化参数): \n{json.dumps(mock_standardized_params_tx, indent=2, ensure_ascii=False)}")
 
-    # 设置测试路径（假设脚本从项目根目录或类似上下文运行）
-    # 在实际流水线中，设置将从外部配置
-    current_dir = Path(__file__).parent
-    # 如果需要，根据实际执行上下文进行调整
-    settings.STANDARD_LIBS_DIR = project_root / "libs" / "standard"
-    settings.STANDARD_INDEX_JSON = settings.STANDARD_LIBS_DIR / \
-        "transmitter" / "index.json"
-    print(f"测试使用的标准库索引: {settings.STANDARD_INDEX_JSON}")
+    # 设置测试路径 (确保 settings.py 或环境变量指向正确的 libs 目录)
+    # project_root 在文件顶部已定义
+    # settings.STANDARD_LIBS_DIR = project_root / "libs" / "standard" # 通常在 settings.py 中配置
+    print(f"测试使用的标准库根目录 (来自 settings): {settings.STANDARD_LIBS_DIR}")
 
     # 检查所需目录是否存在
-    if not settings.STANDARD_INDEX_JSON.parent.exists():
-        print(f"\n错误：测试需要 '{settings.STANDARD_INDEX_JSON.parent}' 目录及其内容。")
+    if not settings.STANDARD_LIBS_DIR.exists():
+        print(f"\n错误：测试需要 '{settings.STANDARD_LIBS_DIR}' 目录及其内容。")
         print("请确保该目录存在于项目结构中。")
     else:
         # 实例化生成器并运行过程
         generator = SpecCodeGenerator()
-        # Now returns a tuple or None
-        result = generator.generate(mock_standardized_params)
 
-        if result:
-            recommended_code, recommendation_reason = result
+        print("\n--- 运行测试用例 ---")
+        result_tx = generator.generate(mock_standardized_params_tx)
+        if result_tx:
+            recommended_code, recommendation_reason = result_tx
             print(f"\n推荐型号代码: {recommended_code}")
+            # 预期 YTA710 的代码 + 附加代码，例如 YTA710-ES2B2DD/S2/X2 (具体代码取决于 CSV 内容和顺序)
             print(f"\n推荐理由:\n{recommendation_reason}")
         else:
             print("\n未能推荐型号代码或生成理由。请检查日志获取详细信息。")
