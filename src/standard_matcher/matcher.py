@@ -1,7 +1,6 @@
 # new_sensor_project/src/standard_matcher/matcher.py
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
 import pandas as pd
