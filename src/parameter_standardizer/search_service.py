@@ -38,7 +38,7 @@ class SearchService:
     """
     def __init__(self):
         """初始化搜索服务，加载所需组件。"""
-        logger.info("--- 初始化参数标准化搜索服务 ---")
+        logger.debug("--- 初始化参数标准化搜索服务 ---") # DEBUG: Changed from INFO
         self.embedding_generator = EmbeddingGenerator() # 用于加载和访问模型
         self.vector_store = VectorStoreManager()
         self.model_loaded = False
@@ -47,14 +47,14 @@ class SearchService:
 
     def _initialize_components(self):
         """加载嵌入模型并连接到向量数据库。"""
-        logger.info("正在加载嵌入模型...")
+        logger.debug("正在加载嵌入模型...") # DEBUG: Changed from INFO
         # 注意：EmbeddingGenerator 内部应使用 logging
         self.model_loaded = self.embedding_generator.load_model()
         if not self.model_loaded:
             logger.error("嵌入模型加载失败。搜索服务将不可用。")
             return
 
-        logger.info("正在连接向量数据库...")
+        logger.debug("正在连接向量数据库...") # DEBUG: Changed from INFO
         # 注意：VectorStoreManager 内部应使用 logging
         self.db_connected = self.vector_store.connect()
         if not self.db_connected:
@@ -102,8 +102,9 @@ class SearchService:
             Optional[Tuple[str, str, str]]: 包含最匹配的 (标准参数名, 标准参数值, 标准代码) 的元组。
                                            如果找不到匹配项或发生错误，则返回 None。
         """
-        logger.info(f"--- 开始参数标准化搜索 ---")
-        logger.info(f"输入 -> 实际参数名: '{actual_param_name}', 实际参数值: '{actual_param_value}'")
+        # Keep this INFO as it marks the start of a specific search operation
+        logger.info(f"--- 开始参数标准化搜索: '{actual_param_name}'='{actual_param_value}' ---")
+        # logger.info(f"输入 -> 实际参数名: '{actual_param_name}', 实际参数值: '{actual_param_value}'") # Redundant with above
 
         if not self.is_ready():
             logger.error("搜索失败：搜索服务未就绪。")
@@ -178,6 +179,7 @@ class SearchService:
              # 根据需求决定是返回 None 还是尝试下一个结果
              return None # 当前选择返回 None
 
+        # Keep this INFO as it shows the result of the search operation
         logger.info(f"搜索完成。最佳匹配 (距离: {best_distance:.4f}) -> 标准名: '{standard_param_name}', 标准值: '{standard_param_value}', 标准代码: '{standard_code}'")
 
         return standard_param_name, standard_param_value, standard_code
