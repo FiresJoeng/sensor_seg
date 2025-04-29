@@ -13,7 +13,8 @@ if str(project_root) not in sys.path:
 try:
     from config import settings
 except ImportError as e:
-    print(f"ERROR in llm_utils.py: Failed to import settings - {e}. Check project structure and PYTHONPATH.", file=sys.stderr)
+    print(
+        f"ERROR in llm_utils.py: Failed to import settings - {e}. Check project structure and PYTHONPATH.", file=sys.stderr)
     raise
 
 logger = logging.getLogger(__name__)
@@ -29,10 +30,11 @@ if settings.LLM_API_KEY and settings.LLM_API_KEY != "YOUR_API_KEY_HERE":
         logger.info("OpenAI 客户端初始化成功。")
     except Exception as e:
         logger.error(f"初始化 OpenAI 客户端失败: {e}", exc_info=True)
-        client = None # 如果初始化失败，确保 client 为 None
+        client = None  # 如果初始化失败，确保 client 为 None
 else:
     logger.warning("在设置中未找到 LLM_API_KEY 或其为占位符。LLM 功能将被禁用。")
     client = None
+
 
 def call_llm_for_match(system_prompt: str, user_prompt: str, expect_json: bool = True) -> dict | str | None:
     """
@@ -55,7 +57,7 @@ def call_llm_for_match(system_prompt: str, user_prompt: str, expect_json: bool =
         return None
 
     logger.debug(f"调用 LLM。模型: {settings.LLM_MODEL_NAME}")
-    logger.debug(f"系统提示词: {system_prompt[:100]}...") # 记录截断的提示词
+    logger.debug(f"系统提示词: {system_prompt[:100]}...")  # 记录截断的提示词
     logger.debug(f"用户提示词: {user_prompt[:200]}...")   # 记录截断的提示词
 
     try:
@@ -81,26 +83,27 @@ def call_llm_for_match(system_prompt: str, user_prompt: str, expect_json: bool =
             if cleaned_content.startswith("```json"):
                 cleaned_content = cleaned_content.strip("```json").strip()
             elif cleaned_content.startswith("```"):
-                 cleaned_content = cleaned_content.strip("```").strip()
+                cleaned_content = cleaned_content.strip("```").strip()
 
             # 如果不期望 JSON，直接返回清理后的文本
             if not expect_json:
                 logger.info("LLM 调用成功，返回原始文本响应。")
-                return cleaned_content # 返回清理后的字符串
+                return cleaned_content  # 返回清理后的字符串
 
             # 如果期望 JSON，尝试解析
             try:
                 result = json.loads(cleaned_content)
                 logger.info("LLM 调用成功并解析了 JSON 响应。")
-                return result # 返回解析后的字典
+                return result  # 返回解析后的字典
             except json.JSONDecodeError as json_err:
                 logger.error(f"LLM 响应不是有效的 JSON (期望 JSON): {json_err}")
-                logger.error(f"原始内容为: {raw_content}") # 记录原始未清理的内容
+                logger.error(f"原始内容为: {raw_content}")  # 记录原始未清理的内容
                 # 即使期望 JSON 但解析失败，也返回包含原始内容的错误字典，以便上游处理
                 return {"error": "LLM 响应格式错误", "details": str(json_err), "raw_content": raw_content}
             except Exception as parse_err:
-                 logger.error(f"解析 LLM 响应时出错 (期望 JSON): {parse_err}", exc_info=True)
-                 return {"error": "LLM 响应解析错误", "details": str(parse_err), "raw_content": raw_content}
+                logger.error(
+                    f"解析 LLM 响应时出错 (期望 JSON): {parse_err}", exc_info=True)
+                return {"error": "LLM 响应解析错误", "details": str(parse_err), "raw_content": raw_content}
         else:
             logger.warning("LLM 响应未包含任何选项。")
             # 根据是否期望 JSON 返回不同错误？目前统一返回字典错误
@@ -113,9 +116,11 @@ def call_llm_for_match(system_prompt: str, user_prompt: str, expect_json: bool =
         logger.error(f"LLM 调用期间发生意外错误: {e}", exc_info=True)
         return {"error": "意外的 LLM 调用错误", "details": str(e)}
 
+
 # 示例用法（用于测试目的）
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     if not client:
         print("LLM 客户端不可用。无法运行测试。")
@@ -127,7 +132,8 @@ if __name__ == '__main__':
         test_user_prompt_text = "用一句话描述红色。"
 
         print("\n--- 测试期望 JSON ---")
-        match_result_json = call_llm_for_match(test_system_prompt, test_user_prompt_json, expect_json=True)
+        match_result_json = call_llm_for_match(
+            test_system_prompt, test_user_prompt_json, expect_json=True)
         if match_result_json:
             print("LLM JSON 结果:")
             # 检查返回的是否是字典，以防 API 错误返回错误字典
@@ -139,7 +145,8 @@ if __name__ == '__main__':
             print("LLM 调用失败或未返回结果。")
 
         print("\n--- 测试期望 Text ---")
-        match_result_text = call_llm_for_match(test_system_prompt, test_user_prompt_text, expect_json=False)
+        match_result_text = call_llm_for_match(
+            test_system_prompt, test_user_prompt_text, expect_json=False)
         if match_result_text:
             print("LLM Text 结果:")
             # 检查返回的是否是字符串
@@ -147,8 +154,9 @@ if __name__ == '__main__':
                 print(match_result_text)
             # 也可能返回错误字典
             elif isinstance(match_result_text, dict) and 'error' in match_result_text:
-                 print(f"收到错误字典: {match_result_text}")
+                print(f"收到错误字典: {match_result_text}")
             else:
-                 print(f"收到意外类型结果: {type(match_result_text)} - {match_result_text}")
+                print(
+                    f"收到意外类型结果: {type(match_result_text)} - {match_result_text}")
         else:
             print("LLM 调用失败或未返回结果。")

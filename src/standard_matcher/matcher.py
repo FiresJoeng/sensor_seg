@@ -588,9 +588,10 @@ class SpecCodeGenerator:
             请基于以上信息，生成推荐理由：
             """
             # 调用 LLM，明确告知不需要 JSON 格式
-            llm_response = call_llm_for_match(system_prompt, user_prompt, expect_json=False)
+            llm_response = call_llm_for_match(
+                system_prompt, user_prompt, expect_json=False)
 
-            reason = "未能生成有效的推荐理由。" # 默认值
+            reason = "未能生成有效的推荐理由。"  # 默认值
 
             if isinstance(llm_response, str):
                 # 成功获取到字符串响应
@@ -599,18 +600,19 @@ class SpecCodeGenerator:
                     logger.info(f"成功生成推荐理由 (纯文本): {reason[:100]}...")
                 else:
                     logger.warning("LLM 返回了空的推荐理由字符串。")
-                    reason = "未能生成有效的推荐理由 (LLM 返回空)。" # 提供更具体的默认信息
+                    reason = "未能生成有效的推荐理由 (LLM 返回空)。"  # 提供更具体的默认信息
             elif isinstance(llm_response, dict) and "error" in llm_response:
                 # LLM 调用或处理过程中发生错误 (例如 API 错误)
                 logger.error(f"LLM 生成推荐理由时返回错误字典: {llm_response}")
                 reason = f"无法生成推荐理由：LLM 调用出错 ({llm_response.get('error', '未知错误')}: {llm_response.get('details', '无详情')})"
             elif llm_response is None:
-                 # LLM 调用被跳过 (例如，没有 API 密钥) 或其他原因返回 None
-                 logger.error("LLM 生成推荐理由调用未返回任何结果 (返回 None)。")
-                 reason = "无法生成推荐理由：LLM 调用未返回结果。"
+                # LLM 调用被跳过 (例如，没有 API 密钥) 或其他原因返回 None
+                logger.error("LLM 生成推荐理由调用未返回任何结果 (返回 None)。")
+                reason = "无法生成推荐理由：LLM 调用未返回结果。"
             else:
                 # 收到意外的类型
-                logger.error(f"LLM 生成推荐理由时返回了意外的类型: {type(llm_response)} - {llm_response}")
+                logger.error(
+                    f"LLM 生成推荐理由时返回了意外的类型: {type(llm_response)} - {llm_response}")
                 reason = f"无法生成推荐理由：LLM 返回类型无效 ({type(llm_response)})。"
 
             return reason
