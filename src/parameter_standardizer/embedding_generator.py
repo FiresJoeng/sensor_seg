@@ -31,9 +31,10 @@ class EmbeddingGenerator:
             model_name (Optional[str]): 要加载的 Sentence Transformer 模型名称。
                                         如果为 None，则从 config/settings.py 加载。
         """
-        self.model_name = model_name or settings.EMBEDDING_MODEL_NAME
+        # Explicitly set the model name as requested, overriding settings
+        self.model_name = 'lier007/xiaobu-embedding-v2' 
         self.model: Optional[SentenceTransformer] = None
-        logger.info(f"EmbeddingGenerator 初始化。模型: {self.model_name}")
+        logger.info(f"EmbeddingGenerator 初始化。强制使用模型: {self.model_name}") # Use INFO level for this override
 
     def load_model(self) -> bool:
         """
@@ -46,7 +47,7 @@ class EmbeddingGenerator:
             logger.debug("嵌入模型已加载。")
             return True
 
-        logger.info(f"--- 正在加载嵌入模型: {self.model_name} ---")
+        logger.debug(f"--- 正在加载嵌入模型: {self.model_name} ---") # DEBUG: Changed from INFO
         start_time = time.time()
         try:
             # 可以在这里添加设备选择逻辑 (例如 'cuda' 或 'cpu')
@@ -54,7 +55,7 @@ class EmbeddingGenerator:
             # self.model = SentenceTransformer(self.model_name, device=device)
             self.model = SentenceTransformer(self.model_name)
             end_time = time.time()
-            logger.info(f"模型加载成功。耗时: {end_time - start_time:.2f} 秒。")
+            logger.debug(f"模型加载成功。耗时: {end_time - start_time:.2f} 秒。") # DEBUG: Changed from INFO
             return True
         except Exception as e:
             logger.error(f"加载嵌入模型 '{self.model_name}' 时出错: {e}", exc_info=True)
@@ -87,10 +88,10 @@ class EmbeddingGenerator:
                 texts,
                 batch_size=batch_size,
                 show_progress_bar=show_progress_bar,
-                # normalize_embeddings=True # 根据模型和下游任务决定是否需要归一化
+                normalize_embeddings=True # Enabled as per user example
             )
             end_time = time.time()
-            logger.info(f"嵌入向量生成完毕。形状: {embeddings.shape}。耗时: {end_time - start_time:.2f} 秒。")
+            logger.info(f"嵌入向量生成完毕 (已归一化)。形状: {embeddings.shape}。耗时: {end_time - start_time:.2f} 秒。")
             return embeddings
         except Exception as e:
             logger.error(f"生成嵌入向量时发生错误: {e}", exc_info=True)

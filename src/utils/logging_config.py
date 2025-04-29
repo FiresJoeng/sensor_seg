@@ -44,6 +44,11 @@ def setup_logging():
     # 创建控制台处理器
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
+    # --- 设置控制台处理器的级别为 INFO ---
+    # 这样可以减少控制台的输出量，只显示 INFO 及以上级别的信息
+    # 而根记录器的级别 (log_level) 决定了哪些消息会被传递给所有处理器
+    # 文件处理器（如果启用）将继承根记录器的级别，可以记录更详细的信息（如 DEBUG）
+    console_handler.setLevel(logging.INFO)
     root_logger.addHandler(console_handler)
 
     # 如果配置了日志文件，则创建文件处理器
@@ -58,13 +63,17 @@ def setup_logging():
                 log_file, maxBytes=5*1024*1024, backupCount=3, encoding='utf-8'
             )
             file_handler.setFormatter(formatter)
+            # 文件处理器可以有自己的级别，或者继承根记录器的级别
+            # 这里我们让它继承根记录器的级别 (log_level)，通常可能是 DEBUG
+            # file_handler.setLevel(log_level) # 如果需要显式设置，取消注释此行
             root_logger.addHandler(file_handler)
-            logging.info(f"日志将同时输出到文件: {log_file}")
+            logging.info(f"日志将同时输出到文件: {log_file} (文件日志级别: {logging.getLevelName(root_logger.level)})") # 明确文件日志级别
         except Exception as e:
             logging.error(f"无法配置日志文件处理器: {e}", exc_info=True)
             print(f"错误：无法设置日志文件 {log_file}。错误信息: {e}") # 在日志系统完全工作前使用 print
 
-    logging.info(f"日志系统已配置。级别: {logging.getLevelName(log_level)}")
+    # 调整日志消息，更清晰地说明不同处理器的级别
+    logging.info(f"日志系统已配置。根级别: {logging.getLevelName(root_logger.level)}, 控制台级别: {logging.getLevelName(console_handler.level)}")
 
 # --- 可选的测试入口 ---
 if __name__ == "__main__":
