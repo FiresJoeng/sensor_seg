@@ -40,7 +40,7 @@ def _find_main_model(standardized_params: Dict[str, str], index_data: Dict[str, 
     """
     logger.debug("开始确定产品主型号...")
     available_models = list(index_data.keys())
-    target_keys = ["温度变送器", "变送器"] # 可能表示主型号的键
+    target_keys = ["温度变送器", "变送器", "YTA", "HZ", "HR", "SZ", "HR"] # 可能表示主型号的键
     main_model_value = None
     match_method = "未找到"
 
@@ -339,7 +339,7 @@ def generate_product_code(standardized_params: Dict[str, str]) -> Optional[str]:
         logger.error("未能从任何参数中提取有效的代码部分，无法生成最终产品代码。")
         return None
 
-    final_product_code = "".join(product_code_parts)
+    final_product_code = f"{main_model}"+"".join(product_code_parts)
     logger.info(f"--- 产品代码生成完成 ---")
     logger.info(f"最终产品代码: {final_product_code}")
 
