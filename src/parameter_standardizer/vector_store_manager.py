@@ -35,7 +35,7 @@ class VectorStoreManager:
         self.collection_name = collection_name or settings.VECTOR_DB_COLLECTION_NAME
         self.client: Optional[chromadb.PersistentClient] = None
         self.collection: Optional[chromadb.Collection] = None
-        logger.info(f"VectorStoreManager 初始化。DB路径: {self.db_path}, 集合: {self.collection_name}")
+        logger.debug(f"VectorStoreManager 初始化。DB路径: {self.db_path}, 集合: {self.collection_name}") # DEBUG: Changed from INFO
 
     def connect(self) -> bool:
         """
@@ -48,19 +48,19 @@ class VectorStoreManager:
             logger.debug("已连接到向量数据库集合。")
             return True
 
-        logger.info(f"--- 正在连接到向量数据库 ---")
-        logger.info(f"数据库路径: {self.db_path}")
-        logger.info(f"集合名称: {self.collection_name}")
+        logger.debug(f"--- 正在连接到向量数据库 ---") # DEBUG: Changed from INFO
+        logger.debug(f"数据库路径: {self.db_path}") # DEBUG: Changed from INFO
+        logger.debug(f"集合名称: {self.collection_name}") # DEBUG: Changed from INFO
         try:
             # 确保数据库目录存在
             self.db_path.mkdir(parents=True, exist_ok=True)
             self.client = chromadb.PersistentClient(path=str(self.db_path)) # PersistentClient 需要字符串路径
             # 获取或创建集合
             self.collection = self.client.get_or_create_collection(name=self.collection_name)
-            logger.info(f"成功连接/创建集合 '{self.collection_name}'。")
+            logger.debug(f"成功连接/创建集合 '{self.collection_name}'。") # DEBUG: Changed from INFO
             # 记录当前集合大小
             count = self.collection.count()
-            logger.info(f"当前集合 '{self.collection_name}' 包含 {count} 条数据。")
+            logger.debug(f"当前集合 '{self.collection_name}' 包含 {count} 条数据。") # DEBUG: Changed from INFO
             return True
         except Exception as e:
             logger.error(f"连接或获取 ChromaDB 集合 '{self.collection_name}' 时出错: {e}", exc_info=True)

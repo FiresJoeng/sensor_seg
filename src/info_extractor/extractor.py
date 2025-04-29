@@ -166,9 +166,8 @@ class InfoExtractor:
                     result_str = response.choices[0].message.content
                     logger.debug(f"LLM原始响应: {result_str[:200]}...")  # 记录部分响应
                     
-                    # 清理响应，如果它包含非JSON内容
-                    # 一些模型可能包括markdown代码块或其他格式
-                    result_str = self._clean_json_response(result_str)
+                    # RESTORED: Call to _clean_json_response restored.
+                    result_str = self._clean_json_response(result_str) 
                     
                     result_dict = json.loads(result_str)
                     logger.info("LLM调用成功并解析JSON。")
@@ -185,6 +184,7 @@ class InfoExtractor:
             logger.error(f"调用LLM API时出错: {e}", exc_info=True)
             return None
 
+    # RESTORED: _clean_json_response method definition restored.
     def _clean_json_response(self, response_str: str) -> str:
         """
         清理LLM响应以提取有效的JSON。
