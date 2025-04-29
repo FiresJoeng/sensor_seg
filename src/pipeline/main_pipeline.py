@@ -83,31 +83,11 @@ def process_document(input_file_path: Path) -> Optional[Dict[str, str]]:
         logger.exception(f"文档转换过程中发生意外错误: {e}")
         return None
 
-    # --- 3. JSON 验证 ---
-    try:
-        logger.info("开始验证提取的 JSON 数据...")
-        validation_result = info_extractor.json_proc.json_check(extracted_data)
-        extracted_data = validation_result["data"] # 使用可能被修正的数据
-        if validation_result["issues"]:
-            logger.warning(f"JSON 验证发现 {len(validation_result['issues'])} 个问题。详情请查看日志或备注。")
-            
-        if validation_result["modified"]:
-            # 如果数据被修改，保存验证后的版本
-            validated_json_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_validated.json"
-            try:
-                with open(validated_json_path, 'w', encoding='utf-8') as f:
-                    json.dump(extracted_data, f, ensure_ascii=False, indent=4)
-                logger.info(f"验证并修正后的 JSON 数据已保存至: {validated_json_path}")
-            except Exception as e:
-                logger.error(f"保存验证后的 JSON 数据时出错: {e}", exc_info=True)
-    except Exception as e:
-        logger.exception(f"JSON 验证过程中发生意外错误: {e}")
-        return None  # 验证过程中出现异常时中止处理
-
-    # --- 5. 参数标准化与代码生成 (逐个设备处理) ---
-    device_list = extracted_data.get("设备列表", [])
+    # --- 3. 移除JSON验证部分，直接使用提取的数据 ---
+    # 使用merged_devices替代设备列表
+    device_list = extracted_data.get("merged_devices", [])
     if not device_list:
-        logger.warning("提取的 JSON 数据中未找到 '设备列表' 或列表为空。")
+        logger.warning("提取的 JSON 数据中未找到 'merged_devices' 或列表为空。")
         return {} # 返回空结果
 
     logger.info(f"开始处理 {len(device_list)} 个设备...")
