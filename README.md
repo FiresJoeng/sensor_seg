@@ -1,6 +1,6 @@
 # 一体式温度变送器参数处理与型号代码生成系统
 
-**版本**: 1.0.0 (重构)
+**版本**: 1.0.0 
 
 ## 1. 项目目标
 
@@ -88,7 +88,7 @@ new_sensor_project/
     # .venv\Scripts\activate  # Windows
     ```
 
-3.  **安装依赖**:
+3.  **安装依赖**:个
     ```bash
     pip install -r requirements.txt
     ```
