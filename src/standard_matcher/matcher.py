@@ -587,57 +587,31 @@ class SpecCodeGenerator:
 
             请基于以上信息，生成推荐理由：
             """
+            # 调用 LLM，明确告知不需要 JSON 格式
+            llm_response = call_llm_for_match(system_prompt, user_prompt, expect_json=False)
 
-            llm_response = call_llm_for_match(system_prompt, user_prompt)
-
-            # --- 新增逻辑：处理 LLM 返回纯文本导致 JSON 解析失败的情况 ---
             reason = "未能生成有效的推荐理由。" # 默认值
-            raw_content_extracted = False
-            if isinstance(llm_response, dict) and \
-               llm_response.get("error") == "LLM 响应格式错误" and \
-               "raw_content" in llm_response:
-                raw_text = llm_response["raw_content"]
-                # 尝试清理可能的 Markdown 标记 (虽然 llm_utils 也做了，这里再做一次以防万一)
-                if raw_text.startswith("```json"):
-                    raw_text = raw_text.strip("```json").strip()
-                elif raw_text.startswith("```"):
-                    raw_text = raw_text.strip("```").strip()
 
-                if raw_text: # 确保清理后还有内容
-                    reason = raw_text
-                    raw_content_extracted = True
-                    logger.info(f"从 LLM 原始响应 (非 JSON) 中提取推荐理由: {reason[:100]}...")
+            if isinstance(llm_response, str):
+                # 成功获取到字符串响应
+                reason = llm_response.strip()
+                if reason:
+                    logger.info(f"成功生成推荐理由 (纯文本): {reason[:100]}...")
                 else:
-                    logger.warning("LLM 原始响应 (非 JSON) 清理后为空。")
-            # --- 新增逻辑结束 ---
-
-            # 尝试解析 LLM 可能返回的多种格式 (直接字符串或包含 reason 的 JSON)
-            # 仅在未从 raw_content 提取时执行后续检查
-            if not raw_content_extracted and llm_response:
-                if isinstance(llm_response, str):
-                    reason = llm_response.strip()
-                    logger.info(f"成功生成推荐理由 (字符串): {reason[:100]}...")
-                elif isinstance(llm_response, dict):
-                    if "reason" in llm_response and isinstance(llm_response["reason"], str):
-                        reason = llm_response["reason"].strip()
-                        logger.info(f"成功生成推荐理由 (来自JSON): {reason[:100]}...")
-                    # 兼容旧格式?
-                    elif "best_match" in llm_response and isinstance(llm_response["best_match"], str):
-                        reason = llm_response["best_match"].strip()
-                        logger.info(
-                            f"成功生成推荐理由 (来自旧格式JSON?): {reason[:100]}...")
-                    elif "error" in llm_response:
-                        logger.error(f"LLM 生成推荐理由时返回错误: {llm_response}")
-                        reason = f"无法生成推荐理由：LLM 返回错误 ({llm_response.get('details', '未知错误')})"
-                    else:
-                        logger.error(f"LLM 生成推荐理由时返回了非预期的字典格式: {llm_response}")
-                        reason = "无法生成推荐理由：LLM 返回非预期字典格式。"
-                else:
-                    logger.error(f"LLM 生成推荐理由时返回了意外的类型: {type(llm_response)}")
-                    reason = "无法生成推荐理由：LLM 返回类型无效。"
+                    logger.warning("LLM 返回了空的推荐理由字符串。")
+                    reason = "未能生成有效的推荐理由 (LLM 返回空)。" # 提供更具体的默认信息
+            elif isinstance(llm_response, dict) and "error" in llm_response:
+                # LLM 调用或处理过程中发生错误 (例如 API 错误)
+                logger.error(f"LLM 生成推荐理由时返回错误字典: {llm_response}")
+                reason = f"无法生成推荐理由：LLM 调用出错 ({llm_response.get('error', '未知错误')}: {llm_response.get('details', '无详情')})"
+            elif llm_response is None:
+                 # LLM 调用被跳过 (例如，没有 API 密钥) 或其他原因返回 None
+                 logger.error("LLM 生成推荐理由调用未返回任何结果 (返回 None)。")
+                 reason = "无法生成推荐理由：LLM 调用未返回结果。"
             else:
-                logger.error("LLM 生成推荐理由调用未返回任何结果。")
-                reason = "无法生成推荐理由：LLM 未返回结果。"
+                # 收到意外的类型
+                logger.error(f"LLM 生成推荐理由时返回了意外的类型: {type(llm_response)} - {llm_response}")
+                reason = f"无法生成推荐理由：LLM 返回类型无效 ({type(llm_response)})。"
 
             return reason
 
