@@ -126,14 +126,28 @@ dmypy.json
 .pyre/
 
 # Project Specific
+# 保留文件夹结构但忽略内容
+/data/*
+!/data/.gitkeep
+!/data/input/
+!/data/output/
 /data/input/*
 /data/output/*
 !/data/input/.gitkeep
 !/data/output/.gitkeep
+!/data/input/温变规格书.pdf
+
+/knowledge_base/*
+!/knowledge_base/.gitkeep
+!/knowledge_base/source/
+!/knowledge_base/vector_store/
+/knowledge_base/source/*
 /knowledge_base/vector_store/*
-!/knowledge_base/vector_store/.gitkeep
-/knowledge_base/source/*semantic_source.xlsx
 !/knowledge_base/source/.gitkeep
+!/knowledge_base/vector_store/.gitkeep
+!/knowledge_base/source/semantic_source.xlsx
+
+# 其他通用忽略
 ~$*
 temp_*
 *.bk
