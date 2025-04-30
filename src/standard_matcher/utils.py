@@ -38,9 +38,50 @@ def calculate_string_similarity(a: Optional[str], b: Optional[str]) -> float:
         logger.error(f"计算字符串相似度时出错 ('{a}' vs '{b}'): {e}", exc_info=True)
         return 0.0
 
+def get_model_order_from_csv(reference_csv_path: Path) -> Optional[List[str]]:
+    """
+    从指定的 CSV 文件中读取 'model' 列的值，并返回其顺序列表。
+
+    Args:
+        reference_csv_path: 参考 CSV 文件路径。
+
+    Returns:
+        Optional[List[str]]: 包含 'model' 列值的顺序列表，如果文件不存在、
+                             缺少 'model' 列或读取出错，则返回 None。
+    """
+    logger.debug(f"开始从 CSV 文件 '{reference_csv_path.name}' 读取 'model' 列顺序。")
+    model_order: List[str] = []
+    try:
+        # 检查文件是否存在
+        if not reference_csv_path.is_file():
+            logger.error(f"参考 CSV 文件未找到: {reference_csv_path}")
+            return None # 文件不存在
+
+        # 读取 CSV 文件，获取 'model' 列的顺序
+        with open(reference_csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            # 检查 'model' 列是否存在
+            if 'model' not in reader.fieldnames:
+                 logger.error(f"参考 CSV 文件 '{reference_csv_path.name}' 缺少 'model' 列。")
+                 return None # 缺少列
+
+            for row in reader:
+                model_value = row.get('model')
+                # 只添加非空且唯一的 model 值
+                if model_value and model_value not in model_order:
+                    model_order.append(model_value)
+        logger.debug(f"从 CSV 获取到的 'model' 顺序: {model_order}")
+        return model_order
+
+    except Exception as e:
+        logger.error(f"读取参考 CSV 文件 '{reference_csv_path.name}' 时出错: {e}", exc_info=True)
+        return None # 读取失败
+
 def sort_results_by_csv_order(result_dict: Dict[str, Optional[Dict[str, Any]]], reference_csv_path: Path) -> Dict[str, Optional[Dict[str, Any]]]:
     """
     根据参考 CSV 文件中 'model' 列的顺序重新排列结果字典。
+    确保原始字典中的所有键都存在于排序后的字典中。
+    **注意**: 此函数现在依赖于 get_model_order_from_csv。
     确保原始字典中的所有键都存在于排序后的字典中。
 
     Args:
@@ -50,32 +91,22 @@ def sort_results_by_csv_order(result_dict: Dict[str, Optional[Dict[str, Any]]], 
 
     Returns:
         Dict[str, Optional[Dict[str, Any]]]: 重新排序后的字典。如果读取 CSV 失败，返回原始字典。
+    Args:
+        result_dict: 待排序的字典，键是标准参数名，值是匹配到的最佳字典或 None。
+                     例如: {'输出信号': {'model': '输出信号', 'code': 'A', ...}, ...}
+        reference_csv_path: 用于确定顺序的参考 CSV 文件路径。
+
+    Returns:
+        Dict[str, Optional[Dict[str, Any]]]: 重新排序后的字典。如果读取 CSV 失败，返回原始字典。
     """
     logger.debug(f"开始根据 CSV 文件 '{reference_csv_path.name}' 对结果进行排序。")
-    model_order: List[str] = []
-    try:
-        # 检查文件是否存在
-        if not reference_csv_path.is_file():
-            logger.error(f"参考 CSV 文件未找到: {reference_csv_path}")
-            return result_dict # 返回原始字典
+    # 调用新函数获取 model 顺序
+    model_order = get_model_order_from_csv(reference_csv_path)
 
-        # 读取 CSV 文件，获取 'model' 列的顺序
-        with open(reference_csv_path, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            # 检查 'model' 列是否存在
-            if 'model' not in reader.fieldnames:
-                 logger.error(f"参考 CSV 文件 '{reference_csv_path.name}' 缺少 'model' 列。")
-                 return result_dict # 返回原始字典
-
-            for row in reader:
-                model_value = row.get('model')
-                if model_value and model_value not in model_order:
-                    model_order.append(model_value)
-        logger.debug(f"从 CSV 获取到的 'model' 顺序: {model_order}")
-
-    except Exception as e:
-        logger.error(f"读取参考 CSV 文件 '{reference_csv_path.name}' 时出错: {e}", exc_info=True)
-        return result_dict # 如果读取失败，返回原始结果
+    # 如果获取顺序失败，直接返回原始字典
+    if model_order is None:
+        logger.warning(f"无法从 '{reference_csv_path.name}' 获取 'model' 顺序，排序取消。")
+        return result_dict
 
     # 创建一个新的有序字典
     sorted_result: Dict[str, Optional[Dict[str, Any]]] = {}
