@@ -1,0 +1,57 @@
+{
+    "tg": {
+        "螺纹连接保护套管": [
+            "tg/TG_1.csv"
+        ],
+        "焊接安装保护套管": [
+            "tg/TG_2.csv"
+        ],
+        "法兰安装保护套管": [
+            "tg/TG_3.csv"
+        ],
+        "金属保护管(PT1型——无固定装置保护管)": [
+            "tg/TG_4_1.csv"
+        ],
+        "金属保护管(PT2型——螺纹安装金属保护管)": [
+            "tg/TG_4_2.csv"
+        ],
+        "金属保护管(PT3型——法兰安装金属保护管)": [
+            "tg/TG_4_3.csv"
+        ]
+    },
+    "sensor": {
+        "铠装热电阻": [
+            "sensor/HZ.csv"
+        ],
+        "铠装热电偶": [
+            "sensor/HR.csv"
+        ],
+        "表面热电阻": [
+            "sensor/SZ.csv"
+        ],
+        "表面热电偶": [
+            "sensor/SR.csv"
+        ]
+    },
+    "transmitter": {
+        "YTA50": [
+            "transmitter/YTA50.csv"
+        ],
+        "YTA70": [
+            "transmitter/YTA70.csv"
+        ],
+        "YTA70P": [
+            "transmitter/YTA70P.csv"
+        ],
+        "YTA610": [
+            "transmitter/YTA610.csv",
+            "transmitter/YTA610_addon.csv",
+            "transmitter/YTA610_addon_ep.csv"
+        ],
+        "YTA710": [
+            "transmitter/YTA710.csv",
+            "transmitter/YTA710_addon.csv",
+            "transmitter/YTA710_addon_ep.csv"
+        ]
+    }
+}

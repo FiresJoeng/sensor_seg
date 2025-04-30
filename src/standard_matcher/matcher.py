@@ -53,18 +53,20 @@ class StandardLoader:
 
     def load_all(self) -> bool:
         """
-        加载 libs/standard/ 下所有子目录中 index.json 定义的 CSV 文件。
+        加载 libs/standard/index.json 定义的所有标准库 CSV 文件。
         并构建主型号到标准键列表的映射。
 
         Returns:
             bool: 如果至少成功加载了一个标准则为 True，否则为 False。
         """
         base_path = settings.STANDARD_LIBS_DIR
-        if not base_path.is_dir():
-            logger.error(f"标准库根目录未找到或不是目录: {base_path}")
+        index_path = base_path / "index.json"
+
+        if not index_path.is_file():
+            logger.error(f"主索引文件未找到: {index_path}")
             return False
 
-        logger.info(f"开始从 {base_path} 加载所有标准库...")
+        logger.info(f"开始从主索引 {index_path} 加载所有标准库...")
         loaded_count = 0
         # 清空旧数据，确保每次调用都重新加载
         self.all_standards.clear()
@@ -73,81 +75,71 @@ class StandardLoader:
         self.main_model_to_keys.clear()
         self.main_model_csv_order.clear()
 
-        # 遍历 libs/standard/ 下的每个子目录 (例如 sensor, transmitter)
-        for category_dir in base_path.iterdir():
-            if not category_dir.is_dir():
-                continue
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                index_data = json.load(f)
+            logger.debug(f"已加载主索引: {index_path.name}")
 
-            index_path = category_dir / "index.json"
-            if not index_path.is_file():
-                logger.debug(f"在目录 '{category_dir.name}' 中未找到 index.json，跳过。")
-                continue
+            if not isinstance(index_data, dict):
+                logger.error(f"主索引文件格式错误，根元素必须是字典: {index_path.name}")
+                return False
 
-            try:
-                with open(index_path, 'r', encoding='utf-8') as f:
-                    index_data = json.load(f)
-                logger.debug(f"已加载索引: {index_path.name}")
+            # 遍历索引中的顶级键 (分类, e.g., 'tg', 'sensor', 'transmitter')
+            for category, category_data in index_data.items():
+                if not isinstance(category_data, dict):
+                    logger.warning(
+                        f"索引 '{index_path.name}' 中的分类 '{category}' 的值不是字典，跳过。")
+                    continue
 
-                if isinstance(index_data, dict):
-                    for main_model, relative_csv_files in index_data.items():
-                        if not isinstance(relative_csv_files, list):
-                            logger.warning(
-                                f"索引 '{index_path.name}' 中的条目 '{main_model}' 的值不是列表，跳过。")
-                            continue
+                # 遍历分类下的主型号
+                for main_model, relative_csv_files in category_data.items():
+                    if not isinstance(relative_csv_files, list):
+                        logger.warning(
+                            f"索引 '{index_path.name}' -> '{category}' -> '{main_model}' 的值不是列表，跳过。")
+                        continue
 
-                        # 初始化该主型号的列表
-                        self.main_model_to_keys[main_model] = []
-                        # 存储原始 CSV 文件名用于排序
-                        self.main_model_csv_order[main_model] = []
+                    # 初始化该主型号的列表
+                    self.main_model_to_keys[main_model] = []
+                    # 存储原始 CSV 文件名用于排序
+                    self.main_model_csv_order[main_model] = []
 
-                        for relative_csv in relative_csv_files:
-                            if not isinstance(relative_csv, str):
-                                logger.warning(
-                                    f"索引 '{index_path.name}' -> '{main_model}' 中的文件名不是字符串，跳过: {relative_csv}")
-                                continue
-                            csv_path = category_dir / Path(relative_csv)
-                            # 使用去除 .csv 的文件名
-                            standard_key = f"{category_dir.name}/{csv_path.stem}"
-
-                            # 加载单个 CSV
-                            if self._load_single_standard(standard_key, csv_path, main_model):
-                                loaded_count += 1
-                                # 将有效的 standard_key 添加到主型号的映射列表中
-                                self.main_model_to_keys[main_model].append(
-                                    standard_key)
-                                self.main_model_csv_order[main_model].append(
-                                    relative_csv)  # 存储原始文件名
-                            else:
-                                logger.warning(
-                                    f"未能加载标准 '{standard_key}' (主型号: {main_model})，将不会包含在映射中。")
-
-                elif isinstance(index_data, list):  # 处理 index.json 是简单列表的情况
-                    # 这种格式无法利用新的主型号映射逻辑，但保持加载能力
-                    for relative_csv in index_data:
+                    # 遍历主型号关联的 CSV 文件列表
+                    for relative_csv in relative_csv_files:
                         if not isinstance(relative_csv, str):
                             logger.warning(
-                                f"索引 '{index_path.name}' 中的文件名不是字符串，跳过: {relative_csv}")
+                                f"索引 '{index_path.name}' -> '{category}' -> '{main_model}' 中的文件名不是字符串，跳过: {relative_csv}")
                             continue
-                        csv_path = category_dir / Path(relative_csv)
-                        standard_key = f"{category_dir.name}/{csv_path.stem}"
-                        # 没有明确的主型号，可以设为 None 或目录名
-                        # 使用目录名作为可能的 main_model
-                        if self._load_single_standard(standard_key, csv_path, category_dir.name):
-                            loaded_count += 1
-                else:
-                    logger.warning(f"无法识别的 index.json 格式: {index_path.name}")
 
-            except Exception as e:
-                logger.error(
-                    f"处理索引文件 '{index_path.name}' 时出错: {e}", exc_info=True)
-                continue  # 继续处理下一个目录
+                        # 构建完整的 CSV 文件路径 (相对于 base_path)
+                        # relative_csv 已经是 'category/filename.csv' 格式
+                        csv_path = base_path / Path(relative_csv)
+                        # 使用 'category/filename_stem' 作为标准键
+                        standard_key = f"{category}/{csv_path.stem}"
+
+                        # 加载单个 CSV
+                        if self._load_single_standard(standard_key, csv_path, main_model):
+                            loaded_count += 1
+                            # 将有效的 standard_key 添加到主型号的映射列表中
+                            self.main_model_to_keys[main_model].append(
+                                standard_key)
+                            self.main_model_csv_order[main_model].append(
+                                relative_csv)  # 存储原始相对路径文件名
+                        else:
+                            logger.warning(
+                                f"未能加载标准 '{standard_key}' (主型号: {main_model})，将不会包含在映射中。")
+
+        except Exception as e:
+            logger.error(
+                f"处理主索引文件 '{index_path.name}' 时出错: {e}", exc_info=True)
+            return False # 索引加载失败，直接返回 False
 
         if loaded_count > 0:
             logger.info(f"成功加载 {loaded_count} 个标准 CSV 文件。")
             logger.debug(f"构建的主型号到标准键映射: {self.main_model_to_keys}")
+            logger.debug(f"构建的主型号到 CSV 顺序映射: {self.main_model_csv_order}")
             return True
         else:
-            logger.error("未能成功加载任何标准 CSV 文件。")
+            logger.error("未能成功加载任何标准 CSV 文件 (检查索引和 CSV 文件是否存在且格式正确)。")
             return False
 
     def _load_single_standard(self, standard_key: str, csv_path: Path, main_model: Optional[str]) -> bool:
