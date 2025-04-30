@@ -1,7 +1,6 @@
 # new_sensor_project/src/standard_matcher/matcher.py
 import json
 import logging
-import os  # 新增导入 os
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional, Set
 import pandas as pd
@@ -391,98 +390,133 @@ class SpecCodeGenerator:
         """初始化 SpecCodeGenerator。"""
         self.loader = StandardLoader()
         self.code_matcher = SpecCodeMatcher()
-        # 假设主型号参数的键是 '温度变送器'，可以根据实际情况调整或配置化
-        self.main_model_param_key = '温度变送器'  # TODO: 考虑从配置加载
+        # 不再需要预设的主型号参数键
+        # self.main_model_param_key = '温度变送器' # 移除或注释掉
 
-    def _find_best_main_model(self, standardized_params: Dict[str, str]) -> Optional[Tuple[str, List[str]]]:
+    def _find_best_keyword_set(self, standardized_params: Dict[str, str]) -> Optional[Tuple[str, List[str]]]:
         """
-        根据输入参数名称和主型号值，选择最佳匹配的主型号及其关联的标准键列表。
+        根据输入参数的 *值* 与 index.json 中的“关键词”（嵌套键）进行匹配，
+        选择关联度最高的“关键词”及其对应的 CSV 文件路径列表。
 
         Args:
             standardized_params: 标准化参数字典 {standard_param_name: standard_param_value}。
 
         Returns:
             Optional[Tuple[str, List[str]]]:
-                包含最佳主型号名称和关联标准键列表的元组，
-                如果未找到合适的主型号则为 None。
+                包含最佳匹配“关键词”和关联标准 CSV 路径列表的元组，
+                如果未找到合适的匹配则为 None。
         """
-        if not self.loader.main_model_to_keys:
-            logger.error("主型号到标准键的映射为空，无法选择最佳主型号。请确保 StandardLoader 已成功加载。")
+        # main_model_to_keys 存储的是 {keyword: [standard_keys]}
+        # main_model_csv_order 存储的是 {keyword: [csv_paths]}
+        if not self.loader.main_model_csv_order:
+            logger.error("关键词到 CSV 路径的映射为空，无法选择。请确保 StandardLoader 已成功加载。")
             return None
 
-        input_param_names = set(standardized_params.keys())
-        if not input_param_names:
-            logger.error("输入参数名称集合为空，无法选择最佳主型号。")
+        input_param_values = [v for v in standardized_params.values() if isinstance(v, str) and v] # 提取所有非空字符串值
+        if not input_param_values:
+            logger.error("输入参数值列表为空，无法进行关键词匹配。")
             return None
 
-        # 提取输入的主型号值
-        input_main_model_value = standardized_params.get(
-            self.main_model_param_key)
-        logger.info(
-            f"开始为输入参数 {input_param_names} (主型号值: {input_main_model_value}) 选择最佳匹配主型号...")
+        logger.info(f"开始根据输入参数值 {input_param_values} 选择最佳匹配关键词...")
 
-        best_score = -1.0
-        best_main_model: Optional[str] = None
-        best_standard_keys: List[str] = []
+        best_overall_score = -1.0
+        best_keyword: Optional[str] = None
+        candidate_keywords = list(self.loader.main_model_csv_order.keys()) # 获取所有关键词
 
-        # 主型号匹配的加权分数
-        MAIN_MODEL_MATCH_BONUS = 1000
+        # 1. 模糊匹配计算每个关键词与输入值的最高相似度
+        keyword_scores: Dict[str, float] = {}
+        for keyword in candidate_keywords:
+            max_score_for_keyword = 0.0
+            for value in input_param_values:
+                score = calculate_string_similarity(keyword, value)
+                if score > max_score_for_keyword:
+                    max_score_for_keyword = score
+            keyword_scores[keyword] = max_score_for_keyword
+            logger.debug(f"  关键词 '{keyword}' 与输入值的最高模糊匹配得分: {max_score_for_keyword:.4f}")
+            if max_score_for_keyword > best_overall_score:
+                best_overall_score = max_score_for_keyword
+                best_keyword = keyword
 
-        # 遍历所有已识别的主型号及其关联的标准键
-        for main_model, standard_keys in self.loader.main_model_to_keys.items():
-            if not standard_keys:  # 如果某个主型号没有关联的 key，跳过
-                continue
+        # 检查模糊匹配结果
+        threshold = settings.FUZZY_MATCH_THRESHOLD # 重用模糊匹配阈值
+        if best_keyword and best_overall_score >= threshold:
+            logger.info(f"通过模糊匹配选择的最佳关键词: '{best_keyword}' (最高得分: {best_overall_score:.4f} >= {threshold})")
+            # 获取关联的 CSV 路径列表
+            associated_csv_paths = self.loader.main_model_csv_order.get(best_keyword, [])
+            if associated_csv_paths:
+                 # 需要返回 standard_keys (category/stem 格式) 而不是 csv_paths
+                 # 从 csv_paths 推断 standard_keys
+                 associated_standard_keys = []
+                 for csv_path_str in associated_csv_paths:
+                     p = Path(csv_path_str)
+                     # 假设 csv_path_str 是 'category/filename.csv'
+                     category = p.parent.name
+                     stem = p.stem
+                     associated_standard_keys.append(f"{category}/{stem}")
+                 logger.debug(f"关键词 '{best_keyword}' 关联的标准键: {associated_standard_keys}")
+                 return best_keyword, associated_standard_keys
+            else:
+                 logger.error(f"找到最佳关键词 '{best_keyword}' 但未能获取其关联的 CSV 路径列表。")
+                 return None
 
-            # 收集该主型号下所有标准库定义的参数名称
-            combined_standard_names = set()
-            for key in standard_keys:
-                combined_standard_names.update(
-                    self.loader.standard_param_names.get(key, set()))
-
-            if not combined_standard_names:
-                logger.debug(f"主型号 '{main_model}' 关联的标准库没有有效的参数名称，跳过。")
-                continue
-
-            # 1. 计算基础得分 (参数名称交集)
-            # 只考虑非主型号参数的交集，因为主型号参数用于 bonus
-            non_main_model_input_names = input_param_names - \
-                {self.main_model_param_key}
-            intersection = non_main_model_input_names.intersection(
-                combined_standard_names)
-            base_score = len(intersection)
-
-            # 2. 计算主型号匹配加分
-            model_bonus = 0
-            if input_main_model_value and main_model and input_main_model_value == main_model:
-                model_bonus = MAIN_MODEL_MATCH_BONUS
-                logger.debug(
-                    f"    主型号匹配! ('{input_main_model_value}' == '{main_model}')，加分 {model_bonus}")
-            # 如果输入没有主型号，但标准库有，给一个较小的 bonus？或者不给？当前不给。
-
-            # 3. 计算总分
-            total_score = base_score + model_bonus
-
-            logger.debug(
-                f"  - 主型号 '{main_model}' (关联键: {standard_keys}): 参数名 {combined_standard_names}, 交集 {intersection} (基础分 {base_score}), 主型号加分 {model_bonus}, 总分 {total_score}")
-
-            # 更新最佳匹配
-            if total_score > best_score:
-                best_score = total_score
-                best_main_model = main_model
-                best_standard_keys = standard_keys  # 存储关联的标准键列表
-
-        if best_main_model and best_standard_keys:
-            logger.info(
-                f"选择的最佳匹配主型号: '{best_main_model}' (关联标准键: {best_standard_keys}, 得分: {best_score})")
-            return best_main_model, best_standard_keys
         else:
-            logger.error(f"未能为输入参数找到合适的匹配主型号。最高得分: {best_score}")
-            return None
+            logger.warning(f"模糊匹配未能找到得分足够高的关键词 (最高得分: {best_overall_score:.4f} < {threshold})。尝试 LLM 匹配...")
+
+            # 2. LLM 匹配 (如果模糊匹配不满足条件)
+            # TODO: 实现 LLM 逻辑，需要设计合适的 Prompt
+            # Prompt 需要包含所有输入参数值和所有候选关键词
+            # 让 LLM 选择最相关的关键词
+
+            system_prompt = """
+            你是一位专门分析工业产品参数的专家。
+            你的任务是根据一系列输入参数值，从给定的候选“关键词”列表中，选择一个与这些参数值整体最相关的关键词。
+            这些关键词通常代表产品的主型号或主要类别。
+            请仔细分析输入参数值和候选关键词的含义。
+            仅以 JSON 对象响应，其中包含最佳匹配的关键词。
+            响应示例：{"best_match_keyword": "选中的关键词"}
+            如果在候选者中未找到合适的匹配项，请响应：{"error": "未找到合适的匹配项"}
+            请勿在 JSON 对象之外包含任何解释或对话性文本。
+            """
+            user_prompt = f"""
+            输入参数值列表:
+            {json.dumps(input_param_values, ensure_ascii=False, indent=2)}
+
+            候选关键词列表:
+            {json.dumps(candidate_keywords, ensure_ascii=False, indent=2)}
+
+            根据输入参数值，从候选列表中选择最相关的一个关键词。
+            """
+
+            llm_result = call_llm_for_match(system_prompt, user_prompt)
+
+            if llm_result and "best_match_keyword" in llm_result and isinstance(llm_result["best_match_keyword"], str):
+                best_keyword_llm = llm_result["best_match_keyword"]
+                if best_keyword_llm in candidate_keywords: # 确保 LLM 返回的是候选列表中的一个
+                    logger.info(f"LLM 选择了最佳匹配关键词: '{best_keyword_llm}'")
+                    associated_csv_paths = self.loader.main_model_csv_order.get(best_keyword_llm, [])
+                    if associated_csv_paths:
+                        associated_standard_keys = []
+                        for csv_path_str in associated_csv_paths:
+                            p = Path(csv_path_str)
+                            category = p.parent.name
+                            stem = p.stem
+                            associated_standard_keys.append(f"{category}/{stem}")
+                        logger.debug(f"关键词 '{best_keyword_llm}' 关联的标准键: {associated_standard_keys}")
+                        return best_keyword_llm, associated_standard_keys
+                    else:
+                        logger.error(f"LLM 选择了关键词 '{best_keyword_llm}' 但未能获取其关联的 CSV 路径列表。")
+                        return None
+                else:
+                    logger.warning(f"LLM 返回的关键词 '{best_keyword_llm}' 不在候选列表中，忽略。")
+                    return None
+            else:
+                logger.error(f"LLM 未能选择最佳匹配关键词。LLM 结果: {llm_result}")
+                return None # 如果 LLM 失败或未找到匹配项
 
     def generate(self, standardized_params: Dict[str, str]) -> Optional[Tuple[str, str]]:
         """
         根据标准化参数推荐产品型号代码并生成推荐理由。
-        能够处理与主型号关联的多个标准库文件。
+        使用新的关键词匹配逻辑选择标准库。
 
         Args:
             standardized_params: 标准化参数字典 {standard_param_name: standard_param_value}。
@@ -491,7 +525,7 @@ class SpecCodeGenerator:
             Optional[Tuple[str, str]]: 包含推荐型号代码和推荐理由的元组 (code, reason)，
                                        如果发生错误则为 None。
         """
-        logger.info("--- 开始型号代码推荐与理由生成 (多文件处理逻辑) ---")
+        logger.info("--- 开始型号代码推荐与理由生成 (关键词匹配逻辑) ---")
         if not standardized_params:
             logger.error("输入参数为空，无法推荐型号代码。")
             return None
@@ -501,53 +535,49 @@ class SpecCodeGenerator:
             # 错误已在 load_all 中记录
             return None
 
-        # 2. 根据输入参数选择最佳匹配的主型号及其关联的标准键列表
-        best_model_result = self._find_best_main_model(standardized_params)
-        if not best_model_result:
-            # 错误已在 _find_best_main_model 中记录
+        # 2. 根据输入参数值选择最佳匹配的“关键词”及其关联的标准键列表
+        best_keyword_result = self._find_best_keyword_set(standardized_params)
+        if not best_keyword_result:
+            logger.error("未能根据输入参数值找到合适的关键词和标准库集。")
             return None
-        selected_main_model, associated_standard_keys = best_model_result
+        selected_keyword, associated_standard_keys = best_keyword_result
 
-        # 3. 初始化代码列表，将主型号作为第一部分
-        # 存储 (code, match_details)
+        # 3. 初始化代码列表 (不再包含关键词)
+        # 存储从 CSV 匹配到的 (code, match_details)
         product_code_parts: List[Tuple[str, Optional[Dict[str, Any]]]] = []
-        if selected_main_model and selected_main_model.strip():
-            # 主型号本身没有 match_details，用 None 占位
-            product_code_parts.append((selected_main_model.strip(), None))
-            logger.info(f"已添加基础型号代码: '{selected_main_model.strip()}'")
-        else:
-            logger.warning("未能确定有效的基础型号代码，最终代码可能不完整。")
-            # 即使没有主型号，也继续尝试匹配其他参数
+        logger.info(f"已根据关键词 '{selected_keyword}' 确定标准库集: {associated_standard_keys}")
 
-        # 4. 遍历 *所有* 输入参数 (除了主型号)，在关联的标准键列表中查找匹配
+        # 4. 遍历 *所有* 输入参数，在关联的标准键列表中查找匹配
         # 存储最终匹配结果 {param_name: match_details}
         final_matches: Dict[str, Optional[Dict[str, Any]]] = {}
         matched_param_names = set()  # 跟踪已成功匹配的参数名
 
         logger.info(
-            f"开始在主型号 '{selected_main_model}' 的关联标准库 {associated_standard_keys} 中匹配其余输入参数...")
+            f"开始在关键词 '{selected_keyword}' 的关联标准库 {associated_standard_keys} 中匹配输入参数...")
+
+        param_key_to_skip = None # 设为 None 如果不需要跳过任何特定键
 
         for std_param_name, std_param_value in standardized_params.items():
-            # 跳过主型号参数
-            if std_param_name == self.main_model_param_key:
-                logger.debug(f"跳过主型号参数 '{std_param_name}' 的匹配。")
-                continue
+            # 跳过可能用于选择关键词的参数 (如果需要)
+            if std_param_name == param_key_to_skip:
+                 logger.debug(f"跳过参数 '{std_param_name}' 的匹配 (可能已用于关键词选择)。")
+                 continue
             # 跳过空的参数名或值
             if not std_param_name or not std_param_value:
-                logger.debug(
+                 logger.debug(
                     f"跳过空参数: 名称='{std_param_name}', 值='{std_param_value}'")
-                continue
+                 continue
             # 如果参数已匹配，跳过 (防止重复添加代码)
             if std_param_name in matched_param_names:
-                logger.debug(f"参数 '{std_param_name}' 已在之前的标准库中匹配，跳过。")
-                continue
+                 logger.debug(f"参数 '{std_param_name}' 已在之前的标准库中匹配，跳过。")
+                 continue
 
             logger.debug(
                 f"--- 尝试匹配参数: '{std_param_name}' = '{std_param_value}' ---")
             found_match_for_param = False
             best_match_row_dict: Optional[Dict[str, Any]] = None
 
-            # 遍历与主型号关联的 *所有* 标准键 (CSV 文件)
+            # 遍历与选定关键词关联的 *所有* 标准键 (CSV 文件)
             for standard_key in associated_standard_keys:
                 logger.debug(f"  在标准 '{standard_key}' 中查找...")
                 target_df = self.loader.all_standards.get(standard_key)
@@ -557,6 +587,7 @@ class SpecCodeGenerator:
                     continue
 
                 # a. 查找候选行 (基于标准参数名称，在当前 DF 内精确匹配)
+                # 注意：这里的匹配仍然是基于参数 *名称* (std_param_name)
                 candidate_rows_df = self.loader.find_candidate_rows(
                     std_param_name, target_df)
 
@@ -594,81 +625,79 @@ class SpecCodeGenerator:
                 logger.warning(f"参数 '{std_param_name}' 未能在任何关联的标准库中找到合适的标准代码。")
                 final_matches[std_param_name] = None  # 标记为未找到匹配
 
-        # 5. 排序附加代码 (基于 index.json 中 CSV 文件的顺序)
-        # 提取基础型号代码 (第一个元素)
-        base_model_code = product_code_parts[0][0] if product_code_parts else ""
-        # 提取附加代码及其来源信息 (从第二个元素开始)
-        additional_codes_with_details = product_code_parts[1:]
+        # 5. 排序所有匹配到的代码部分 (基于 index.json 中 CSV 文件的顺序)
+        # product_code_parts 现在只包含从 CSV 匹配到的代码
+        all_matched_codes_with_details = product_code_parts
 
-        # 获取用于排序的 CSV 文件顺序列表
+        # 获取用于排序的 CSV 文件顺序列表 (使用 selected_keyword)
         csv_order_list = self.loader.main_model_csv_order.get(
-            selected_main_model, [])
+            selected_keyword, []) # 使用 selected_keyword
         logger.debug(
-            f"用于排序的 CSV 文件顺序 (主型号: {selected_main_model}): {csv_order_list}")
+            f"用于排序的 CSV 文件顺序 (关键词: {selected_keyword}): {csv_order_list}")
 
-        # 定义排序函数
+        # 定义排序函数 (逻辑不变，但依赖 csv_order_list)
         def get_sort_key(item: Tuple[str, Optional[Dict[str, Any]]]) -> int:
             code, details = item
             if details and '_source_standard_key' in details:
                 # e.g., 'transmitter/YTA710_addon'
-                source_key = details['_source_standard_key']
-                # 从 source_key 提取原始 CSV 文件名 (需要去掉目录前缀和可能的 _stem)
+                source_key = details['_source_standard_key'] # category/stem
+                # 从 source_key 推断原始 CSV 文件相对路径
+                # 需要找到在 csv_order_list 中 stem 匹配的项
                 parts = source_key.split('/', 1)
                 if len(parts) == 2:
-                    stem = parts[1]
-                    # 尝试在 csv_order_list 中找到对应的原始文件名
-                    for csv_file in csv_order_list:
-                        if Path(csv_file).stem == stem:
+                    stem_from_key = parts[1]
+                    # 遍历 csv_order_list (包含 'category/filename.csv')
+                    for csv_relative_path in csv_order_list:
+                        if Path(csv_relative_path).stem == stem_from_key:
                             try:
-                                index = csv_order_list.index(csv_file)
+                                # 使用原始相对路径在列表中查找索引
+                                index = csv_order_list.index(csv_relative_path)
                                 logger.debug(
-                                    f"  排序: 代码 '{code}' (来自 {source_key}, 对应 {csv_file}) 的索引为 {index}")
+                                    f"  排序: 代码 '{code}' (来自 {source_key}, 对应 {csv_relative_path}) 的索引为 {index}")
                                 return index
                             except ValueError:
-                                pass  # 文件名不在顺序列表中
+                                pass # 不应该发生，但以防万一
                 # 如果无法确定顺序，放到最后
                 logger.warning(
                     f"无法确定代码 '{code}' (来自 {source_key}) 的排序位置，将置于末尾。")
-                return len(csv_order_list)  # 放到最后
+                return len(csv_order_list)
             logger.warning(f"代码 '{code}' 缺少来源信息，无法排序，将置于末尾。")
-            return len(csv_order_list)  # 没有来源信息，放到最后
+            return len(csv_order_list)
 
-        # 对附加代码进行排序
-        sorted_additional_codes_with_details = sorted(
-            additional_codes_with_details, key=get_sort_key)
-        sorted_additional_codes = [
-            code for code, details in sorted_additional_codes_with_details]
+        # 对所有匹配到的代码进行排序
+        sorted_all_codes_with_details = sorted(
+            all_matched_codes_with_details, key=get_sort_key)
+        sorted_codes = [
+            code for code, details in sorted_all_codes_with_details]
 
-        logger.debug(f"排序后的附加代码: {sorted_additional_codes}")
+        logger.debug(f"排序后的代码部分: {sorted_codes}")
 
-        # 6. 组装推荐型号代码 (拼接基础型号和排序后的附加代码)
-        if not base_model_code and not sorted_additional_codes:
-            logger.error("未能生成任何代码部分，无法生成最终型号代码。")
+        # 6. 组装推荐型号代码 (仅拼接排序后的代码部分)
+        if not sorted_codes:
+            logger.error("未能匹配到任何代码部分，无法生成最终型号代码。")
             return None
-        elif not sorted_additional_codes and base_model_code:
-            logger.warning("只生成了基础型号代码，没有匹配到任何附加选项代码。")
 
-        # 如果需要分隔符，在这里添加
-        recommended_code = base_model_code + \
-            "".join(sorted_additional_codes)  # 直接拼接
+        # 直接拼接所有排序后的代码
+        recommended_code = "".join(sorted_codes)
         logger.info(f"--- 型号代码推荐完成 ---")
         logger.info(f"推荐型号代码: {recommended_code}")
 
         # 7. 生成推荐理由 (使用 final_matches 获取所有参数的匹配信息)
+        # 更新理由生成函数，传递 selected_keyword 而不是 main_model
         recommendation_reason = self._generate_recommendation_reason(
-            standardized_params, final_matches, recommended_code, selected_main_model, associated_standard_keys)
+            standardized_params, final_matches, recommended_code, selected_keyword, associated_standard_keys)
 
         return recommended_code, recommendation_reason
 
-    def _generate_recommendation_reason(self, user_requirements: Dict[str, str], matched_details: Dict[str, Optional[Dict[str, Any]]], recommended_code: str, selected_main_model: str, source_keys: List[str]) -> str:
+    def _generate_recommendation_reason(self, user_requirements: Dict[str, str], matched_details: Dict[str, Optional[Dict[str, Any]]], recommended_code: str, selected_keyword: str, source_keys: List[str]) -> str:
         """
-        调用 LLM 生成推荐理由。 (增加了 selected_main_model 和 source_keys 参数, 处理未匹配参数)
+        调用 LLM 生成推荐理由。 (使用 selected_keyword 替代 main_model)
 
         Args:
             user_requirements: 用户输入的标准化参数字典。
             matched_details: 匹配到的每个参数的详细信息字典 (None 表示未匹配)。
             recommended_code: 最终推荐的型号代码。
-            selected_main_model: 选定的主型号名称。
+            selected_keyword: 选定的关键词名称。
             source_keys: 用于匹配的标准库键列表。
 
         Returns:
@@ -680,9 +709,10 @@ class SpecCodeGenerator:
             relevant_details = []
             unmatched_params = []
             # 遍历原始需求，检查匹配结果
+            param_key_to_skip = '温度变送器' # 保持这个，或者设为 None
             for param, req_value in user_requirements.items():
-                # 跳过主型号参数本身
-                if param == self.main_model_param_key:
+                # 跳过可能用于选择关键词的参数
+                if param == param_key_to_skip:
                     continue
 
                 details = matched_details.get(param)  # 获取匹配结果
@@ -699,7 +729,7 @@ class SpecCodeGenerator:
             system_prompt = f"""
             你是一位专业的工业自动化产品选型顾问，尤其擅长温度变送器、温度传感器和TG保护套管。
             你的任务是根据用户提供的需求参数、系统匹配到的产品规格细节（包括来源标准库）、未匹配的参数（如有）以及最终推荐的型号代码，生成一段简洁、专业且易于理解的推荐理由。
-            重点突出推荐型号（基于主型号 '{selected_main_model}'）的关键特性如何满足了用户的核心需求。
+            重点突出推荐型号（基于选定的关键词/类别 '{selected_keyword}'）的关键特性如何满足了用户的核心需求。
             如果存在未匹配的参数，请在理由中提及，并说明当前推荐是基于已匹配参数的最佳选择。
             语言风格应专业、客观、自信。避免口语化表达。
             直接输出推荐理由文本，不要包含任何额外的前缀或解释性文字 (例如不要说 "推荐理由如下：")。
@@ -709,7 +739,7 @@ class SpecCodeGenerator:
             用户需求 (标准化参数):
             {json.dumps(user_requirements, indent=2, ensure_ascii=False)}
 
-            系统匹配到的规格细节 (来自标准库: {source_keys}):
+            系统匹配到的规格细节 (来自与关键词 '{selected_keyword}' 关联的标准库: {source_keys}):
             {chr(10).join(relevant_details) if relevant_details else "无成功匹配的附加规格。"}
 
             未能匹配的参数:
@@ -717,7 +747,7 @@ class SpecCodeGenerator:
 
             最终推荐型号代码: {recommended_code}
 
-            请基于以上信息，为型号 '{selected_main_model}' 生成推荐理由：
+            请基于以上信息，为基于关键词 '{selected_keyword}' 生成的型号生成推荐理由：
             """
             # 调用 LLM，明确告知不需要 JSON 格式
             llm_response = call_llm_for_match(
