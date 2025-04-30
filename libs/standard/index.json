@@ -44,7 +44,7 @@
     },
     "tg": {
         "默认": [
-            "sensor/TG_1.csv"
+            "tg/TG_1.csv"
         ],
         "螺纹连接保护套管": [
             "tg/TG_1.csv"
