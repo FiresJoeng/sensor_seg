@@ -303,7 +303,7 @@ class SpecCodeMatcher:
             f"为值 '{standard_param_value}' 从 {len(candidate_rows)} 个候选中选择最佳匹配...")
 
         for index, row in candidate_rows.iterrows():
-            for field in ('description', 'code', 'model'):  # 检查的字段顺序
+            for field in ('description', 'code', 'model', 'remark'):  # 检查的字段顺序 (增加了 remark)
                 if field in row:
                     text_in_df = str(row[field])  # 确保进行字符串比较
                     score = calculate_string_similarity(
@@ -339,7 +339,7 @@ class SpecCodeMatcher:
             system_prompt = """
             你是一位专门研究工业传感器规格的专家助手。
             你的任务是根据目标参数值从候选列表中选择最佳匹配的规格行。
-            分析目标值以及每个候选行的 'description'、'code' 和 'model' 字段。
+            分析目标值以及每个候选行的 'description'、'code'、'model' 和 'remark' 字段。
             仅以 JSON 对象响应，其中包含最佳匹配候选行的字典表示。
             响应示例：{"best_match": {"model": "型号名称", "description": "描述", "code": "代码", ...}}
             如果在候选者中未找到合适的匹配项，请响应：{"error": "未找到合适的匹配项"}
@@ -625,64 +625,135 @@ class SpecCodeGenerator:
                 logger.warning(f"参数 '{std_param_name}' 未能在任何关联的标准库中找到合适的标准代码。")
                 final_matches[std_param_name] = None  # 标记为未找到匹配
 
-        # 5. 排序所有匹配到的代码部分 (基于 index.json 中 CSV 文件的顺序)
-        # product_code_parts 现在只包含从 CSV 匹配到的代码
-        all_matched_codes_with_details = product_code_parts
+        # 5. 根据新的逻辑组装和排序代码
+        logger.info("开始根据第一个 CSV 文件顺序和新规则组装代码...")
 
+        # 5.1 识别第一个 CSV 文件及其信息
+        first_csv_key: Optional[str] = None
+        first_csv_df: Optional[pd.DataFrame] = None
+        first_csv_model_order: List[str] = []
+        first_csv_model_to_index: Dict[str, int] = {}
+
+        if associated_standard_keys:
+            first_csv_key = associated_standard_keys[0]
+            first_csv_df = self.loader.all_standards.get(first_csv_key)
+            if first_csv_df is not None and 'model' in first_csv_df.columns:
+                # 获取第一个 CSV 中 'model' 列的唯一值顺序 (保持原始顺序)
+                seen_models = set()
+                for model_name in first_csv_df['model']:
+                    if model_name and model_name not in seen_models:
+                        first_csv_model_order.append(model_name)
+                        seen_models.add(model_name)
+                # 创建 model 到 index 的映射
+                first_csv_model_to_index = {model: i for i, model in enumerate(first_csv_model_order)}
+                logger.debug(f"第一个 CSV ('{first_csv_key}') 的 model 顺序: {first_csv_model_order}")
+            else:
+                logger.error(f"无法加载第一个 CSV ('{first_csv_key}') 或其缺少 'model' 列，无法按其顺序排序。")
+                # 可以在这里决定是中止还是回退到旧逻辑，当前选择中止
+                return None
+        else:
+            logger.error("没有关联的标准键，无法确定第一个 CSV 文件。")
+            return None
+
+        # 5.2 初始化最终代码序列和后续代码列表
+        final_code_sequence: List[Optional[str]] = [None] * len(first_csv_model_order)
+        subsequent_codes_with_details: List[Tuple[str, Dict[str, Any]]] = []
+        matched_first_csv_models: Set[str] = set() # 跟踪第一个 CSV 中已匹配的 model
+
+        # 5.3 分配匹配到的代码到序列或后续列表
+        # product_code_parts 包含所有匹配到的 (code, details)
+        for code, details in product_code_parts:
+            if details and '_source_standard_key' in details:
+                source_key = details['_source_standard_key']
+                matched_model = details.get('model') # 获取匹配行对应的 model 名称
+
+                if not matched_model:
+                    logger.warning(f"匹配到的代码 '{code}' (来自 {source_key}) 缺少 'model' 信息，无法按顺序放置。")
+                    # 决定如何处理：可以放入后续列表，或忽略
+                    subsequent_codes_with_details.append((code, details)) # 放入后续
+                    continue
+
+                if source_key == first_csv_key:
+                    # 来自第一个 CSV
+                    if matched_model in first_csv_model_to_index:
+                        idx = first_csv_model_to_index[matched_model]
+                        if final_code_sequence[idx] is None:
+                            final_code_sequence[idx] = code
+                            matched_first_csv_models.add(matched_model)
+                            logger.debug(f"  代码 '{code}' (model: {matched_model}) 放入首个 CSV 序列位置 {idx}")
+                        else:
+                            # 同一个 model 被多次匹配 (理论上不应发生，因为参数名是唯一的)
+                            logger.warning(f"  位置 {idx} (model: {matched_model}) 已被代码 '{final_code_sequence[idx]}' 占据，新的代码 '{code}' 将被忽略或放入后续？")
+                            # 放入后续作为备选
+                            subsequent_codes_with_details.append((code, details))
+                    else:
+                        # Model 不在第一个 CSV 的顺序中 (理论上不应发生)
+                        logger.warning(f"  代码 '{code}' 的 model '{matched_model}' (来自首个 CSV {source_key}) 未在预期的 model 顺序中找到，将放入后续列表。")
+                        subsequent_codes_with_details.append((code, details))
+                else:
+                    # 来自后续 CSV
+                    logger.debug(f"  代码 '{code}' (model: {matched_model}, 来自 {source_key}) 放入后续列表。")
+                    subsequent_codes_with_details.append((code, details))
+            else:
+                logger.warning(f"代码 '{code}' 缺少来源信息，放入后续列表。")
+                # 确保 details 是字典以避免后续排序出错
+                subsequent_codes_with_details.append((code, details if details else {}))
+
+        # 5.4 处理第一个 CSV 中未匹配的 model，插入占位符 '?'
+        placeholder_count = 0
+        for i, model_name in enumerate(first_csv_model_order):
+            if model_name not in matched_first_csv_models:
+                if final_code_sequence[i] is None: # 确保不会覆盖已有的代码
+                    final_code_sequence[i] = '?'
+                    placeholder_count += 1
+                    logger.debug(f"  为首个 CSV 中未匹配的 model '{model_name}' 在位置 {i} 插入占位符 '?'")
+        if placeholder_count > 0:
+            logger.info(f"为第一个 CSV 中 {placeholder_count} 个未匹配的 model 插入了占位符。")
+
+        # 5.5 (可选) 对后续代码进行排序 (例如按来源 CSV 顺序)
         # 获取用于排序的 CSV 文件顺序列表 (使用 selected_keyword)
-        csv_order_list = self.loader.main_model_csv_order.get(
-            selected_keyword, []) # 使用 selected_keyword
-        logger.debug(
-            f"用于排序的 CSV 文件顺序 (关键词: {selected_keyword}): {csv_order_list}")
-
-        # 定义排序函数 (逻辑不变，但依赖 csv_order_list)
-        def get_sort_key(item: Tuple[str, Optional[Dict[str, Any]]]) -> int:
+        csv_order_list = self.loader.main_model_csv_order.get(selected_keyword, [])
+        def get_subsequent_sort_key(item: Tuple[str, Dict[str, Any]]) -> int:
             code, details = item
             if details and '_source_standard_key' in details:
-                # e.g., 'transmitter/YTA710_addon'
                 source_key = details['_source_standard_key'] # category/stem
-                # 从 source_key 推断原始 CSV 文件相对路径
-                # 需要找到在 csv_order_list 中 stem 匹配的项
                 parts = source_key.split('/', 1)
                 if len(parts) == 2:
                     stem_from_key = parts[1]
-                    # 遍历 csv_order_list (包含 'category/filename.csv')
                     for csv_relative_path in csv_order_list:
                         if Path(csv_relative_path).stem == stem_from_key:
                             try:
-                                # 使用原始相对路径在列表中查找索引
                                 index = csv_order_list.index(csv_relative_path)
-                                logger.debug(
-                                    f"  排序: 代码 '{code}' (来自 {source_key}, 对应 {csv_relative_path}) 的索引为 {index}")
-                                return index
-                            except ValueError:
-                                pass # 不应该发生，但以防万一
-                # 如果无法确定顺序，放到最后
-                logger.warning(
-                    f"无法确定代码 '{code}' (来自 {source_key}) 的排序位置，将置于末尾。")
-                return len(csv_order_list)
-            logger.warning(f"代码 '{code}' 缺少来源信息，无法排序，将置于末尾。")
-            return len(csv_order_list)
+                                # 给后续 CSV 的索引加上偏移量，确保排在第一个 CSV 之后
+                                return len(first_csv_model_order) + index
+                            except ValueError: pass
+                return len(first_csv_model_order) + len(csv_order_list) # 无法确定，放最后
+            return len(first_csv_model_order) + len(csv_order_list) # 无来源，放最后
 
-        # 对所有匹配到的代码进行排序
-        sorted_all_codes_with_details = sorted(
-            all_matched_codes_with_details, key=get_sort_key)
-        sorted_codes = [
-            code for code, details in sorted_all_codes_with_details]
+        sorted_subsequent_codes_with_details = sorted(
+            subsequent_codes_with_details, key=get_subsequent_sort_key
+        )
+        sorted_subsequent_codes = [code for code, details in sorted_subsequent_codes_with_details]
+        logger.debug(f"排序后的后续代码部分: {sorted_subsequent_codes}")
 
-        logger.debug(f"排序后的代码部分: {sorted_codes}")
 
-        # 6. 组装推荐型号代码 (仅拼接排序后的代码部分)
-        if not sorted_codes:
-            logger.error("未能匹配到任何代码部分，无法生成最终型号代码。")
-            return None
+        # 6. 组装最终推荐型号代码
+        # 将 final_code_sequence 中的 None (理论上不应有，但以防万一) 替换为 '?'
+        final_sequence_str = [c if c is not None else '?' for c in final_code_sequence]
 
-        # 直接拼接所有排序后的代码
-        recommended_code = "".join(sorted_codes)
+        recommended_code = "".join(final_sequence_str) + "".join(sorted_subsequent_codes)
+
+        if not recommended_code.replace('?', ''): # 如果去除占位符后为空
+             logger.error("未能生成任何有效代码部分 (只有占位符或完全为空)，无法生成最终型号代码。")
+             return None
+
         logger.info(f"--- 型号代码推荐完成 ---")
+        logger.info(f"最终代码序列 (含占位符): {final_sequence_str}")
+        logger.info(f"后续代码序列: {sorted_subsequent_codes}")
         logger.info(f"推荐型号代码: {recommended_code}")
 
-        # 7. 生成推荐理由 (使用 final_matches 获取所有参数的匹配信息)
+
+        # 7. 生成推荐理由 (逻辑不变，使用 final_matches)
         # 更新理由生成函数，传递 selected_keyword 而不是 main_model
         recommendation_reason = self._generate_recommendation_reason(
             standardized_params, final_matches, recommended_code, selected_keyword, associated_standard_keys)
