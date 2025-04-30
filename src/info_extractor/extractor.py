@@ -182,25 +182,17 @@ class InfoExtractor:
             cleaned_json = self._clean_json_response(raw_content)
             result_dict = json.loads(cleaned_json)
 
-            # 参数合并处理
-            merge_result = self.json_proc.merge_parameters(result_dict)
-            simplified_result = {
-                "merged_devices": merge_result["merged_devices"],
-                "备注": result_dict.get("备注", {})
-            }
+            # 直接使用原始响应数据
+            output_data = result_dict  # 不再进行参数合并
 
-            # 清理元数据
-            for device in simplified_result["merged_devices"]:
-                device.pop("元数据", None)
-
-            # 保存结果
+            # 保存原始结果
             output_filename = output_filename or f"{file_path.stem}_analysis.json"
             output_path = self.output_dir / output_filename
             with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(simplified_result, f, ensure_ascii=False, indent=2)
+                json.dump(output_data, f, ensure_ascii=False, indent=2)
             
-            logger.info(f"成功保存分析结果：{output_path}")
-            return simplified_result
+            logger.info(f"成功保存原始分析结果：{output_path}")
+            return output_data  # 返回原始数据（接口兼容）
 
         except json.JSONDecodeError as e:
             logger.error(f"JSON解析失败：{str(e)}")
@@ -246,72 +238,87 @@ class InfoExtractor:
     class JSONProc:
         def __init__(self, parent: 'InfoExtractor'):
             self.parent = parent
-            self.merge_rules = {
-                '覆盖策略': '独有参数优先',
-                '缺失处理': '保留原始标记',
-                '深度合并': True
-            }
+            # 合并规则可以根据需要进行配置，但当前逻辑固定
+            pass
 
         def merge_parameters(self, data: Dict[str, Any]) -> Dict[str, Any]:
-            """增强型参数合并逻辑"""
-            merged_data = []
-            merge_issues = []
-            stats = {'total': 0, 'merged': 0, 'errors': 0}
+            """
+            根据新的JSON结构合并参数。
+            将包含"共用参数"和"不同参数"的设备组列表，转换为每个位号包含所有参数的设备列表。
+            
+            Args:
+                data (Dict[str, Any]): 从LLM提取并保存在JSON文件中的数据，
+                                        结构类似 {'设备列表': [...], '备注': {...}}
+            
+            Returns:
+                Dict[str, Any]: 合并后的数据，结构类似 {'设备列表': [...]}，
+                                其中每个设备包含 "位号" 和 "参数"。
+            """
+            merged_device_list = [] # 用于存储最终合并结果的列表
+            stats = {'total_groups': 0, 'total_devices': 0, 'processed_devices': 0} # 统计信息
 
-            # 构建共用参数索引
-            common_map = self._build_common_index(data.get('共用参数设备列表', []))
+            if '设备列表' not in data or not isinstance(data['设备列表'], list):
+                logger.warning("输入数据中缺少'设备列表'或格式不正确，无法执行合并。")
+                return {"设备列表": merged_device_list, "stats": stats}
 
-            # 处理每个设备
-            for device in data.get('设备列表', []):
-                stats['total'] += 1
-                tag = device.get('位号')
-                if not tag:
-                    merge_issues.append(f"发现无名设备: {device}")
-                    stats['errors'] += 1
+            stats['total_groups'] = len(data['设备列表']) # 统计设备组数量
+
+            # 遍历每个设备组
+            for device_group in data['设备列表']:
+                tag_nos = device_group.get('位号', []) # 获取位号列表
+                common_params = device_group.get('共用参数', {}) # 获取共用参数
+                diff_params = device_group.get('不同参数', {}) # 获取不同参数
+
+                if not tag_nos:
+                    logger.warning(f"设备组缺少'位号'信息，跳过处理: {device_group}")
                     continue
 
-                # 合并参数 - 支持多种参数结构
-                common_params = common_map.get(tag, {})
-                
-                # 获取设备特有参数，支持不同的字段名称
-                unique_params = {}
-                if '不同参数' in device:
-                    unique_params = device.get('不同参数', {})
-                elif '参数' in device:
-                    unique_params = device.get('参数', {})
-                
-                if self.merge_rules['覆盖策略'] == '独有参数优先':
-                    merged_params = {**common_params, **unique_params}
-                else:
-                    merged_params = {**unique_params, **common_params}
+                stats['total_devices'] += len(tag_nos) # 累加设备总数
 
-                # 记录合并结果
-                merged_data.append({
-                    "位号": tag,
-                    "参数": merged_params
-                })
-                stats['merged'] += 1
+                # 遍历该组中的每个位号
+                for tag_no in tag_nos:
+                    # 为每个位号创建一个新的设备字典
+                    individual_device_params = common_params.copy() # 复制共用参数作为基础
 
-            # 检查未使用的共用组
-            unused = [k for k, v in common_map.items() if not v.get('_used')]
-            if unused:
-                merge_issues.append(f"发现 {len(unused)} 个未使用的共用参数位号")
+                    # 遍历不同参数，并将对应位号的值合并进来
+                    for param_name, tag_value_map in diff_params.items():
+                        if isinstance(tag_value_map, dict) and tag_no in tag_value_map:
+                            individual_device_params[param_name] = tag_value_map[tag_no] # 添加或覆盖特定参数值
+                        else:
+                            # 如果不同参数的值不是字典或者当前位号不在其中，记录一个警告（可选）
+                            logger.debug(f"位号 '{tag_no}' 在不同参数 '{param_name}' 中未找到特定值或格式错误。")
 
-            logger.info(f"参数合并完成。成功: {stats['merged']}/{stats['total']}, 错误: {stats['errors']}")
-            return {
-                "merged_devices": merged_data,
-                "merge_issues": merge_issues,
-                "stats": stats
-            }
+                    # 将合并后的设备信息添加到结果列表
+                    merged_device_list.append({
+                        "位号": tag_no, # 位号是字符串
+                        "参数": individual_device_params # 合并后的参数字典
+                    })
+                    stats['processed_devices'] += 1 # 增加已处理设备计数
 
-        def _build_common_index(self, common_groups: List) -> Dict:
-            """构建位号->共用参数的哈希索引"""
-            index = {}
-            for group in common_groups:
-                params = group.get('共用参数', {})
-                for tag in group.get('共用参数位号', []):
-                    if tag in index:
-                        logger.warning(f"位号 {tag} 存在于多个共用组，将覆盖")
-                    index[tag] = params.copy()
-                    index[tag]['_used'] = False  # 标记使用状态
-            return index
+            logger.info(f"参数合并完成。处理了 {stats['total_groups']} 个设备组，"
+                        f"共 {stats['total_devices']} 个位号，成功处理 {stats['processed_devices']} 个。")
+
+            return {"设备列表": merged_device_list, "stats": stats} # 返回包含合并后设备列表的字典
+
+        def extract_remarks(self, data: Dict[str, Any]) -> Optional[Dict[str, str]]:
+            """
+            从输入的JSON数据中提取 "备注" 部分。
+
+            Args:
+                data (Dict[str, Any]): 从LLM提取的原始JSON数据。
+
+            Returns:
+                Optional[Dict[str, str]]: 包含备注信息的字典，如果不存在则返回 None。
+            """
+            remarks = data.get("备注") # 尝试获取 "备注" 键对应的值
+            if isinstance(remarks, dict):
+                logger.info("成功提取到备注信息。")
+                return remarks # 如果是字典，则返回它
+            elif remarks:
+                # 如果存在但不是字典，记录警告
+                logger.warning(f"找到'备注'键，但其值不是预期的字典格式: {type(remarks)}")
+                return None # 返回 None 表示未找到有效的备注字典
+            else:
+                # 如果 "备注" 键不存在
+                logger.info("未在数据中找到'备注'信息。")
+                return None # 返回 None
