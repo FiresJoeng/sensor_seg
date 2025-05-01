@@ -189,7 +189,7 @@ class ModelMatcher:
                     logger.error(
                         f"处理 CSV 文件 {csv_path} 时出错: {e}", exc_info=True)
 
-        logger.info(f"CSV 数据加载完成。共加载 {len(all_csv_data)} 个唯一的模型组。")
+        logger.info(f"CSV 数据加载完成。共加载 {len(all_csv_data)} 个标准模型组。")
         return all_csv_data
 
     def _get_combined_string(self, data: Dict[str, Any] | Tuple[str, str]) -> str:
@@ -292,37 +292,25 @@ class ModelMatcher:
         failed_inputs_str = "\n".join(
             [f"- {self._get_combined_string(item)}" for item in failed_inputs])
 
-        # 准备可用模型列表字符串，包含更丰富的上下文信息
+        # 准备可用模型列表字符串，仅包含模型名称以减小 Prompt 大小
         available_models_str_parts = []
-        for name, data in available_models.items():
-            # 提取模型组内的一些关键信息作为上下文
-            context_lines = []
-            # 最多显示前 3 条记录的关键信息 (code: description)
-            for i, row in enumerate(data['rows']):
-                if i >= 3:
-                    context_lines.append("  ...")
-                    break
-                code = row.get('code', '')
-                desc = row.get('description', '')
-                # 限制描述长度，避免过长
-                context_lines.append(
-                    f"  - code: {code}, desc: {desc[:50]}{'...' if len(desc) > 50 else ''}")
-
-            model_context = "\n".join(
-                context_lines) if context_lines else "  (无详细条目信息)"
-            available_models_str_parts.append(
-                f"- 模型名称: {name}\n{model_context}")
-        available_models_str = "\n\n".join(
-            available_models_str_parts)  # 使用双换行分隔不同的模型组
+        for name in available_models.keys():
+            available_models_str_parts.append(f"- {name}") # 只列出模型名称
+        available_models_str = "\n".join(available_models_str_parts)
 
         user_prompt = USER_PROMPT_TEMPLATE.format(
             failed_inputs_str=failed_inputs_str,
             available_models_str=available_models_str
         )
+        
+        print(SYSTEM_PROMPT)
+        print(user_prompt)
 
         # 调用 LLM
         llm_response = call_llm_for_match(
             SYSTEM_PROMPT, user_prompt, expect_json=True)
+        
+        print('返回结果中......')
 
         if not llm_response or isinstance(llm_response, str) or llm_response.get("error"):
             logger.error(f"LLM 调用失败或返回错误: {llm_response}")
@@ -360,7 +348,6 @@ class ModelMatcher:
                         # 使用 logger.info 记录成功的匹配，使用新的键格式
                         logger.info(
                             f"LLM 匹配成功: {match_key} -> 模型 '{matched_model_name}'")
-                        # logger.debug(f"LLM 匹配成功 (详细): {match_key} -> '{matched_model_name}'") # 保留 debug 级别
                     else:
                         # input_str 仍然是 "key: value" 格式，用于查找
                         logger.warning(f"LLM 返回了无法在失败列表中找到的输入: '{input_str}'")
