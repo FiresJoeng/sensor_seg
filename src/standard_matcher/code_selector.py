@@ -91,7 +91,7 @@ class CodeSelector:
             raise ImportError("缺少 thefuzz 库")
 
         self.matched_models_dict = matched_models_dict
-        self.fuzzy_select_threshold = 0.4  # 模糊选择相似度阈值
+        self.fuzzy_select_threshold = 0.55  # 模糊选择相似度阈值
 
         # 最终选择结果: {original_input_key: selected_row_dict}
         self.selected_codes: Dict[str, Dict[str, Any]] = {}
@@ -190,109 +190,156 @@ class CodeSelector:
             logger.info("没有模糊选择失败的项，跳过 LLM 选择。")
             return llm_selected_codes
 
-        logger.info(f"开始 LLM 选择，处理 {len(self.failed_fuzzy_selection)} 个失败项...")
+        total_failed_count = len(self.failed_fuzzy_selection)
+        logger.info(f"开始 LLM 选择，处理 {total_failed_count} 个模糊选择失败项...")
 
-        # 准备提示词内容
-        items_to_select_str_parts = []
-        for input_str, candidate_rows in self.failed_fuzzy_selection:
-            item_str = f"输入参数: \"{input_str}\"\n候选行列表:\n"
-            for i, row in enumerate(candidate_rows):
-                # 显示关键信息：code 和 description
-                code = row.get('code', 'N/A')
-                desc = row.get('description', '无描述')
-                # 限制描述长度
-                item_str += f"  {i}: code='{code}', description='{desc[:60]}{'...' if len(desc) > 60 else ''}'\n"
-            items_to_select_str_parts.append(item_str)
+        batch_size = 5  # 每批处理的最大数量
+        processed_inputs_in_llm_responses = set() # 记录 LLM 实际返回了结果的输入字符串
 
-        items_to_select_str = "\n---\n".join(items_to_select_str_parts)
+        for i in range(0, total_failed_count, batch_size):
+            batch = self.failed_fuzzy_selection[i:i + batch_size]
+            batch_number = (i // batch_size) + 1
+            total_batches = (total_failed_count + batch_size - 1) // batch_size
+            logger.info(f"处理 LLM 选择批次 {batch_number}/{total_batches} (共 {len(batch)} 项)...")
 
-        user_prompt = SELECTOR_USER_PROMPT_TEMPLATE.format(
-            items_to_select_str=items_to_select_str)
+            # 准备当前批次的提示词内容
+            items_to_select_str_parts = []
+            batch_input_mapping = {} # 存储当前批次的 input_str -> candidate_rows 映射
+            for input_str, candidate_rows in batch:
+                batch_input_mapping[input_str] = candidate_rows
+                item_str = f"输入参数: \"{input_str}\"\n候选行列表:\n"
+                for idx, row in enumerate(candidate_rows):
+                    code = row.get('code', 'N/A')
+                    desc = row.get('description', '无描述')
+                    item_str += f"  {idx}: code='{code}', description='{desc[:60]}{'...' if len(desc) > 60 else ''}'\n"
+                items_to_select_str_parts.append(item_str)
 
-        # 调用 LLM
-        llm_response = call_llm_for_match(
-            SELECTOR_SYSTEM_PROMPT, user_prompt, expect_json=True)
+            items_to_select_str = "\n---\n".join(items_to_select_str_parts)
+            user_prompt = SELECTOR_USER_PROMPT_TEMPLATE.format(
+                items_to_select_str=items_to_select_str)
 
-        if not llm_response or isinstance(llm_response, str) or llm_response.get("error"):
-            logger.error(f"LLM 调用失败或返回错误: {llm_response}")
-            # 对于 LLM 失败的情况，可以选择一个默认策略，例如选择第一个候选行，或者标记为未选择
-            # 这里暂时不选择，让它们保留在未匹配状态（如果需要最终输出的话）
-            return llm_selected_codes
+            # 调用 LLM 处理当前批次
+            llm_response = call_llm_for_match(
+                SELECTOR_SYSTEM_PROMPT, user_prompt, expect_json=True)
 
-        # 处理 LLM 响应
-        try:
-            # llm_response 预期是 {"input_key: value": selected_index, ...}
-            if not isinstance(llm_response, dict):
-                logger.error(f"LLM 响应不是预期的字典格式: {llm_response}")
-                return llm_selected_codes
-
-            processed_inputs_str = set()
-            for input_str, selected_index in llm_response.items():
-                processed_inputs_str.add(input_str)
-                # 找到原始的候选列表
-                original_candidates = None
-                for failed_input_str, candidates in self.failed_fuzzy_selection:
-                    if failed_input_str == input_str:
-                        original_candidates = candidates
-                        break
-
-                if original_candidates is None:
-                    logger.warning(f"LLM 返回了未知的输入参数: '{input_str}'")
-                    continue
-
-                # 验证索引
-                try:
-                    selected_index = int(selected_index)
-                    if 0 <= selected_index < len(original_candidates):
-                        selected_row = original_candidates[selected_index]
-                        # 使用原始 input_str 作为 key
-                        selected_row_dict = selected_row
+            # 处理当前批次的 LLM 响应
+            if not llm_response or isinstance(llm_response, str) or llm_response.get("error"):
+                logger.error(f"批次 {batch_number}/{total_batches} 的 LLM 调用失败或返回错误: {llm_response}")
+                # 当前批次失败，可以选择跳过或应用备选策略给批内所有项
+                logger.warning(f"批次 {batch_number}/{total_batches} 中的所有项将尝试使用备选策略（选择第一个）。")
+                for input_str, original_candidates in batch:
+                    if input_str not in llm_selected_codes and original_candidates: # 避免重复处理和空列表
+                        selected_row_dict = original_candidates[0]
                         llm_selected_codes[input_str] = selected_row_dict
-                        logger.info(
-                            f"LLM 选择成功: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
-                    else:
                         logger.warning(
-                            f"LLM 为输入 '{input_str}' 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。将尝试选择第一个。")
-                        # 备选策略：选择第一个，使用原始 input_str 作为 key
-                        if original_candidates:  # 确保有候选行
+                            f"  - LLM 批次失败，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                continue # 继续处理下一批
+
+            # 成功获取响应，处理批内各项结果
+            try:
+                if not isinstance(llm_response, dict):
+                    logger.error(f"批次 {batch_number}/{total_batches} 的 LLM 响应不是预期的字典格式: {llm_response}")
+                    # 格式错误，同样可以应用备选策略
+                    logger.warning(f"批次 {batch_number}/{total_batches} 响应格式错误，将尝试对批内未处理项使用备选策略。")
+                    for input_str, original_candidates in batch:
+                         if input_str not in llm_selected_codes and original_candidates:
+                            selected_row_dict = original_candidates[0]
+                            llm_selected_codes[input_str] = selected_row_dict
+                            logger.warning(
+                                f"  - LLM 响应格式错误，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                    continue # 继续处理下一批
+
+                # 遍历 LLM 返回的当前批次的结果
+                batch_processed_inputs_str_in_response = set()
+                for input_str, selected_index in llm_response.items():
+                    batch_processed_inputs_str_in_response.add(input_str)
+                    processed_inputs_in_llm_responses.add(input_str) # 加入全局已处理集合
+
+                    # 查找原始候选列表 (在当前批次的映射中查找)
+                    original_candidates = batch_input_mapping.get(input_str)
+
+                    if original_candidates is None:
+                        logger.warning(f"LLM 在批次 {batch_number} 返回了未知的输入参数: '{input_str}' (可能来自其他批次或无效)，跳过此项。")
+                        continue
+
+                    # 验证索引并选择
+                    try:
+                        selected_index = int(selected_index)
+                        if 0 <= selected_index < len(original_candidates):
+                            selected_row = original_candidates[selected_index]
+                            selected_row_dict = selected_row
+                            llm_selected_codes[input_str] = selected_row_dict
+                            logger.info(
+                                f"LLM 选择成功 (批次 {batch_number}): 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
+                        else:
+                            logger.warning(
+                                f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。将尝试选择第一个。")
+                            if original_candidates:
+                                selected_row_dict = original_candidates[0]
+                                llm_selected_codes[input_str] = selected_row_dict
+                                logger.info(
+                                    f"LLM 选择失败 (无效索引，批次 {batch_number})，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了非整数索引: '{selected_index}'。将尝试选择第一个。")
+                        if original_candidates:
                             selected_row_dict = original_candidates[0]
                             llm_selected_codes[input_str] = selected_row_dict
                             logger.info(
-                                f"LLM 选择失败 (无效索引)，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                                f"LLM 选择失败 (非整数索引，批次 {batch_number})，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
 
-                except (ValueError, TypeError):
-                    logger.warning(
-                        f"LLM 为输入 '{input_str}' 返回了非整数索引: '{selected_index}'。将尝试选择第一个。")
-                    # 备选策略：选择第一个，使用原始 input_str 作为 key
-                    if original_candidates:  # 确保有候选行
+                # 检查当前批次中是否有 LLM 未返回结果的项
+                missing_in_batch_tuples = [
+                    (item[0], item[1]) for item in batch if item[0] not in batch_processed_inputs_str_in_response
+                ]
+                if missing_in_batch_tuples:
+                    logger.warning(f"LLM 在批次 {batch_number} 未对以下 {len(missing_in_batch_tuples)} 项返回结果，将尝试选择第一个候选行:")
+                    for missing_input_str, original_candidates in missing_in_batch_tuples:
+                         if missing_input_str not in llm_selected_codes and original_candidates: # 避免重复处理和空列表
+                            selected_row_dict = original_candidates[0]
+                            llm_selected_codes[missing_input_str] = selected_row_dict
+                            logger.warning(
+                                f"  - LLM 未返回，备选策略 (批次 {batch_number}): 键值对 '{missing_input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                         elif not original_candidates:
+                             logger.warning(f"  - 备选策略失败 (批次 {batch_number}): 输入 '{missing_input_str}' 没有候选行。")
+
+
+            except Exception as e:
+                logger.error(f"处理批次 {batch_number}/{total_batches} 的 LLM 响应时出错: {e}", exc_info=True)
+                # 批次处理出错，可以选择对批内未处理项应用备选策略
+                logger.warning(f"因处理批次 {batch_number} 时出错，将尝试对批内未成功处理项使用备选策略。")
+                for input_str, original_candidates in batch:
+                    if input_str not in llm_selected_codes and original_candidates:
                         selected_row_dict = original_candidates[0]
                         llm_selected_codes[input_str] = selected_row_dict
-                        logger.info(
-                            f"LLM 选择失败 (非整数索引)，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
-
-            # 检查是否有 LLM 未返回结果的失败项
-            missing_inputs_tuples = [
-                (item[0], item[1]) for item in self.failed_fuzzy_selection if item[0] not in processed_inputs_str]
-            if missing_inputs_tuples:
-                logger.warning(
-                    f"LLM 未对以下 {len(missing_inputs_tuples)} 个模糊选择失败项返回结果，将尝试选择第一个候选行:")
-                for missing_input_str, original_candidates in missing_inputs_tuples:
-                    if original_candidates:  # 确保有候选行
-                        # 使用原始 missing_input_str 作为 key
-                        selected_row_dict = original_candidates[0]
-                        llm_selected_codes[missing_input_str] = selected_row_dict
                         logger.warning(
-                            f"  - 备选策略: 键值对 '{missing_input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
-                    else:
-                        logger.warning(
-                            f"  - 备选策略失败: 输入 '{missing_input_str}' 没有候选行。")
+                            f"  - LLM 批次处理异常，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
 
-        except Exception as e:
-            logger.error(f"处理 LLM 响应时出错: {e}", exc_info=True)
-            # 出错时返回当前已成功处理的部分
-            return llm_selected_codes
+        # 所有批次处理完毕后，检查是否有任何失败项完全没有被 LLM 处理（即使是备选策略也没覆盖到）
+        # 这通常不应该发生，因为上面的逻辑会尝试覆盖所有情况，但作为最后防线检查
+        all_failed_input_strings = {item[0] for item in self.failed_fuzzy_selection}
+        final_unprocessed_strings = all_failed_input_strings - set(llm_selected_codes.keys())
 
-        logger.info(f"LLM 选择完成。成功选择 {len(llm_selected_codes)} 项。")
+        if final_unprocessed_strings:
+             logger.error(f"严重警告：在所有批次处理和备选策略后，仍有 {len(final_unprocessed_strings)} 个模糊选择失败项未被处理:")
+             for unprocessed_str in final_unprocessed_strings:
+                 logger.error(f"  - 最终未处理: '{unprocessed_str}'")
+                 # 这里可以考虑是否强制选择第一个，或者保留为未选择状态
+                 # 查找原始数据以强制选择第一个
+                 candidates_for_unprocessed = None
+                 for failed_input, candidates in self.failed_fuzzy_selection:
+                     if failed_input == unprocessed_str:
+                         candidates_for_unprocessed = candidates
+                         break
+                 if candidates_for_unprocessed:
+                     selected_row_dict = candidates_for_unprocessed[0]
+                     llm_selected_codes[unprocessed_str] = selected_row_dict
+                     logger.warning(f"  - 强制最终备选策略: 键值对 '{unprocessed_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                 else:
+                      logger.error(f"  - 无法应用最终备选策略：找不到 '{unprocessed_str}' 的候选行。")
+
+
+        logger.info(f"LLM 选择流程完成。通过 LLM (包括备选策略) 共处理/选择了 {len(llm_selected_codes)} 项。")
         return llm_selected_codes
 
     def select_codes(self) -> Dict[str, Dict[str, Any]]:
@@ -338,7 +385,7 @@ if __name__ == "__main__":
             "model": "元件类型",
             "code": "HZ",
             "description": "热电阻",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
+            "remark": ""
         }
     ],
     "'元件数量 (类型 Type)': '单支'": [
@@ -346,95 +393,57 @@ if __name__ == "__main__":
             "model": "元件数量",
             "code": "-S",
             "description": "单支式",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
+            "remark": ""
         },
         {
             "model": "元件数量",
             "code": "-D",
             "description": "双支式",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
-        }
-    ],
-    "'连接螺纹 (温度元件型号 Therm. Element Model)': '缺失（文档未提供）'": [
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "1",
-            "description": "M12×1.5",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "2",
-            "description": "M16×1.5",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "3",
-            "description": "M27×2",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "4",
-            "description": "G1/2",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "5",
-            "description": "G3/4",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "6",
-            "description": "1/2NPT",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         }
     ],
     "'元件类型 (分度号 Type)': 'IEC标准 Pt100'": [
         {
-            "model": "附加规格代码",
-            "code": "/A3",
-            "description": "外保护套管频率强度计算",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "分度号",
+            "code": "3",
+            "description": "PT100 三线",
+            "remark": ""
         },
         {
-            "model": "附加规格代码",
-            "code": "/A4",
-            "description": "外保护套管材质报告",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "分度号",
+            "code": "4",
+            "description": "PT100 四线",
+            "remark": ""
         },
         {
-            "model": "附加规格代码",
-            "code": "/A5",
-            "description": "外保护套管射线探伤报告",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "分度号",
+            "code": "E",
+            "description": "镍铬-铜镍",
+            "remark": ""
         },
         {
-            "model": "附加规格代码",
-            "code": "/A6",
-            "description": "外保护套管着色渗透报告",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "分度号",
+            "code": "J",
+            "description": "铁-铜镍",
+            "remark": ""
         },
         {
-            "model": "附加规格代码",
-            "code": "/R1",
-            "description": "外保护套管接液部分禁油处理",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "分度号",
+            "code": "K",
+            "description": "镍铬-镍铝",
+            "remark": ""
         },
         {
-            "model": "附加规格代码",
-            "code": "/F1",
-            "description": "外保护套管水压测试",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "分度号",
+            "code": "T",
+            "description": "铜-铜镍",
+            "remark": ""
         },
         {
-            "model": "附加规格代码",
-            "code": "/F2",
-            "description": "外保护套管接液部分抛光处理",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "分度号",
+            "code": "Z",
+            "description": "其它",
+            "remark": ""
         }
     ],
     "'铠套材质 (铠装材质 Armo. Mat'l)': '316'": [
@@ -442,131 +451,75 @@ if __name__ == "__main__":
             "model": "铠装材质",
             "code": "PN",
             "description": "304SS",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
+            "remark": ""
         },
         {
             "model": "铠装材质",
             "code": "SN",
             "description": "321SS",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
+            "remark": ""
         },
         {
             "model": "铠装材质",
             "code": "RN",
             "description": "316SS",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
+            "remark": ""
         },
         {
             "model": "铠装材质",
             "code": "GH",
             "description": "GH3030",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
-        }
-    ],
-    "'铠套外径(d) (铠装直径 Armo. Dia. (mm))': 'Ф6'": [
-        {
-            "model": "铠装外径（d）",
-            "code": "3",
-            "description": "Ø3mm（仅用于固定式接头结构）",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
+            "remark": ""
         },
         {
-            "model": "铠装外径（d）",
-            "code": "4",
-            "description": "Ø4mm（仅用于固定式接头结构）",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
-        },
-        {
-            "model": "铠装外径（d）",
-            "code": "5",
-            "description": "Ø5mm",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
-        },
-        {
-            "model": "铠装外径（d）",
-            "code": "6",
-            "description": "Ø6mm",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
-        },
-        {
-            "model": "铠装外径（d）",
-            "code": "8",
-            "description": "Ø8mm",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
-        },
-        {
-            "model": "铠装外径（d）",
-            "code": "10",
-            "description": "Ø10mm",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
-        },
-        {
-            "model": "铠装外径（d）",
+            "model": "铠装材质",
             "code": "Z",
             "description": "其它",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。；*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。；*3：带外保护套管时，此项可省略。；*4：仅适用于YTA50、YTA70。；*5：仅适用于HR。；*6：仅适用于NEPSI防爆/N2。；*7：产品如带外保护套管，仍需防尘防爆认证。；*9：仅适用于NEPSI防爆/NS2。"
+            "remark": ""
         }
     ],
-    "'TG套管形式 (套管形式 Well Type)': '整体钻孔锥形保护管'": [
+    "'接线口 (电气连接 Elec. Conn.)': '1/2\" NPT (F)'": [
         {
-            "model": "选型",
-            "code": "-K",
-            "description": "K型法兰安装锥形保护套管",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "连接螺纹",
+            "code": "0",
+            "description": "无",
+            "remark": "*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。"
         },
         {
-            "model": "选型",
-            "code": "-L",
-            "description": "L型法兰安装直形保护套管",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "连接螺纹",
+            "code": "1",
+            "description": "M12×1.5",
+            "remark": ""
         },
         {
-            "model": "选型",
-            "code": "-M",
-            "description": "M型法兰安装台阶形保护套管",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
-        }
-    ],
-    "'TG套管形式 (套管材质 Well Mat'l)': '316'": [
-        {
-            "model": "棒材质",
-            "code": "RN",
-            "description": "参见表2",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
-        }
-    ],
-    "'铠套外径(d) (套管外径 Well Outside Dia. (mm))': '根部不大于28,套管厚度由供货商根据振动频率和强度计算确定'": [
-        {
-            "model": "根部直径 (Q)",
-            "code": "-22",
-            "description": "22mm",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "连接螺纹",
+            "code": "2",
+            "description": "M16×1.5",
+            "remark": ""
         },
         {
-            "model": "根部直径 (Q)",
-            "code": "-27",
-            "description": "27mm（不适用于DN25（1\"））",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "model": "连接螺纹",
+            "code": "3",
+            "description": "M27×2",
+            "remark": ""
         },
         {
-            "model": "根部直径 (Q)",
-            "code": "-%int%",
-            "description": "单位mm",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
-        }
-    ],
-    "'过程连接 (过程连接形式 Process Conn.)': '固定法兰'": [
-        {
-            "model": "过程连接",
-            "code": "-S",
-            "description": "抱箍式 *1",
-            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
+            "model": "连接螺纹",
+            "code": "4",
+            "description": "G1/2",
+            "remark": ""
         },
         {
-            "model": "过程连接",
-            "code": "-W",
-            "description": "焊接式 *2",
-            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
+            "model": "连接螺纹",
+            "code": "5",
+            "description": "M20×1.5",
+            "remark": ""
+        },
+        {
+            "model": "连接螺纹",
+            "code": "6",
+            "description": "1/2NPT",
+            "remark": ""
         }
     ],
     "'过程连接（法兰尺寸（Fs）） (连接规格Conn. Size)': 'DN40'": [
@@ -574,25 +527,25 @@ if __name__ == "__main__":
             "model": "法兰尺寸 (Fs)",
             "code": "1",
             "description": "DN25（1\"）",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰尺寸 (Fs)",
             "code": "2",
             "description": "DN40（1-1/2\"）",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰尺寸 (Fs)",
             "code": "3",
             "description": "DN50（2\"）",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰尺寸 (Fs)",
             "code": "z",
             "description": "其它",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         }
     ],
     "'过程连接 (法兰标准 Flange STD.)': 'HG/T20615-2009'": [
@@ -600,121 +553,391 @@ if __name__ == "__main__":
             "model": "法兰标准",
             "code": "-A",
             "description": "ANSI",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰标准",
             "code": "-D",
             "description": "DIN",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰标准",
             "code": "-G",
             "description": "GB/T 9123",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰标准",
             "code": "-H",
             "description": "HG20592、HG20615",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰标准",
             "code": "-Z",
             "description": "其它",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm段略 (中间类似规则)"
+            "remark": ""
         }
     ],
-    "'过程连接（法兰等级） (等级 Rating)': 'Class150'": [
+    "'过程连接（法兰等级） (操作/设计压力 Oper. Press. MPa(G))': '0.3/'": [
         {
             "model": "法兰等级",
             "code": "1",
             "description": "PN2.0（150#）RF",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "2",
             "description": "PN5.0（300#）RF",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "3",
             "description": "PN11.0（600#）RF",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "4",
             "description": "PN15.0（900#）RJ",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "5",
             "description": "PN26.0（1500#）RJ",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "6",
             "description": "PN42.0（2500#）RJ",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "7",
             "description": "PN1.0 RF",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "8",
             "description": "PN1.6 RF",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "9",
             "description": "PN2.5 RF",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "10",
             "description": "PN4.0 RF",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "11",
             "description": "PN6.3 RF",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         },
         {
             "model": "法兰等级",
             "code": "Z",
             "description": "其它",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
-        }
-    ],
-    "'法兰密封面形式 (法兰材质 Flange Mat'l)': '316'": [
-        {
-            "model": "法兰材质",
-            "code": "RN",
-            "description": "参见表2",
-            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         }
     ],
     "'过程连接（法兰等级） (管嘴长度 Length mm)': '150'": [
         {
-            "model": "铠套长度",
+            "model": "加强管长度（N）",
+            "code": "0",
+            "description": "0mm",
+            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。"
+        },
+        {
+            "model": "加强管长度（N）",
+            "code": "100",
+            "description": "100mm",
+            "remark": ""
+        },
+        {
+            "model": "加强管长度（N）",
+            "code": "150",
+            "description": "150mm",
+            "remark": ""
+        },
+        {
+            "model": "加强管长度（N）",
+            "code": "200",
+            "description": "200mm",
+            "remark": ""
+        },
+        {
+            "model": "加强管长度（N）",
             "code": "%int%",
-            "description": "单位mm *注3，仅适用于SR)",
-            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
+            "description": "指定长度，单位mm",
+            "remark": ""
+        }
+    ],
+    "'连接螺纹 (温度元件型号 Therm. Element Model)': '缺失（文档未提供）'": [
+        {
+            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
+            "code": "1",
+            "description": "M12×1.5",
+            "remark": ""
+        },
+        {
+            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
+            "code": "2",
+            "description": "M16×1.5",
+            "remark": ""
+        },
+        {
+            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
+            "code": "3",
+            "description": "M27×2",
+            "remark": ""
+        },
+        {
+            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
+            "code": "4",
+            "description": "G1/2",
+            "remark": ""
+        },
+        {
+            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
+            "code": "5",
+            "description": "G3/4",
+            "remark": ""
+        },
+        {
+            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
+            "code": "6",
+            "description": "1/2NPT",
+            "remark": ""
+        }
+    ],
+    "'过程连接（法兰等级） (允差等级 Tolerance Error Rating)': 'A级'": [
+        {
+            "model": "附加规格选项",
+            "code": "/N1",
+            "description": "一体化温度变送器防爆粉尘证书编号:GYB22.2844X 适用标准:GBT3836.1-2021、GBT3836.2-2021、 GBT3836.31-2021 防爆标志:ExdbICT5T6Gb ExbICT70CT90C Db 环境温度:T6(气体):-40~75℃、T5(气体):-40~80C、T70℃ (粉尘环境):-30~65℃、T90C(粉尘环境):-30~80℃ 防护等级:IP66电气接口:1/2NPT内螺纹，M20内螺纹",
+            "remark": ""
+        },
+        {
+            "model": "附加规格选项",
+            "code": "/N2",
+            "description": "一体化温度变送器本安粉尘证书编号:GYB202759X 适用标准:GB 3836.1-2010、GB 3836.4-2010、GB 3836.20-2010 Ex ia lIC T4T5 Ga Ex ic IC T4T5 Gc Ex iaD 21/20 T135 环境温度:-40700(T4)，-40~500(T5) 粉尘防爆适用标准:GB 12476.1-2013、GB 12476.4-2010iD 环境温度:-30~70C 防护等级:IP66",
+            "remark": ""
+        },
+        {
+            "model": "附加规格选项",
+            "code": "/w",
+            "description": "电气接口弯头",
+            "remark": ""
+        },
+        {
+            "model": "附加规格选项",
+            "code": "/A1",
+            "description": "焊接座",
+            "remark": ""
+        },
+        {
+            "model": "附加规格选项",
+            "code": "/B11",
+            "description": "防水接线盒，材质铝合金",
+            "remark": ""
+        },
+        {
+            "model": "附加规格选项",
+            "code": "/B12",
+            "description": "防水接线盒，材质不锈钢",
+            "remark": ""
+        }
+    ],
+    "'元件类型 (测量端形式 Meas. End Type)': '绝缘型'": [
+        {
+            "model": "接头结构",
+            "code": "1",
+            "description": "弹簧紧压式（弹簧伸缩长度5mm）",
+            "remark": ""
+        },
+        {
+            "model": "接头结构",
+            "code": "2",
+            "description": "固定式",
+            "remark": ""
+        }
+    ],
+    "'铠套外径(d) (铠装直径 Armo. Dia. (mm))': 'Ф6'": [
+        {
+            "model": "铠装外径（d）",
+            "code": "3",
+            "description": "Ø3mm（仅用于固定式接头结构）",
+            "remark": ""
+        },
+        {
+            "model": "铠装外径（d）",
+            "code": "4",
+            "description": "Ø4mm（仅用于固定式接头结构）",
+            "remark": ""
+        },
+        {
+            "model": "铠装外径（d）",
+            "code": "5",
+            "description": "Ø5mm",
+            "remark": ""
+        },
+        {
+            "model": "铠装外径（d）",
+            "code": "6",
+            "description": "Ø6mm",
+            "remark": ""
+        },
+        {
+            "model": "铠装外径（d）",
+            "code": "8",
+            "description": "Ø8mm",
+            "remark": ""
+        },
+        {
+            "model": "铠装外径（d）",
+            "code": "10",
+            "description": "Ø10mm",
+            "remark": ""
+        },
+        {
+            "model": "铠装外径（d）",
+            "code": "Z",
+            "description": "其它",
+            "remark": ""
+        }
+    ],
+    "'壳体代码 (接线盒形式 Terminal Box Style)': '防水型'": [
+        {
+            "model": "接线盒形式",
+            "code": "-1",
+            "description": "YTA610、YTA710",
+            "remark": ""
+        },
+        {
+            "model": "接线盒形式",
+            "code": "-2",
+            "description": "接线盒，1/2NPT出气接口（仅适用于YTA50、YTA70）*4",
+            "remark": "*4：仅适用于YTA50、YTA70。"
+        },
+        {
+            "model": "接线盒形式",
+            "code": "-3",
+            "description": "接线盒，M20×1.5出气接口（ 仅适用于YTA50、YTA70）*4",
+            "remark": "*4：仅适用于YTA50、YTA70。"
+        }
+    ],
+    "'TG套管形式 (套管形式 Well Type)': '整体钻孔锥形保护管'": [
+        {
+            "model": "选型",
+            "code": "-K",
+            "description": "K型法兰安装锥形保护套管",
+            "remark": ""
+        },
+        {
+            "model": "选型",
+            "code": "-L",
+            "description": "L型法兰安装直形保护套管",
+            "remark": ""
+        },
+        {
+            "model": "选型",
+            "code": "-M",
+            "description": "M型法兰安装台阶形保护套管",
+            "remark": ""
+        }
+    ],
+    "'TG套管形式 (套管材质 Well Mat'l)': '316'": [
+        {
+            "model": "棒材质",
+            "code": "RN",
+            "description": "参见表2",
+            "remark": ""
+        }
+    ],
+    "'过程连接（法兰等级） (压力等级 Pressure Rating)': 'Class150'": [
+        {
+            "model": "法兰材质",
+            "code": "RN",
+            "description": "参见表2",
+            "remark": ""
+        }
+    ],
+    "'铠套外径(d) (套管外径 Well Outside Dia. (mm))': '根部不大于28,套管厚度由供货商根据振动频率和强度计算确定'": [
+        {
+            "model": "根部直径 (Q)",
+            "code": "-22",
+            "description": "22mm",
+            "remark": ""
+        },
+        {
+            "model": "根部直径 (Q)",
+            "code": "-27",
+            "description": "27mm（不适用于DN25（1\"））",
+            "remark": ""
+        },
+        {
+            "model": "根部直径 (Q)",
+            "code": "-%int%",
+            "description": "单位mm",
+            "remark": ""
+        }
+    ],
+    "'过程连接 (制造厂 Manufacturer)': '缺失（文档未提供）'": [
+        {
+            "model": "附加规格代码",
+            "code": "/A3",
+            "description": "外保护套管频率强度计算",
+            "remark": ""
+        },
+        {
+            "model": "附加规格代码",
+            "code": "/A4",
+            "description": "外保护套管材质报告",
+            "remark": ""
+        },
+        {
+            "model": "附加规格代码",
+            "code": "/A5",
+            "description": "外保护套管射线探伤报告",
+            "remark": ""
+        },
+        {
+            "model": "附加规格代码",
+            "code": "/A6",
+            "description": "外保护套管着色渗透报告",
+            "remark": ""
+        },
+        {
+            "model": "附加规格代码",
+            "code": "/R1",
+            "description": "外保护套管接液部分禁油处理",
+            "remark": ""
+        },
+        {
+            "model": "附加规格代码",
+            "code": "/F1",
+            "description": "外保护套管水压测试",
+            "remark": ""
+        },
+        {
+            "model": "附加规格代码",
+            "code": "/F2",
+            "description": "外保护套管接液部分抛光处理",
+            "remark": ""
         }
     ],
     "'过程连接（法兰等级） (插入深度 Well Length (mm))': '250'": [
@@ -722,7 +945,7 @@ if __name__ == "__main__":
             "model": "插入深度 (U)",
             "code": "-%int%",
             "description": "单位mm",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+            "remark": ""
         }
     ]
 }

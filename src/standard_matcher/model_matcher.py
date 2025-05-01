@@ -41,37 +41,37 @@ logging.basicConfig(level=settings.LOG_LEVEL,  # 直接使用整数级别的 LOG
 logger = logging.getLogger(__name__)
 
 # --- LLM 提示词定义 ---
-# 系统提示：定义 LLM 的角色和任务
+# 系统提示：定义 LLM 的角色和任务，包含待匹配项
 SYSTEM_PROMPT = """
-你是一个智能匹配助手。你的核心任务是将用户提供的“输入参数”（键值对形式）与“可用标准模型库条目”（已按模型名称分组，每个组包含多行详细信息）进行最合适的匹配。
-
-**重要规则:**
-1.  **匹配基础**: 匹配决策必须基于“输入参数的键和值整体”与“候选标准模型库条目组内所有行的**完整内容**（包括 model, code, description, remark 等字段）”之间的**语义相似度**。不要仅仅基于模型名称或个别字段进行匹配。你需要理解输入参数的含义，并找到在语义上最贴合的标准模型库条目组。
-2.  **唯一性**: 每个输入参数只能匹配到一个标准模型库条目组，反之亦然，每个标准模型库条目组也只能被匹配一次。
-3.  **输出格式**: 必须以 JSON 格式返回匹配结果。JSON 的键是原始的输入参数字符串（格式："key: value"），值是匹配到的标准模型库条目的**模型名称 (model)**。
-    示例: `{"输入参数键: 输入参数值": "匹配到的模型名称"}`
-4.  **完整性**: 确保为每一个提供的“待匹配输入参数”都找到一个匹配项，且只从“可用标准模型库条目”中选择。
-"""
-
-# 用户提示模板：包含待匹配项和候选标准项
-USER_PROMPT_TEMPLATE = """
-请根据语义相似度，将以下“待匹配输入参数”列表中的每一项，与“可用标准模型库条目”列表中的一个条目进行最佳匹配。请仔细考虑每个标准模型库条目组内的完整信息。
+你是一个高度精确的智能匹配助手。你的核心任务是将下面列出的“待匹配输入参数”（键值对形式）与用户提供的“可用标准模型库条目”进行最合适的唯一匹配。
 
 **待匹配输入参数:**
 {failed_inputs_str}
 
+**重要匹配规则:**
+1.  **匹配基础**: 匹配决策必须基于“待匹配输入参数的键和值整体”与“可用标准模型库条目组内所有行的**完整内容**（包括 model, code, description, remark 等字段）”之间的**语义相似度**。你需要理解每个输入参数的含义，并找到在语义上最贴合的标准模型库条目组。
+2.  **优先最佳**: 必须优先匹配语义关联度最高的输入参数和模型组。
+3.  **严格唯一**: 每个“待匹配输入参数”**必须**匹配到**一个且仅一个**“可用标准模型库条目组”。反之，每个“可用标准模型库条目组”也**必须**被**一个且仅一个**“待匹配输入参数”匹配。不允许遗漏任何输入参数，也不允许重复使用任何模型组。
+4.  **完整匹配**: 确保为**每一个**“待匹配输入参数”都找到一个唯一的匹配模型组。
+5.  **输出格式**: 必须严格按照以下 JSON 格式返回所有待匹配输入参数的匹配结果。JSON 的键是原始的输入参数字符串（格式："key: value"），值是匹配到的标准模型库条目的**模型名称 (model)**。
+    示例: `{{"输入参数键1: 输入参数值1": "匹配到的模型名称1", "输入参数键2: 输入参数值2": "匹配到的模型名称2", ...}}`
+"""
+
+# 用户提示模板：包含候选标准项，引用系统提示中的待匹配项
+USER_PROMPT_TEMPLATE = """
+这是可用的标准模型库条目列表（已按模型名称分组，包含详细信息）。请根据你在系统提示中看到的“待匹配输入参数”列表和所有匹配规则，为系统提示中的**每一个**输入参数，从下面的列表中选择最合适的、唯一的匹配模型组。
+
 **可用标准模型库条目 (按模型名称分组，包含内容示例):**
 {available_models_str}
 
-请严格按照以下 JSON 格式返回所有待匹配输入参数的匹配结果:
+请严格按照系统提示中要求的 JSON 格式返回所有匹配结果。确保遵循所有规则，特别是优先匹配、唯一匹配和完整匹配的要求。
 ```json
-{{
+{{{{
   "输入参数键1: 输入参数值1": "匹配到的模型名称1",
   "输入参数键2: 输入参数值2": "匹配到的模型名称2",
   ...
-}}
+}}}}
 ```
-确保每个输入参数都找到一个匹配项，并且每个可用标准模型库条目只被使用一次。
 """
 
 
@@ -292,25 +292,43 @@ class ModelMatcher:
         failed_inputs_str = "\n".join(
             [f"- {self._get_combined_string(item)}" for item in failed_inputs])
 
-        # 准备可用模型列表字符串，仅包含模型名称以减小 Prompt 大小
+        # 准备可用模型列表字符串，包含更丰富的上下文信息 (恢复之前的逻辑)
         available_models_str_parts = []
-        for name in available_models.keys():
-            available_models_str_parts.append(f"- {name}") # 只列出模型名称
-        available_models_str = "\n".join(available_models_str_parts)
+        for name, data in available_models.items():
+            # 提取模型组内的一些关键信息作为上下文
+            context_lines = []
+            # 最多显示前 3 条记录的关键信息 (code: description)
+            for i, row in enumerate(data['rows']):
+                if i >= 3:
+                    context_lines.append("  ...")
+                    break
+                code = row.get('code', '')
+                desc = row.get('description', '')
+                # 限制描述长度，避免过长
+                context_lines.append(
+                    f"  - code: {code}, desc: {desc[:50]}{'...' if len(desc) > 50 else ''}") # 保持截断以防万一
 
-        user_prompt = USER_PROMPT_TEMPLATE.format(
-            failed_inputs_str=failed_inputs_str,
-            available_models_str=available_models_str
-        )
-        
-        print(SYSTEM_PROMPT)
-        print(user_prompt)
+            model_context = "\n".join(
+                context_lines) if context_lines else "  (无详细条目信息)"
+            available_models_str_parts.append(
+                f"- 模型名称: {name}\n{model_context}")
+        available_models_str = "\n\n".join(
+            available_models_str_parts)  # 使用双换行分隔不同的模型组
+
+        # 格式化 System Prompt 和 User Prompt
+        system_prompt_formatted = SYSTEM_PROMPT.format(failed_inputs_str=failed_inputs_str)
+        user_prompt_formatted = USER_PROMPT_TEMPLATE.format(available_models_str=available_models_str)
+
+        logger.debug(f"格式化后的 System Prompt (部分): {system_prompt_formatted[:200]}...")
+        logger.debug(f"格式化后的 User Prompt (部分): {user_prompt_formatted[:200]}...")
+        # print(system_prompt_formatted) # Debugging: 打印完整 Prompt
+        # print(user_prompt_formatted)   # Debugging: 打印完整 Prompt
 
         # 调用 LLM
         llm_response = call_llm_for_match(
-            SYSTEM_PROMPT, user_prompt, expect_json=True)
-        
-        print('返回结果中......')
+            system_prompt_formatted, user_prompt_formatted, expect_json=True)
+
+        # print('返回结果中......') # Debugging: 移除或注释掉 print
 
         if not llm_response or isinstance(llm_response, str) or llm_response.get("error"):
             logger.error(f"LLM 调用失败或返回错误: {llm_response}")
