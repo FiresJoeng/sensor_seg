@@ -1,13 +1,13 @@
 model,code,description,remark
 TG,TG,保护套管,示例：TG-PT3-200/350RN12-A11PN
 套管形式,-PT3,法兰安装金属保护管,示例：TG-PT3-200/350RN12-A11PN
-插入深度 (U),-□□□,单位mm,示例：TG-PT3-200/350RN12-A11PN
-总长 (A),/□□□,单位mm,示例：TG-PT3-200/350RN12-A11PN
-管材质,□□,参见表2材质规格代码表,示例：TG-PT3-200/350RN12-A11PN
+插入深度 (U),-%int%,单位mm,示例：TG-PT3-200/350RN12-A11PN
+总长 (A),/%int%,单位mm,示例：TG-PT3-200/350RN12-A11PN
+管材质,RN,参见表2材质规格代码表,示例：TG-PT3-200/350RN12-A11PN
 外径 (d),-12,12mm,示例：TG-PT3-200/350RN12-A11PN
 外径 (d),-16,16mm,示例：TG-PT3-200/350RN12-A11PN
 外径 (d),-20,20mm,示例：TG-PT3-200/350RN12-A11PN
-外径 (d),□□□,单独指定，单位mm,示例：TG-PT3-200/350RN12-A11PN
+外径 (d),%int%,单独指定，单位mm,示例：TG-PT3-200/350RN12-A11PN
 法兰标准,-A,ANSI,示例：TG-PT3-200/350RN12-A11PN
 法兰标准,-D,DIN,示例：TG-PT3-200/350RN12-A11PN
 法兰标准,-G,GB/T9123,示例：TG-PT3-200/350RN12-A11PN

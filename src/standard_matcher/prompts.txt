@@ -1,0 +1,85 @@
+standard_matcher 运行逻辑:
+
+
+
+请写一个程序fetch_csvlist.py
+
+1. 一开始用户会提供一个输入源，这个输入源是json格式的键值对字典。它位于data/output/test.json
+2. 然后，我们有一个索引文件，位于libs/standard/index.json。这个索引文件的第一层键是产品（三款），第二层键是关键词，第二层值是csv路径列表。
+3. 输入源代表着三个产品的要求，程序需要把输入源提交给LLM，然后匹配各产品对应的唯一最佳关键词，从而找到各产品的CSV路径列表。
+4. 如果LLM无法找到最佳关键词，则取各产品关键词为"默认"的键作为匹配结果，取该结果的值为对应的CSV路径列表。
+5. 最终的输出结果是{'产品1':[CSVlist],'产品2':[CSVlist],'产品3':[CSVlist],}
+
+LLM的调用可接入src/standard_matcher/llm.py，该文件你可以随意修改。
+
+
+请写一个程序src/standard_matcher/model_matcher.py
+
+1. 一开始你会收到一个Json格式的CSV列表映射，这是由src/standard_matcher/fetch_csvlist.py输出的，如下所示：
+```
+{
+    "transmitter": [
+        "libs/standard/transmitter/YTA610.csv",
+        "libs/standard/transmitter/YTA610_addon.csv",
+        "libs/standard/transmitter/YTA610_addon_ep.csv"
+    ],
+    "sensor": [
+        "libs/standard/sensor/HZ.csv"
+    ],
+    "tg": [
+        "libs/standard/TG_3.csv"
+    ]
+}
+```
+2. 然后你还需要读取用户提供的一个输入源，这个输入源是json格式的键值对字典。它位于data/output/test.json
+3. 你需要读取列表中的CSV，这些CSV表头是四个参数(model,code,description,remark)，然后，将输入源的某一键值对，智能匹配CSV这些CSV中的若干行，但是这若干行都是（同一个model参数）。所有输入源的键值对和CSV中的行，只能匹配和被匹配一次，不可复用。
+4. 智能匹配策略的设置：匹配分为模糊匹配和LLM匹配。优先进行模糊匹配，若模糊匹配不成功，则进行LLM匹配。
+(1) 模糊匹配：不额外挑拣键或值或CSV参数，直接将“输入源的整条键值对”与“CSV的同model的若干行进行匹配（匹配时是再将这若干行分开逐行匹配计算）”，通过相似度比对等方式计算分数，取分高的为匹配结果。及格分阈值为0.4。匹配失败或不及格的键值对记录下来。
+(2) 大模型匹配：将失败的键值对与CSV的同model的若干行进行匹配，这里不再存在匹配失败的结果无论如何都要把键值对匹配完，但注意不能复用model行。
+(3) 注意，并非在模糊匹配不成功时立即对某条键值对进行匹配。而是将模糊匹配失败或不及格的键值对记录下来的集合，一并提交给LLM，以此在最后与CSV中剩余的行进行匹配。也就是说LLM匹配是最后执行也是仅在此程序执行一次的。
+5. 匹配完毕后，将匹配结果以JSON形式输出，概念："输入源键值对":[若干行]
+LLM的调用可接入src/standard_matcher/llm.py，该文件你可以随意修改。
+
+
+继续，写一个程序 src/standard_matcher/code_selector.py。
+读取fetch_csvlist.py的输出的json，因为我们已经为键值对匹配了对应的若干CSV行。现在我们需要设计一个选定策略。为这些键值对选定最佳的那一行。选定策略如下：
+1.与智能匹配策略的设置差不多，选定策略也是种匹配：选定分为模糊匹配和LLM匹配。优先进行模糊匹配，若模糊匹配不成功，则进行LLM匹配。
+(1) 模糊匹配：不额外挑拣键或值或CSV参数，直接将“输入源的整条键值对”与“'对应的'若干行进行逐行整行匹配”，通过相似度比对等方式计算分数，分最高的为选定结果。及格分阈值为0.25。
+(2) 大模型匹配：将失败的键值对与CSV的“对应的”若干行进行逐行整行匹配，这里不再存在匹配失败的结果，无论如何都要把键值对选定完。
+(3) 同样，并非在模糊匹配不成功时立即对某条键值对进行匹配。而是将模糊匹配失败或不及格的键值对记录下来的集合，一并提交给LLM匹配，LLM在最后执行且只执行一次。
+匹配完毕后，将匹配结果以JSON形式输出，概念："输入源键值对的“键”": 选定的那个唯一行
+LLM的调用可接入src/standard_matcher/llm.py，该文件你可以随意修改。
+
+如果某model是唯一的，即该model不存在多行和重名的情况。那么直接取该model的code为对应的规格代码。不需要再进行额外匹配也不需要留?。
+
+
+写一个程序 src/standard_matcher/code_generator.py，模拟参数我已经提供好
+
+
+1. 一开始程序会收到一个Json格式的CSV列表映射，这是由src/standard_matcher/fetch_csvlist.py输出的，现不考虑与这个文件对接，你可以在if name = main 使用模拟参数。
+2. 然后程序还会收到来自src/standard_matcher/code_selector.py的输出的json，现不考虑与这个文件对接，你可以在if name = main 使用模拟参数。
+
+
+3. 接下来你要按顺序对code_selector的json数据进行排序。
+
+顺序通过CSVd获得。按照以下 读取CSV 以及 读取CSV参数 的顺序：
+
+(1) 产品读取顺序：先transmitter，再sensor，最后tg
+(2) 对于一个产品有多个CSV的，只读第一个。如：
+```
+    "transmitter": [
+        "libs/standard/transmitter/YTA610.csv",
+        "libs/standard/transmitter/YTA610_addon.csv",
+        "libs/standard/transmitter/YTA610_addon_ep.csv"
+    ]
+```
+只读YTA610.csv
+
+(3) CSV内表头有一参数列表“model”，由上至下读取model的位置。多个同名model算作一个。
+
+
+
+根据这个顺序规则，将匹配"code_selector.py的输出的json"的model 与 CSV的model 进行匹配排序。
+
+然后提取code_selector.py的输出的json的code，按照排序的顺序输出出来。
+输出格式：“产品型号生成：transmitter_code sensor_code tg_code"

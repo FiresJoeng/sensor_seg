@@ -16,3 +16,5 @@ tabulate>=0.8.0 # Was potentially used in old data_processor.py (check if needed
 
 # It's recommended to pin specific versions for better reproducibility:
 # Example: pandas==2.1.4
+thefuzz
+python-Levenshtein
