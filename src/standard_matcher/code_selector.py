@@ -72,10 +72,12 @@ SELECTOR_USER_PROMPT_TEMPLATE = """
 确保每个输入参数都有一个对应的选中行索引。
 """
 
+
 class CodeSelector:
     """
     负责从候选 CSV 行列表中为每个输入参数选择最佳代码行。
     """
+
     def __init__(self, matched_models_dict: Dict[str, List[Dict[str, Any]]]):
         """
         初始化 CodeSelector。
@@ -91,10 +93,14 @@ class CodeSelector:
         self.matched_models_dict = matched_models_dict
         self.fuzzy_select_threshold = 0.4  # 模糊选择相似度阈值
 
-        self.selected_codes: Dict[str, Dict[str, Any]] = {} # 最终选择结果: {original_input_key: selected_row_dict}
-        self.failed_fuzzy_selection: List[Tuple[str, List[Dict[str, Any]]]] = [] # 模糊选择失败的项: [(input_str, candidate_rows), ...]
+        # 最终选择结果: {original_input_key: selected_row_dict}
+        self.selected_codes: Dict[str, Dict[str, Any]] = {}
+        # 模糊选择失败的项: [(input_str, candidate_rows), ...]
+        self.failed_fuzzy_selection: List[Tuple[str,
+                                                List[Dict[str, Any]]]] = []
 
-        logger.info(f"CodeSelector 初始化完成。待处理 {len(self.matched_models_dict)} 个输入参数。")
+        logger.info(
+            f"CodeSelector 初始化完成。待处理 {len(self.matched_models_dict)} 个输入参数。")
 
     # _parse_input_string 函数不再需要，已移除
 
@@ -117,21 +123,26 @@ class CodeSelector:
 
             # 如果只有一个候选行，直接选择
             if len(candidate_rows) == 1:
-                selected_row_dict = candidate_rows[0].copy() # 使用副本以防修改原始数据
-                # 特殊规则：如果 code 是 %int%，尝试从 input_str 提取数字
-                if selected_row_dict.get('code') == '%int%':
+                selected_row_dict = candidate_rows[0].copy()  # 使用副本以防修改原始数据
+                original_code = selected_row_dict.get('code', '')
+
+                # 新规则：如果 code 包含 %int%，尝试从 input_str 提取数字并替换
+                if '%int%' in original_code:
                     # 尝试从 input_str (格式 "'key': 'value'") 提取 value 中的数字
                     match = re.search(r":\s*'(\d+)'", input_str)
                     if match:
                         extracted_value = match.group(1)
-                        selected_row_dict['code'] = extracted_value # 替换 code
-                        logger.info(f"模糊选择成功 (唯一候选，%int% 替换): 键值对 '{input_str}' -> code 替换为 '{extracted_value}'")
+                        # 替换 %int% 部分
+                        new_code = original_code.replace('%int%', extracted_value)
+                        selected_row_dict['code'] = new_code
                     else:
-                        logger.warning(f"唯一候选行的 code 为 '%int%'，但在输入 '{input_str}' 中未能提取到数字值，保留 '%int%'。")
+                        logger.warning(
+                            f"唯一候选行的 code '{original_code}' 包含 '%int%'，但在输入 '{input_str}' 中未能提取到数字值，保留原样。")
 
-                # 使用原始 input_str 作为 key 存储选择结果
+                # 使用原始 input_str 作为 key 存储选择结果（可能是修改后的，也可能是原始的）
                 self.selected_codes[input_str] = selected_row_dict
-                logger.info(f"模糊选择成功 (唯一候选): 键值对 '{input_str}' -> 最终匹配结果 {selected_row_dict}")
+                logger.info(
+                    f"模糊选择成功 (唯一候选): 键值对 '{input_str}' -> 最终匹配结果 {selected_row_dict}")
                 continue
 
             best_match_row = None
@@ -154,16 +165,18 @@ class CodeSelector:
                 # 使用原始 input_str 作为 key
                 selected_row_dict = best_match_row
                 self.selected_codes[input_str] = selected_row_dict
-                logger.info(f"模糊选择成功: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (分数: {best_score})")
+                logger.info(
+                    f"模糊选择成功: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (分数: {best_score})")
             else:
                 # 记录失败项以供 LLM 处理
                 self.failed_fuzzy_selection.append((input_str, candidate_rows))
-                logger.debug(f"模糊选择失败或分数低: 输入 '{input_str}' (最高分: {best_score}, 最佳候选 code: {best_match_row.get('code', 'N/A') if best_match_row else 'N/A'})")
+                logger.debug(
+                    f"模糊选择失败或分数低: 输入 '{input_str}' (最高分: {best_score}, 最佳候选 code: {best_match_row.get('code', 'N/A') if best_match_row else 'N/A'})")
                 # 注意：即使 original_key 解析失败，也应该记录失败项
 
-
         # 使用 set(self.selected_codes.keys()) 来获取唯一选中的 input_str 数量
-        logger.info(f"模糊选择完成。成功 {len(self.selected_codes)} 项，失败 {len(self.failed_fuzzy_selection)} 项。")
+        logger.info(
+            f"模糊选择完成。成功 {len(self.selected_codes)} 项，失败 {len(self.failed_fuzzy_selection)} 项。")
 
     def _llm_select(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -187,15 +200,18 @@ class CodeSelector:
                 # 显示关键信息：code 和 description
                 code = row.get('code', 'N/A')
                 desc = row.get('description', '无描述')
-                item_str += f"  {i}: code='{code}', description='{desc[:60]}{'...' if len(desc) > 60 else ''}'\n" # 限制描述长度
+                # 限制描述长度
+                item_str += f"  {i}: code='{code}', description='{desc[:60]}{'...' if len(desc) > 60 else ''}'\n"
             items_to_select_str_parts.append(item_str)
 
         items_to_select_str = "\n---\n".join(items_to_select_str_parts)
 
-        user_prompt = SELECTOR_USER_PROMPT_TEMPLATE.format(items_to_select_str=items_to_select_str)
+        user_prompt = SELECTOR_USER_PROMPT_TEMPLATE.format(
+            items_to_select_str=items_to_select_str)
 
         # 调用 LLM
-        llm_response = call_llm_for_match(SELECTOR_SYSTEM_PROMPT, user_prompt, expect_json=True)
+        llm_response = call_llm_for_match(
+            SELECTOR_SYSTEM_PROMPT, user_prompt, expect_json=True)
 
         if not llm_response or isinstance(llm_response, str) or llm_response.get("error"):
             logger.error(f"LLM 调用失败或返回错误: {llm_response}")
@@ -207,8 +223,8 @@ class CodeSelector:
         try:
             # llm_response 预期是 {"input_key: value": selected_index, ...}
             if not isinstance(llm_response, dict):
-                 logger.error(f"LLM 响应不是预期的字典格式: {llm_response}")
-                 return llm_selected_codes
+                logger.error(f"LLM 响应不是预期的字典格式: {llm_response}")
+                return llm_selected_codes
 
             processed_inputs_str = set()
             for input_str, selected_index in llm_response.items():
@@ -232,37 +248,44 @@ class CodeSelector:
                         # 使用原始 input_str 作为 key
                         selected_row_dict = selected_row
                         llm_selected_codes[input_str] = selected_row_dict
-                        logger.info(f"LLM 选择成功: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
+                        logger.info(
+                            f"LLM 选择成功: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
                     else:
-                        logger.warning(f"LLM 为输入 '{input_str}' 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。将尝试选择第一个。")
+                        logger.warning(
+                            f"LLM 为输入 '{input_str}' 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。将尝试选择第一个。")
                         # 备选策略：选择第一个，使用原始 input_str 作为 key
-                        if original_candidates: # 确保有候选行
+                        if original_candidates:  # 确保有候选行
                             selected_row_dict = original_candidates[0]
                             llm_selected_codes[input_str] = selected_row_dict
-                            logger.info(f"LLM 选择失败 (无效索引)，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                            logger.info(
+                                f"LLM 选择失败 (无效索引)，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
 
                 except (ValueError, TypeError):
-                    logger.warning(f"LLM 为输入 '{input_str}' 返回了非整数索引: '{selected_index}'。将尝试选择第一个。")
+                    logger.warning(
+                        f"LLM 为输入 '{input_str}' 返回了非整数索引: '{selected_index}'。将尝试选择第一个。")
                     # 备选策略：选择第一个，使用原始 input_str 作为 key
-                    if original_candidates: # 确保有候选行
+                    if original_candidates:  # 确保有候选行
                         selected_row_dict = original_candidates[0]
                         llm_selected_codes[input_str] = selected_row_dict
-                        logger.info(f"LLM 选择失败 (非整数索引)，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
-
+                        logger.info(
+                            f"LLM 选择失败 (非整数索引)，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
 
             # 检查是否有 LLM 未返回结果的失败项
-            missing_inputs_tuples = [(item[0], item[1]) for item in self.failed_fuzzy_selection if item[0] not in processed_inputs_str]
+            missing_inputs_tuples = [
+                (item[0], item[1]) for item in self.failed_fuzzy_selection if item[0] not in processed_inputs_str]
             if missing_inputs_tuples:
-                logger.warning(f"LLM 未对以下 {len(missing_inputs_tuples)} 个模糊选择失败项返回结果，将尝试选择第一个候选行:")
+                logger.warning(
+                    f"LLM 未对以下 {len(missing_inputs_tuples)} 个模糊选择失败项返回结果，将尝试选择第一个候选行:")
                 for missing_input_str, original_candidates in missing_inputs_tuples:
-                 if original_candidates: # 确保有候选行
-                     # 使用原始 missing_input_str 作为 key
-                     selected_row_dict = original_candidates[0]
-                     llm_selected_codes[missing_input_str] = selected_row_dict
-                     logger.warning(f"  - 备选策略: 键值对 '{missing_input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
-                 else:
-                     logger.warning(f"  - 备选策略失败: 输入 '{missing_input_str}' 没有候选行。")
-
+                    if original_candidates:  # 确保有候选行
+                        # 使用原始 missing_input_str 作为 key
+                        selected_row_dict = original_candidates[0]
+                        llm_selected_codes[missing_input_str] = selected_row_dict
+                        logger.warning(
+                            f"  - 备选策略: 键值对 '{missing_input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                    else:
+                        logger.warning(
+                            f"  - 备选策略失败: 输入 '{missing_input_str}' 没有候选行。")
 
         except Exception as e:
             logger.error(f"处理 LLM 响应时出错: {e}", exc_info=True)
@@ -287,7 +310,8 @@ class CodeSelector:
 
         # 3. 合并结果 (LLM 的结果优先级更高，如果 key 冲突)
         final_selection = self.selected_codes.copy()
-        final_selection.update(llm_selections) # 用 LLM 的结果覆盖模糊匹配的结果（现在基于 input_str，不应冲突）
+        # 用 LLM 的结果覆盖模糊匹配的结果（现在基于 input_str，不应冲突）
+        final_selection.update(llm_selections)
 
         # 检查是否有输入参数最终没有被选中
         # 使用原始的 input_str 进行比较
@@ -297,11 +321,11 @@ class CodeSelector:
         if unselected_strings:
             logger.warning(f"有 {len(unselected_strings)} 个输入参数最终未能选定代码行:")
             for unselected_str in unselected_strings:
-                 logger.warning(f"  - 未选定: '{unselected_str}'")
-
+                logger.warning(f"  - 未选定: '{unselected_str}'")
 
         logger.info(f"代码选择流程完成。最终选定 {len(final_selection)} 项。")
         return final_selection
+
 
 # --- 主执行逻辑 (示例) ---
 if __name__ == "__main__":
@@ -369,7 +393,7 @@ if __name__ == "__main__":
             "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
         }
     ],
-    "'过程连接（法兰等级） (允差等级 Tolerance Error Rating)': 'A级'": [
+    "'元件类型 (分度号 Type)': 'IEC标准 Pt100'": [
         {
             "model": "附加规格代码",
             "code": "/A3",
@@ -505,24 +529,10 @@ if __name__ == "__main__":
     ],
     "'TG套管形式 (套管材质 Well Mat'l)': '316'": [
         {
-            "model": "TG",
-            "code": "TG",
-            "description": "保护套管",
-            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm"
-        }
-    ],
-    "'过程连接（法兰等级） (压力等级 Pressure Rating)': 'Class150'": [
-        {
-            "model": "过程连接",
-            "code": "-S",
-            "description": "抱箍式 *1",
-            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
-        },
-        {
-            "model": "过程连接",
-            "code": "-W",
-            "description": "焊接式 *2",
-            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
+            "model": "棒材质",
+            "code": "RN",
+            "description": "参见表2",
+            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
         }
     ],
     "'铠套外径(d) (套管外径 Well Outside Dia. (mm))': '根部不大于28,套管厚度由供货商根据振动频率和强度计算确定'": [
@@ -543,6 +553,46 @@ if __name__ == "__main__":
             "code": "-%int%",
             "description": "单位mm",
             "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
+        }
+    ],
+    "'过程连接 (过程连接形式 Process Conn.)': '固定法兰'": [
+        {
+            "model": "过程连接",
+            "code": "-S",
+            "description": "抱箍式 *1",
+            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
+        },
+        {
+            "model": "过程连接",
+            "code": "-W",
+            "description": "焊接式 *2",
+            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
+        }
+    ],
+    "'过程连接（法兰尺寸（Fs）） (连接规格Conn. Size)': 'DN40'": [
+        {
+            "model": "法兰尺寸 (Fs)",
+            "code": "1",
+            "description": "DN25（1\"）",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰尺寸 (Fs)",
+            "code": "2",
+            "description": "DN40（1-1/2\"）",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰尺寸 (Fs)",
+            "code": "3",
+            "description": "DN50（2\"）",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰尺寸 (Fs)",
+            "code": "z",
+            "description": "其它",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
         }
     ],
     "'过程连接 (法兰标准 Flange STD.)': 'HG/T20615-2009'": [
@@ -577,15 +627,89 @@ if __name__ == "__main__":
             "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。 ；(2)粗糙度Ra=0.8，长度不超过500mm段略 (中间类似规则)"
         }
     ],
-    "'过程连接（法兰等级） (管嘴长度 Length mm)': '150'": [
+    "'过程连接（法兰等级） (等级 Rating)': 'Class150'": [
         {
-            "model": "钎套长度",
-            "code": "%int%",
-            "description": "单位mm",
-            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
+            "model": "法兰等级",
+            "code": "1",
+            "description": "PN2.0（150#）RF",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "2",
+            "description": "PN5.0（300#）RF",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "3",
+            "description": "PN11.0（600#）RF",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "4",
+            "description": "PN15.0（900#）RJ",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "5",
+            "description": "PN26.0（1500#）RJ",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "6",
+            "description": "PN42.0（2500#）RJ",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "7",
+            "description": "PN1.0 RF",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "8",
+            "description": "PN1.6 RF",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "9",
+            "description": "PN2.5 RF",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "10",
+            "description": "PN4.0 RF",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "11",
+            "description": "PN6.3 RF",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        },
+        {
+            "model": "法兰等级",
+            "code": "Z",
+            "description": "其它",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
         }
     ],
-    "'过程连接（法兰等级） (插入深度 Well Length (mm))': '250'": [
+    "'法兰密封面形式 (法兰材质 Flange Mat'l)': '316'": [
+        {
+            "model": "法兰材质",
+            "code": "RN",
+            "description": "参见表2",
+            "remark": "例：TG-K2-H11PN-150GH-22/18   (1)需提供现场工况过程参数(温度，压力，介质密度，介质黏度，介质流速，管道尺寸)。  (2)粗糙度Ra=0.8，长度不超过500mm"
+        }
+    ],
+    "'过程连接（法兰等级） (管嘴长度 Length mm)': '150'": [
         {
             "model": "铠套长度",
             "code": "%int%",
@@ -593,16 +717,15 @@ if __name__ == "__main__":
             "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
         }
     ],
-    "'连接螺纹 (测量范围 Meas. Range (°C))': '缺失（文档未提供）'": [
+    "'过程连接（法兰等级） (插入深度 Well Length (mm))': '250'": [
         {
-            "model": "补偿导线长度",
-            "code": "%int%",
-            "description": "单位mm *3",
-            "remark": "*1 采用抱箍将感温片固定在测温点，需提供现场管道直径。；*2 将感温片焊接固定在测温点，需提供现场曲面半径。；*3 铠套端预留螺纹接口，便于在隔爆安装环境下安装。"
+            "model": "插入深度 (U)",
+            "code": "-%int%",
+            "description": "单位mm",
+            "remark": "例：TG-K2-H11PN-150GH-22/18 ；(1)需提供现场工况过程参数...；(2)粗糙度Ra=0.8，长度不超过500mm"
         }
     ]
 }
-
 
     # 2. 创建 Selector 实例并执行选择
     try:
@@ -615,7 +738,7 @@ if __name__ == "__main__":
         print(json.dumps(final_selected_codes, indent=4, ensure_ascii=False))
 
     except ImportError as e:
-         logger.error(f"初始化 CodeSelector 失败，可能是缺少库: {e}")
+        logger.error(f"初始化 CodeSelector 失败，可能是缺少库: {e}")
     except Exception as e:
         logger.error(f"执行 CodeSelector 示例时发生意外错误: {e}", exc_info=True)
 

@@ -421,6 +421,15 @@ class ModelMatcher:
                 logger.warning(
                     f"  - 未匹配输入键: '{unmatched_key}' (值: '{unmatched_value}')")
 
+        # 记录未被匹配的标准模型组
+        unmatched_models = [name for name, data in self.csv_data.items() if not data['used']]
+        if unmatched_models:
+            logger.warning(f"有 {len(unmatched_models)} 个标准模型组未被任何输入参数匹配:")
+            for model_name in unmatched_models:
+                logger.warning(f"  - 未匹配模型组: '{model_name}'")
+        # else: # 如果不需要在所有模型都匹配时输出信息，可以注释掉这部分
+        #     logger.info("所有标准模型组都已成功匹配或尝试匹配。")
+
         return self.matched_results
 
     # def save_results(self, output_path: str): # 移除保存结果的方法
