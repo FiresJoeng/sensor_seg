@@ -1,15 +1,6 @@
 {
     "transmitter": {
         "默认": [],
-        "YTA50": [
-            "libs/standard/transmitter/YTA50.csv"
-        ],
-        "YTA70": [
-            "libs/standard/transmitter/YTA70.csv"
-        ],
-        "YTA70P": [
-            "libs/standard/transmitter/YTA70P.csv"
-        ],
         "YTA610": [
             "libs/standard/transmitter/YTA610.csv",
             "libs/standard/transmitter/YTA610_addon.csv",
@@ -48,13 +39,13 @@
             "libs/standard/tg/TG_3.csv"
         ],
         "PT1型(无固定装置钢管保护管)": [
-            "libs/standard/tg/TG_4_1.csv"
+            "libs/standard/tg/TG_PT-1.csv"
         ],
         "PT2型(螺纹安装钢管保护管)": [
-            "libs/standard/tg/TG_4_2.csv"
+            "libs/standard/tg/TG_PT-2.csv"
         ],
         "PT3型(法兰安装钢管保护管)": [
-            "libs/standard/tg/TG_4_3.csv"
+            "libs/standard/tg/TG_PT-3.csv"
         ]
     }
 }

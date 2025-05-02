@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 # 定义可跳过的 model 名称集合 (将来可以考虑移到配置)
 SKIPPABLE_MODELS = {
-    "传感器连接螺纹 (S)注：带温度元件，此项可省",
-    "插入长度（L）"
-
+    "传感器连接螺纹（S）",
+    "插入长度（L）",
+    "附加规格代码"
 }
 
 def get_model_order(csv_list_map: Dict[str, List[str]]) -> Dict[str, List[str]]:
