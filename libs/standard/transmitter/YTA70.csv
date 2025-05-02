@@ -1,7 +1,0 @@
-model,code,description,remark
-温度变送器,YTA70,温度变送器（顶部安装）,*1：输出信号代码J可选HART5或者HART7型号.订货时指定HART5或者HART7。信号代码J适用设备标记如下：Ex ia IIC T6 ... T4 Ga， Ex ia IIIC Da， Ex ia I Ma 
-输出信号,-E,4 ~ 20mA DC 数字通讯（HART 5 协议）,NaN
-输出信号,-J,4 ~ 20mA DC 数字通讯（HART 5 / HART 7 协议） *1,NaN
-附加规格,/KS2,ATEX本安许可 *2 适用标准： EN 60079-0: 2006， EN 60079-11: 2007， Uo=9.6V； Io=28mA； Po=67mW； Co=3.5F； Lo=35mH,NaN
-附加规格,/DS2,包含FM 本安/非可燃性和 ATEX 本安许可 *3 （ATEX 本安许可，见 /KS2）；FM 本安/非可燃性许可 [Type 4]；电源：Vmax=35V； Ci=0μF； Li=10μH； 环境温度：T6 Ta=60℃； T4 Ta=85℃,NaN
-附加规格,/SS2,包含IECEx 本安 *5、FM 本安/非可燃性 和 ATEX 本安许可 （FM 和 ATEX 本安许可，见 /KS2）；传感器电路：Uo=9.6V； Io=28mA； Po=67mW； Co=3.5μF； Lo=35mH,NaN

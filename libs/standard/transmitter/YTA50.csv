@@ -1,5 +1,0 @@
-model,code,description,remark
-温度变送器,YTA50,温度变送器（顶部安装类型）,NaN
-输出信号,-A,4 ~ 20mA DC,NaN
-附加规格,/KS2,CENELEC ATEX （KEMA） 本安许可 ；  适用标准： EN 60079-0: 2006， EN 60079-11: 2007， EN 60079-26: 2007， ；  EN 61241-0: 2006， EN 61241-11: 2006 ；  认证：KEMA 06 ATEX0191 ；  II1G Ex ia IIC T4 或 T6， II1D Ex iaD ； 防气的环境温度： -40 ~ 85℃ （-40 ~ 185˚F）， T6: -40 t ~ 60 C （-40 ~ 140˚F） ；  防尘的表面温度： ；  T4: T105℃环境温度：-40 ~ 85℃ （-40 ~ 185˚F） ；  T6: T85℃环境温度：-40 ~ 60℃ （-40 ~ 140˚F） ；  供电/输出电路：Ui=30V， Ii=120mA， Pi=0.84W， Ci=1nF， Li=10μH ； 传感器电路：Uo=9.6V， Io=25mA， Po=60mW， Co=2.4F， Lo=33mH ,NaN
-附加规格,/DS2,包含FM 本安/非可燃性和 CENELEC ATEX本安许可 ；  （CENELEC ATEX 本安许可，见/KS2） ；  [FM 本安/非可燃性许可] ；  适用标准：FM 3600， FM 3610， FM 3611， FM 3810 ；  本安：I级，1区，A、B、C 和 D组 ；电源：Vmax=28V， Imax=120mA， Pmax=0.84W， Ci ≤1nF， Li≤ 10μH ；  非可燃性 ：I级， 2区， A、 B、 C 和 D组 ；  危险 （分类） 户内/户外 （4型） ；  电源：Vmax=35V， Imax=150mA， Ci=0μF， Li=10μH ；  环境温度：T6 Ta=5℃， T4 Ta=80℃ , NaN
