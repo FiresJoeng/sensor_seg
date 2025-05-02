@@ -2,7 +2,21 @@ model,code,description,remark
 TG,TG,保护套管,NaN
 套管形式,-PT1,无固定装置金属保护管,NaN
 插入深度（U）,-%int%,单位mm,3位代码
-材质,RN,参见表2材质规格代码表,2位代码
+材质,GH,GH3030,GH3030
+材质,GN,GH3039,GH3039
+材质,HC,Hastelloy C-276,Hastelloy C-276；哈氏C276；HC276
+材质,JN,Inconel 625,Inconel 625
+材质,N1,碳钢（SA-105）,SA-105
+材质,N2,碳钢（15CrMo）,15CrMo
+材质,PN,304不锈钢,304SS；AISI 304；304；30408；S30408；06Cr19Ni10;0Cr18Ni9
+材质,QN,310不锈钢,S31008；310S；310；310SS；06Cr25Ni20
+材质,RN,316不锈钢,316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2
+材质,RH,316H不锈钢,316H
+材质,RL,316L不锈钢,316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2；00Cr17Ni14Mo2
+材质,SN,321不锈钢,321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti；0Cr18Ni10Ti
+材质,TA,钛(TA2),TA2；钛
+材质,DP,2205双相不锈钢,2205；S22053；022Cr25Ni5Mo3N
+材质,Z,其它,其它
 外径（d）,-12,12mm,NaN
 外径（d）,-16,16mm,NaN
 外径（d）,-20,20mm,NaN
