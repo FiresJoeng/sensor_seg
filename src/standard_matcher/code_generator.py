@@ -434,8 +434,8 @@ if __name__ == "__main__":
     },
     "'元件类型 (测量端形式 Meas. End Type)': '绝缘型'": {
         "model": "接头结构",
-        "code": "2",
-        "description": "固定式",
+        "code": "1",
+        "description": "弹簧紧压式（弹簧伸缩长度5mm）",
         "remark": ""
     },
     "'铠套外径(d) (铠装直径 Armo. Dia. (mm))': 'Ф6'": {
@@ -458,14 +458,14 @@ if __name__ == "__main__":
     },
     "'铠套外径(d) (套管外径 Well Outside Dia. (mm))': '根部不大于28,套管厚度由供货商根据振动频率和强度计算确定'": {
         "model": "根部直径 (Q)",
-        "code": "-27",
-        "description": "27mm（不适用于DN25（1\"））",
+        "code": "-%int%",
+        "description": "单位mm",
         "remark": ""
     },
     "'过程连接 (制造厂 Manufacturer)': '缺失（文档未提供）'": {
         "model": "附加规格代码",
-        "code": "/F1",
-        "description": "外保护套管水压测试",
+        "code": "/A3",
+        "description": "外保护套管频率强度计算",
         "remark": ""
     }
 }
