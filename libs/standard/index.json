@@ -14,16 +14,16 @@
     },
     "sensor": {
         "默认": [],
-        "铠装热电阻（铠装材质☆）": [
+        "铠装热电阻（金属套管封装制成）": [
             "libs/standard/sensor/HZ.csv"
         ],
-        "铠装热电偶（铠装材质☆）": [
+        "铠装热电偶（金属套管封装制成）": [
             "libs/standard/sensor/HR.csv"
         ],
-        "表面热电阻（钎套材质）": [
+        "表面热电阻（抱箍或感温片固定）": [
             "libs/standard/sensor/SZ.csv"
         ],
-        "表面热电偶（钎套材质）": [
+        "表面热电偶（抱箍或感温片固定）": [
             "libs/standard/sensor/SR.csv"
         ]
     },
