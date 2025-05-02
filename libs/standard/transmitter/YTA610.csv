@@ -1,5 +1,5 @@
 model,code,description,remark
-变送器,YTA610,温度变送器,NaN
+温度变送器,YTA610,温度变送器,NaN
 输出信号,-J,4~20 mA DC，HART 通信型,NaN
 输出信号,-F,FOUNDATION现场总线通信型 ,NaN
 说明书语言,A,Global,NaN

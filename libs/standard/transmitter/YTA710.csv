@@ -1,5 +1,5 @@
 model,code,description,remark
-变送器,YTA710,温度变送器,NaN
+温度变送器,YTA710,温度变送器,NaN
 输出信号,-D,4~20 mA DC，BRAIN通信型,NaN
 输出信号,-J,4~20 mA DC，HART通信型,NaN
 输出信号,-F,FOUNDATION现场总线通信型,NaN

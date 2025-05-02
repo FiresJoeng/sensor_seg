@@ -177,9 +177,9 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
 
     # --- 3. 移除JSON验证部分，直接使用提取的数据 ---
     # 使用merged_devices替代设备列表
-    device_list = extracted_data.get("merged_devices", [])
+    device_list = extracted_data.get("设备列表", [])
     if not device_list:
-        logger.warning("提取的 JSON 数据中未找到 'merged_devices' 或列表为空。")
+        logger.warning("提取的 JSON 数据中未找到 '设备列表' 或列表为空。")
         return {} # 返回空结果
 
     logger.info(f"开始标准化 {len(device_list)} 个设备的参数...")
