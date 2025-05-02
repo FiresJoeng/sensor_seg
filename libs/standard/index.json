@@ -2,14 +2,10 @@
     "transmitter": {
         "默认": [],
         "YTA610": [
-            "libs/standard/transmitter/YTA610.csv",
-            "libs/standard/transmitter/YTA610_addon.csv",
-            "libs/standard/transmitter/YTA610_addon_ep.csv"
+            "libs/standard/transmitter/YTA610.csv"
         ],
         "YTA710": [
-            "libs/standard/transmitter/YTA710.csv",
-            "libs/standard/transmitter/YTA710_addon.csv",
-            "libs/standard/transmitter/YTA710_addon_ep.csv"
+            "libs/standard/transmitter/YTA710.csv"
         ]
     },
     "sensor": {
