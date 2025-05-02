@@ -304,14 +304,13 @@ class ModelMatcher:
 
         logger.debug(f"格式化后的 System Prompt (部分): {system_prompt_formatted[:200]}...")
         logger.debug(f"格式化后的 User Prompt (部分): {user_prompt_formatted[:200]}...")
-        # print(system_prompt_formatted) # Debugging: 打印完整 Prompt
-        # print(user_prompt_formatted)   # Debugging: 打印完整 Prompt
+        print(system_prompt_formatted) # Debugging: 打印完整 Prompt
+        print(user_prompt_formatted)   # Debugging: 打印完整 Prompt
 
         # 调用 LLM
         llm_response = call_llm_for_match(
             system_prompt_formatted, user_prompt_formatted, expect_json=True)
 
-        # print('返回结果中......') # Debugging: 移除或注释掉 print
 
         if not llm_response or isinstance(llm_response, str) or llm_response.get("error"):
             logger.error(f"LLM 调用失败或返回错误: {llm_response}")
