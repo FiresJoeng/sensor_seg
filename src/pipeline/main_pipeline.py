@@ -175,69 +175,77 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
         logger.exception(f"信息提取或首次核对过程中发生意外错误: {e}")
         return None
 
-    # --- 3. 移除JSON验证部分，直接使用提取的数据 ---
-    # 使用merged_devices替代设备列表
-    device_list = extracted_data.get("设备列表", [])
-    if not device_list:
+    # --- 3. 适配新的 JSON 结构并仅标准化共用参数 ---
+    # 读取设备组列表
+    device_group_list = extracted_data.get("设备列表", [])
+    if not device_group_list:
         logger.warning("提取的 JSON 数据中未找到 '设备列表' 或列表为空。")
-        return {} # 返回空结果
+        return None # 返回 None 表示处理失败
 
-    logger.info(f"开始标准化 {len(device_list)} 个设备的参数...")
-    all_processed_devices = [] # 重新初始化列表
+    logger.info(f"开始标准化 {len(device_group_list)} 个设备组的共用参数...")
+    all_processed_devices = [] # 重新初始化列表，用于存储处理后的设备组
 
-    for idx, original_device_info in enumerate(device_list):
-        device_tag = original_device_info.get("位号", f"未知设备_{idx+1}")
-        logger.info(f"--- 开始标准化设备: {device_tag} ({idx+1}/{len(device_list)}) ---")
+    for idx, device_group in enumerate(device_group_list):
+        # 获取位号列表和共用参数
+        tag_nos = device_group.get("位号", [f"未知组_{idx+1}"]) # Use list for consistency
+        common_params = device_group.get("共用参数", {})
+        # Use the first tag number for logging, or a default name
+        group_log_name = tag_nos[0] if tag_nos else f"未知组_{idx+1}"
 
-        processed_device = original_device_info.copy() # 复制原始信息，保留元数据
-        actual_params = processed_device.pop('参数', {}) # 提取并移除原始参数字典
+        logger.info(f"--- 开始标准化设备组: {group_log_name} (包含 {len(tag_nos)} 个位号) ({idx+1}/{len(device_group_list)}) ---")
+
+        # 创建处理后的设备组信息，包含位号
+        processed_group = {"位号": tag_nos}
+        actual_params = common_params # 直接使用共用参数进行标准化
 
         if not actual_params:
-            logger.warning(f"设备 '{device_tag}' 没有参数信息，跳过标准化。")
-            processed_device['标准化参数'] = {}
-            all_processed_devices.append(processed_device)
+            logger.warning(f"设备组 '{group_log_name}' 没有共用参数信息，跳过标准化。")
+            processed_group['标准化共用参数'] = {} # Use a distinct key
+            all_processed_devices.append(processed_group)
             continue
 
-        # a. 参数标准化
+        # a. 参数标准化 (仅针对共用参数)
         standardized_params_result: Dict[str, str] = {}
-        logger.debug(f"开始标准化设备 '{device_tag}' 的 {len(actual_params)} 个参数...")
+        logger.debug(f"开始标准化设备组 '{group_log_name}' 的 {len(actual_params)} 个共用参数...")
         for actual_name, actual_value in actual_params.items():
+            # 保持原有的值类型检查
             if not isinstance(actual_value, (str, int, float)):
-                 logger.warning(f"参数 '{actual_name}' 的值类型不支持标准化 ({type(actual_value)})，跳过。")
+                 logger.warning(f"共用参数 '{actual_name}' 的值类型不支持标准化 ({type(actual_value)})，跳过。")
                  continue
             actual_value_str = str(actual_value)
 
+            # 标准化逻辑保持不变
             search_result: Optional[Tuple[str, str, str]] = None
             try:
                 search_result = search_service.search(actual_name, actual_value_str)
             except Exception as e:
-                 logger.error(f"为参数 '{actual_name}'='{actual_value_str}' 调用 SearchService 时出错: {e}", exc_info=True)
+                 logger.error(f"为共用参数 '{actual_name}'='{actual_value_str}' 调用 SearchService 时出错: {e}", exc_info=True)
 
             if search_result:
                 std_name, _, _ = search_result
-                # 保留原始值，键使用标准名和原始名组合
+                # 保留原始值，键使用标准名和原始名组合 (逻辑不变)
                 output_key = f"{std_name} ({actual_name})"
                 standardized_params_result[output_key] = actual_value_str
                 logger.debug(f"  '{actual_name}':'{actual_value_str}' -> 标准化键:'{output_key}', 值:'{actual_value_str}'")
             else:
-                logger.warning(f"未能为参数 '{actual_name}':'{actual_value_str}' 找到标准匹配，保留原始参数。")
-                # 保留原始键值对
+                logger.warning(f"未能为共用参数 '{actual_name}':'{actual_value_str}' 找到标准匹配，保留原始参数。")
+                # 保留原始键值对 (逻辑不变)
                 standardized_params_result[actual_name] = actual_value_str
 
         if not standardized_params_result:
-             logger.warning(f"设备 '{device_tag}' 处理后参数列表为空。")
-             processed_device['标准化参数'] = {}
+             logger.warning(f"设备组 '{group_log_name}' 处理后共用参数列表为空。")
+             processed_group['标准化共用参数'] = {} # Use a distinct key
         else:
-             logger.info(f"设备 '{device_tag}' 标准化完成，共 {len(standardized_params_result)} 个标准参数。")
-             processed_device['标准化参数'] = standardized_params_result
+             logger.info(f"设备组 '{group_log_name}' 共用参数标准化完成，共 {len(standardized_params_result)} 个标准参数。")
+             processed_group['标准化共用参数'] = standardized_params_result # Use a distinct key
 
-        all_processed_devices.append(processed_device)
-        logger.info(f"--- 设备 {device_tag} 标准化处理完毕 ---")
+        all_processed_devices.append(processed_group) # 添加处理后的设备组
+        logger.info(f"--- 设备组 {group_log_name} 标准化处理完毕 ---")
 
     # --- 保存标准化结果 ---
     if all_processed_devices:
         # 使用之前定义的 combined_standardized_path
-        final_standardized_data = {"设备列表": all_processed_devices}
+        final_standardized_data = {"标准化设备组列表": all_processed_devices} # Use a more descriptive key
 
         try:
             combined_standardized_path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,7 +259,7 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
             print(f"错误：无法保存标准化 JSON 文件。")
             return None # 保存失败
     else:
-        logger.warning("没有设备被成功处理并标准化，无法保存标准化文件。")
+        logger.warning("没有设备组被成功处理并标准化，无法保存标准化文件。")
         return None # 没有数据可保存
 
 

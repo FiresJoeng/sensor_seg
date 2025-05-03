@@ -154,3 +154,12 @@ python scripts/build_kb.py
 *   知识库源文件 (`semantic_source.xlsx`) 和标准库文件 (`libs/standard/`) 的内容直接影响标准化和代码生成的准确性。
 *   首次运行 `build_kb.py` 可能需要一些时间，因为它需要下载嵌入模型并处理数据。
 *   如果遇到导入错误，请确保您是从项目根目录 (`new_sensor_project/`) 运行脚本，或者已正确设置 PYTHONPATH。
+*   (aisen) kk@kk-Linux:~/pythonProject/ai_seg/sensor_seg$ python src/pipeline/main_pipeline.py data/input/温变规格书.pdf
+    python src/pipeline/main_pipeline.py data/input/温变规格书.pdf --skip-extraction --output-json data/output/温变规格书_final_codes.json
+
+
+
+    python src/pipeline/main_pipeline.py data/input/广东石化报价表.xlsx
+
+
+    echo 'export http_proxy=http://127.0.0.1:7897' >> ~/.bashrc && echo 'export https_proxy=http://127.0.0.1:7897' >> ~/.bashrc
