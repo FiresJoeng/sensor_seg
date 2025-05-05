@@ -53,8 +53,8 @@ SYSTEM_PROMPT = """
 2.  **优先最佳**: 必须优先匹配关联度最高的输入键和模型名称。
 3.  **严格唯一**: 每个“待匹配输入参数的键”**必须**匹配到**一个且仅一个**“可用标准模型库条目的模型名称”。反之，每个“可用标准模型库条目的模型名称”也**必须**被**一个且仅一个**“待匹配输入参数的键”匹配。不允许遗漏任何输入键，也不允许重复使用任何模型名称。
 4.  **完整匹配**: 确保为**每一个**“待匹配输入参数的键”都找到一个唯一的匹配模型名称。
-5.  **输出格式**: **非常重要** - 返回结果**必须**严格按照以下 JSON 格式。JSON 的键**必须**是原始输入参数的**键值对字符串**（格式："key: value"），值是匹配到的标准模型库条目的**模型名称 (model)**。即使匹配过程只使用了键，输出的键也必须是 "key: value" 格式。
-    示例: `{{"输入参数键1: 输入参数值1": "匹配到的模型名称1", "输入参数键2: 输入参数值2": "匹配到的模型名称2", ...}}`
+5.  **输出格式**: **非常重要** - 返回结果**必须**严格按照以下 JSON 格式。JSON 的键**必须**是原始输入参数的**键 (Key)**，值是匹配到的标准模型库条目的**模型名称 (model)**。
+    示例: `{{"输入参数键1": "匹配到的模型名称1", "输入参数键2": "匹配到的模型名称2", ...}}`
 """
 
 # 用户提示模板：包含候选标准项，引用系统提示中的待匹配项
@@ -64,11 +64,11 @@ USER_PROMPT_TEMPLATE = """
 **可用标准模型库条目 (模型名称列表):**
 {available_models_str}
 
-请严格按照系统提示中要求的 JSON 格式返回所有匹配结果。**再次强调**，JSON 的键必须是原始输入参数的**键值对字符串**（格式："key: value"），值是匹配到的模型名称。确保遵循所有规则，特别是优先匹配、唯一匹配和完整匹配的要求。
+请严格按照系统提示中要求的 JSON 格式返回所有匹配结果。**再次强调**，JSON 的键必须是原始输入参数的**键 (Key)**，值是匹配到的模型名称。确保遵循所有规则，特别是优先匹配、唯一匹配和完整匹配的要求。
 ```json
 {{{{
-  "输入参数键1: 输入参数值1": "匹配到的模型名称1",
-  "输入参数键2: 输入参数值2": "匹配到的模型名称2",
+  "输入参数键1": "匹配到的模型名称1",
+  "输入参数键2": "匹配到的模型名称2",
   ...
 }}}}
 ```
@@ -297,13 +297,9 @@ class ModelMatcher:
         # 格式化 System Prompt 和 User Prompt (使用新的变量名以清晰)
         system_prompt_formatted = SYSTEM_PROMPT.format(failed_inputs_str=failed_inputs_keys_str)
         user_prompt_formatted = USER_PROMPT_TEMPLATE.format(available_models_str=available_models_names_str)
-        system_prompt_formatted = SYSTEM_PROMPT.format(failed_inputs_str=failed_inputs_str)
-        user_prompt_formatted = USER_PROMPT_TEMPLATE.format(available_models_str=available_models_str)
 
         logger.debug(f"格式化后的 System Prompt (部分): {system_prompt_formatted[:200]}...")
         logger.debug(f"格式化后的 User Prompt (部分): {user_prompt_formatted[:200]}...")
-        print(system_prompt_formatted) # Debugging: 打印完整 Prompt
-        print(user_prompt_formatted)   # Debugging: 打印完整 Prompt
 
         # 调用 LLM
         llm_response = call_llm_for_match(
@@ -318,47 +314,44 @@ class ModelMatcher:
 
         # 处理 LLM 响应
         try:
-            # LLM 被要求返回 {"key: value": "matched_model_name", ...} 格式
-            # 因此处理逻辑与之前相同
+            # LLM 现在被要求返回 {"input_key": "matched_model_name", ...} 格式
             if not isinstance(llm_response, dict):
                 logger.error(f"LLM 响应不是预期的字典格式: {llm_response}")
                 self.unmatched_inputs.update({k: v for k, v in failed_inputs})
                 return llm_matches
 
             processed_inputs = set()
-            for input_kv_str, matched_model_name in llm_response.items(): # input_kv_str 是 "key: value"
+            for input_key, matched_model_name in llm_response.items(): # input_key 是 LLM 返回的键
                 # 验证匹配的模型是否存在且可用
                 if matched_model_name in available_models and not self.csv_data[matched_model_name]['used']:
-                    # 从原始 failed_inputs 中找到对应的键值对
-                    # 使用原始的 (key, value) 元组来查找
+                    # 从原始 failed_inputs 中找到对应的 (key, value) 元组
                     original_input_tuple = None
                     for k, v in failed_inputs:
-                        # 构建预期的 "key: value" 字符串进行比较
-                        expected_input_str = f"{k}: {v}"
-                        if expected_input_str == input_kv_str:
+                        if k == input_key: # 直接比较键
                             original_input_tuple = (k, v)
                             break
 
                     if original_input_tuple:
-                        # 保持输出键格式不变: "'key': 'value'"
-                        match_key = f"'{original_input_tuple[0]}': '{original_input_tuple[1]}'"
+                        # 使用找到的原始 key 和 value 构建最终输出的键
+                        final_match_key = f"'{original_input_tuple[0]}': '{original_input_tuple[1]}'"
                         matched_rows = self.csv_data[matched_model_name]['rows']
-                        llm_matches[match_key] = matched_rows
+                        llm_matches[final_match_key] = matched_rows
                         # 标记为已使用
                         self.csv_data[matched_model_name]['used'] = True
-                        processed_inputs.add(original_input_tuple)
+                        processed_inputs.add(original_input_tuple) # 标记原始元组为已处理
                         logger.info(
-                            f"LLM 匹配成功: {match_key} -> 模型 '{matched_model_name}'")
+                            f"LLM 匹配成功: {final_match_key} -> 模型 '{matched_model_name}'")
                     else:
-                        logger.warning(f"LLM 返回了无法在失败列表中找到其原始键值对的输入字符串: '{input_kv_str}'")
+                        # 这种情况理论上不应发生，因为 LLM 返回的 key 应该来自我们提供的 failed_inputs_keys_str
+                        logger.warning(f"LLM 返回了无法在失败列表中找到其原始元组的输入键: '{input_key}'")
                 elif matched_model_name in self.csv_data and self.csv_data[matched_model_name]['used']:
                     logger.warning(
-                        f"LLM 尝试匹配已使用的模型 '{matched_model_name}' 用于输入 '{input_kv_str}'")
+                        f"LLM 尝试匹配已使用的模型 '{matched_model_name}' 用于输入键 '{input_key}'")
                 else:  # 模型名称不存在或无效
                     logger.warning(
-                        f"LLM 返回了无效或不可用的模型名称 '{matched_model_name}' 用于输入 '{input_kv_str}'")
+                        f"LLM 返回了无效或不可用的模型名称 '{matched_model_name}' 用于输入键 '{input_key}'")
 
-            # 将 LLM 未能成功匹配或处理的项记录为无法匹配 (逻辑不变)
+            # 将 LLM 未能成功匹配或处理的项记录为无法匹配
             remaining_failed = [
                 item for item in failed_inputs if item not in processed_inputs]
             self.unmatched_inputs.update({k: v for k, v in remaining_failed})

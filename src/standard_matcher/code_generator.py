@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 SKIPPABLE_MODELS = {
     "传感器连接螺纹（S）",
     "插入长度（L）",
-    "附加规格代码"
+    "变送器附加规格",
+    "传感器附加规格",
+    "套管附加规格"
 }
 
 def get_model_order(csv_list_map: Dict[str, List[str]]) -> Dict[str, List[str]]:
@@ -330,138 +332,145 @@ if __name__ == "__main__":
    
     # 模拟 code_selector.py 的输出
     mock_standardized_params = {
-    "'元件数量 (类型 Type)': '单支'": {
-        "model": "元件数量",
-        "code": "-S",
-        "description": "单支式",
-        "param": "", # 假设新列为空或根据实际情况填充
-        "is_default": "1" # 假设这是默认值
-    },
-    "'过程连接（法兰尺寸（Fs）） (连接规格Conn. Size)': 'DN40'": {
-        "model": "过程连接（法兰尺寸（Fs））",
-        "code": "3", # 假设这是匹配项，但不是默认
-        "description": "DN50（2\"）",
-        "param": "",
-        "is_default": "0"
-    },
-    "'过程连接 (法兰标准 Flange STD.)': 'HG/T20615-2009'": {
+    "'过程连接（法兰标准）': 'HG/T20615-2009'": {
         "model": "过程连接（法兰标准）",
         "code": "-H",
         "description": "HG20592、HG20615",
-        "param": "",
-        "is_default": "0" # 假设
+        "param": "HG□□；化工法兰",
+        "is_default": "0"
     },
-    "'过程连接（法兰等级） (管嘴长度 Length mm)': '150'": {
-        "model": "过程连接（法兰等级）",
-        "code": "1",
-        "description": "PN2.0（150#）RF",
-        "param": "",
-        "is_default": "0" # 假设
+    "'插入深度（L）': '250'": {
+        "model": "插入长度（L）",
+        "code": "-250",
+        "description": "单位mm",
+        "param": "铠套热电阻/热点偶；带外保护套管时，此项可省略。",
+        "is_default": "1"
     },
-    "'元件类型 (仪表名称 Inst. Name)': '热电阻'": {
-        "model": "元件类型",
+    "'元件类型': '热电阻'": {
+        "model": "传感器主型号",
         "code": "HZ",
         "description": "热电阻",
         "param": "",
-        "is_default": "1" # 假设
+        "is_default": "1"
     },
-    "'元件类型 (分度号 Type)': 'IEC标准 Pt100'": {
-        "model": "分度号",
-        "code": "3",
-        "description": "PT100 三线",
-        "param": "",
-        "is_default": "0" # 假设
-    },
-    "'TG套管形式 (套管形式 Well Type)': '整体钻孔锥形保护管'": {
-        "model": "TG",
+    "'壳体代码': '304'": {
+        "model": "套管主型号",
         "code": "TG",
         "description": "保护套管",
         "param": "",
-        "is_default": "1" # 假设
-    },
-    "'过程连接（法兰等级） (插入深度 Well Length (mm))': '250'": {
-        "model": "插入深度 (U)",
-        "code": "-250", # 假设这是用户选择的，即使模板是 %int%
-        "description": "单位mm",
-        "param": "",
-        "is_default": "0" # 假设
-    },
-    "'连接螺纹 (温度元件型号 Therm. Element Model)': '缺失（文档未提供）'": {
-        "model": "连接螺纹",
-        "code": "0", # 假设这是默认
-        "description": "无",
-        "param": "",
         "is_default": "1"
     },
-    "'过程连接（法兰等级） (允差等级 Tolerance Error Rating)': 'A级'": {
-        "model": "附加规格选项",
-        "code": "", # 假设这是默认
-        "description": "默认",
-        "param": "",
+    "'管嘴长度 Length mm': '150'": {
+        "model": "加强管长度（N）",
+        "code": "150",
+        "description": "指定长度，单位mm",
+        "param": "3位代码",
+        "is_default": "0"
+    },
+    "'元件数量': '单支'": {
+        "model": "元件数量",
+        "code": "-S",
+        "description": "单支式",
+        "param": "1；单支；Simplex；单支单点；单元件；单只；Single，单支铠装；Single，，1支；one",
         "is_default": "1"
     },
-    "'铠套材质 (铠装材质 Armo. Mat'l)': '316'": {
-        "model": "铠装材质",
+    "'分度号': 'IEC标准 Pt100'": {
+        "model": "分度号",
+        "code": "3",
+        "description": "PT100 三线",
+        "param": "RTD Pt100 三线制；Pt100（三线制）；三线制；Pt100；Pt100（A级 三线制)；CLASS A/三线制；IEC60751 CLASS A / 三线制；RTD Pt100 三线制；三线制 Three wire；热电阻Pt100三线制；Pt100（A级 三线制）；3线制；3线制RTD；Pt100(3-wire) IEC60751 Class A；3 wires；3线RTD；PT100 3线； PT100 AT 0℃ 3WIRE (DIN TYPE)；3-wire；3线 IEC 60751；PT100-3WIRE；Pt100 ohm，3W，Class B；3 WIRE",
+        "is_default": "0"
+    },
+    "'铠套材质': '316'": {
+        "model": "铠套材质",
         "code": "RN",
         "description": "316SS",
-        "param": "",
-        "is_default": "0" # 假设
+        "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2",
+        "is_default": "0"
     },
-    "'铠套外径(d) (铠装直径 Armo. Dia. (mm))': 'Ф6'": {
-        "model": "铠装外径（d）",
+    "'铠套外径': 'φ6'": {
+        "model": "铠套外径(d)",
         "code": "6",
         "description": "Ø6mm",
-        "param": "",
-        "is_default": "0" # 假设
-    },
-    "'壳体代码 (接线盒形式 Terminal Box Style)': '防水型'": {
-        "model": "接线盒形式",
-        "code": "-2", # 假设
-        "description": "接线盒，1/2NPT出气接口（仅适用于YTA50、YTA70）*4",
-        "param": "",
-        "is_default": "0" # 假设
-    },
-    "'接线口 (电气连接 Elec. Conn.)': '1/2\" NPT (F)'": {
-        "model": "传感器连接螺纹（S）",
-        "code": "6",
-        "description": "1/2NPT",
-        "param": "",
-        "is_default": "0" # 假设
-    },
-    "'NEPSI (防爆等级 Explosion Proof)': 'Exd II BT4'": {
-        "model": "附加规格代码",
-        "code": "", # 假设这是默认
-        "description": "默认",
-        "param": "",
+        "param": "6；φ6；6mm；Φ6mm",
         "is_default": "1"
     },
-    "'TG套管形式 (套管材质 Well Mat'l)': '316'": {
+    "'接线盒形式代码': '分体式'": {
+        "model": "接线盒形式",
+        "code": "-2",
+        "description": "接线盒、1/2NPT电气接口",
+        "param": "分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器",
+        "is_default": "0"
+    },
+    "'TG套管形式': '整体钻孔锥形保护管'": {
+        "model": "TG套管形式",
+        "code": "-K",
+        "description": "K型法兰安装 锥形保护套管",
+        "param": "整体钻孔直形套管；直型；直形；整体钻孔直形保护管；直形Straight；法兰式整体钻孔式直形；固定直形整体钻孔法兰套管；法兰直形套管；整体钻孔保护管Tapered Type；Solid hole， tapered；Tapered from drilled barstock；整体钻孔锥型；Tapered；单端钻孔锥型套管；法兰连接整体锥型钻孔；法兰式锥形整体钻孔外套管；钢棒整体钻孔锥形套管；固定法兰式整体钻孔锥形保护套管；固定法兰锥形整体钻孔式；加强型锥型整体钻孔；锥形；一体化整体钻孔锥形法兰套管；整体锥形套管；整体锥形钻孔；整体钻孔式的锥形套管；整体钻孔锥形；整体钻孔锥形保护管；整体钻孔锥形管；整体钻孔锥形套管；整钻锥形；锥形整体钻孔；锥形整体钻孔式套管；整体钻孔保护管",
+        "is_default": "0"
+    },
+    "'套管材质': '316'": {
         "model": "套管材质",
         "code": "RN",
         "description": "316不锈钢",
-        "param": "",
-        "is_default": "0" # 假设
+        "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2",
+        "is_default": "0"
     },
-    "'铠套外径(d) (套管外径 Well Outside Dia. (mm))': '根部不大于28,套管厚度由供货商根据振动频率和强度计算确定'": {
+    "'法兰等级': 'Class150'": {
+        "model": "过程连接（法兰等级）",
+        "code": "1",
+        "description": "PN2.0（150#）RF",
+        "param": "PN2.0 RF；150# RF；PN20 RF；Class150 RF；150LB RF；□□-20 RF；CL150 RF；",
+        "is_default": "0"
+    },
+    "'根部直径（Q）': '根部不大于28,套管厚度由供货商根据振动频率和温度计算确定'": {
         "model": "根部直径 (Q)",
-        "code": "-%int%", # 假设这是默认模板
-        "description": "单位mm",
-        "param": "",
-        "is_default": "1" # 假设这是默认
+        "code": "-27",
+        "description": "27mm",
+        "param": "（不适用于DN25（1\"））",
+        "is_default": "0"
     },
-    "'过程连接 (过程连接形式 Process Conn.)': '固定法兰'": {
-        "model": "接头结构",
+    "'过程连接（法兰尺寸（Fs））': 'DN40'": {
+        "model": "过程连接（法兰尺寸（Fs））",
         "code": "2",
-        "description": "固定式",
-        "param": "",
-        "is_default": "0" # 假设
+        "description": "DN40（1-1/2\"）",
+        "param": "DN40；□□DN40□□；1-1/2\"；□□1-1/2\"□□；1 1/2\"；□□1 1/2\"□□；40-□□",
+        "is_default": "0"
     },
-    "'法兰密封面形式 (法兰材质 Flange Mat'l)': '316'": {
+    "'法兰材质': '316'": {
         "model": "法兰材质",
         "code": "RN",
         "description": "316不锈钢",
-        "param": "",
-        "is_default": "0" # 假设
+        "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2",
+        "is_default": "0"
+    },
+    "'接线口': '1/2\" NPT (F)'": {
+        "model": "传感器连接螺纹（S）",
+        "code": "6",
+        "description": "1/2NPT",
+        "param": "1/2NPT；1/2\"NPT；NPT1/2；NPT1/2\"；1/2NPT(M)；1/2\"NPT(M)；NPT1/2(M)；NPT1/2\"(M)；1/2\"NPT(外螺纹)；1/2\"NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2\"NPT；MFR STD",
+        "is_default": "0"
+    },
+    "'防护等级 Enclosure Protection': 'IP65'": {
+        "model": "传感器附加规格",
+        "code": "/B11",
+        "description": "防水接线盒，材质铝合金",
+        "param": "合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting;聚氨酯涂层低铜铝合金；",
+        "is_default": "0"
+    },
+    "'NEPSI': 'Exd II BT4'": {
+        "model": "套管附加规格",
+        "code": "",
+        "description": "默认",
+        "param": "若甲方未提供，则选择此项",
+        "is_default": "1"
+    },
+    "'法兰密封面形式': 'RF'": {
+        "model": "接头结构",
+        "code": "2",
+        "description": "固定式",
+        "param": "不带；NO，防内漏；",
+        "is_default": "0"
     }
 }
 
