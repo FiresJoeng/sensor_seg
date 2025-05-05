@@ -18,6 +18,8 @@ load_dotenv(dotenv_path=ENV_PATH)
 # 从环境变量获取 API 密钥
 # 明确尝试加载 OPENAI_API_KEY，如果不存在则回退到 LLM_API_KEY
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ZHIPUAI_API_KEY = os.getenv("ZHIPUAI_API_KEY")
+ZHIPUAI_MODEL_NAME = os.getenv("ZHIPUAI_MODEL_NAME") # 默认模型名称
 LLM_API_KEY = OPENAI_API_KEY if OPENAI_API_KEY else os.getenv("LLM_API_KEY") # Use DeepSeek key if available, else fallback
 
 # 如果未设置环境变量，发出警告
@@ -38,7 +40,7 @@ if LLM_API_URL == "default-api-url":
     print("警告: 未在 .env 文件中找到 LLM_API_URL。将使用默认值 'default-api-url'。")
 
 
-LLM_TEMPERATURE = 0.1 # LLM 温度参数
+LLM_TEMPERATURE = 0.5 # LLM 温度参数
 LLM_REQUEST_TIMEOUT = 300 # LLM API 请求超时时间 (秒) - Kept increased timeout
 
 # --- File Paths ---

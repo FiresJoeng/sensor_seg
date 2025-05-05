@@ -18,3 +18,7 @@ tabulate>=0.8.0 # Was potentially used in old data_processor.py (check if needed
 # Example: pandas==2.1.4
 thefuzz
 python-Levenshtein
+
+# Added for ZhipuAI and retry logic
+zhipuai>=2.0.0
+tenacity>=8.0.0

@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Hashable
 
 # --- Early Logging Setup ---
 # Setup basic logging first to catch import errors
@@ -24,7 +24,10 @@ try:
     from src.utils import logging_config
     from src.info_extractor.extractor import InfoExtractor
     from src.parameter_standardizer.search_service import SearchService
-    # standard_matcher is no longer used as code generation is removed
+    # --- Import the new standardizer and ZhipuAI ---
+    from src.parameter_standardizer.accurate_llm_standardizer import AccurateLLMStandardizer
+    from zhipuai import ZhipuAI
+    # standard_matcher is no longer used
     # from src.standard_matcher.matcher import generate_product_code
 
     # Now setup the full logging configuration from the utils module
@@ -100,6 +103,11 @@ def save_and_verify_json(data: Dict[str, Any], file_path: Path, prompt_prefix: s
 
 # Note: save_and_verify_json is still used for extracted parameters check.
 
+def get_dict_hash(data: Dict[str, Any]) -> Hashable:
+    """将字典转换为可哈希的表示形式（用于缓存键）。"""
+    # 排序字典项以确保一致性，然后转换为元组
+    return tuple(sorted(data.items()))
+
 def process_document(input_file_path: Path, skip_extraction: bool = False) -> Optional[Path]:
     """
     处理单个输入文档，生成标准化参数文件。
@@ -112,7 +120,6 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
         Optional[Path]: 成功时返回标准化参数文件的 Path 对象，失败时返回 None。
     """
     logger.info(f"===== 开始处理文档: {input_file_path.name} (跳过提取: {skip_extraction}) =====")
-    all_processed_devices = [] # 初始化为空列表
     combined_standardized_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_standardized_all.json"
 
     # --- 尝试跳过提取和标准化 ---
@@ -120,17 +127,14 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
         logger.info(f"尝试跳过提取，检查文件: {combined_standardized_path}")
         if combined_standardized_path.is_file():
             try:
-                # 仅检查文件是否存在且有效，不真正加载全部内容（除非需要验证）
-                # 可以在这里添加一个快速的 JSON 验证逻辑如果需要
                 logger.info(f"找到已存在的标准化文件: {combined_standardized_path}。跳过提取和标准化步骤。")
                 logger.info(f"===== 文档处理完成 (使用已存在文件): {input_file_path.name} =====")
-                return combined_standardized_path # 返回已存在文件的路径
+                return combined_standardized_path
             except Exception as e:
                 logger.error(f"检查已存在的标准化文件 {combined_standardized_path.name} 时出错: {e}。将继续执行完整流程。", exc_info=True)
-                # 出错则继续执行完整流程，所以这里不返回
         else:
             logger.error(f"请求跳过提取，但标准化文件 {combined_standardized_path.name} 未找到。无法继续。")
-            return None # 无法跳过且文件不存在
+            return None
 
     # --- 如果不跳过或跳过失败，则执行完整提取和标准化 ---
     # --- 1. 初始化服务 ---
@@ -144,6 +148,28 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
              logger.error("SearchService 未就绪，无法继续处理。")
              return None
 
+        # --- Initialize ZhipuAI client ---
+        try:
+            api_key = getattr(settings, 'ZHIPUAI_API_KEY', None)
+            if not api_key:
+                logger.error("配置错误：在 settings.py 中未找到 ZHIPUAI_API_KEY。")
+                raise ValueError("缺少 ZHIPUAI_API_KEY 配置")
+            logger.info("初始化 ZhipuAI 客户端...")
+            zhipuai_client = ZhipuAI(api_key=api_key)
+        except AttributeError:
+             logger.error("配置错误：无法加载 settings 或 ZHIPUAI_API_KEY。")
+             return None
+        except ValueError as ve:
+             logger.error(ve)
+             return None
+        except Exception as e:
+             logger.exception(f"初始化 ZhipuAI 客户端时出错: {e}")
+             return None
+
+        # --- Initialize the new AccurateLLMStandardizer ---
+        logger.info("初始化 AccurateLLMStandardizer...")
+        standardizer = AccurateLLMStandardizer(search_service=search_service, client=zhipuai_client)
+
     except Exception as e:
         logger.exception(f"初始化服务时出错: {e}")
         return None
@@ -154,164 +180,106 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
         extracted_data = info_extractor.extract_parameters_from_pdf(input_file_path)
         if extracted_data is None:
             logger.error("从PDF提取参数失败。")
-            return None # 无法继续
+            return None
         logger.info("信息提取成功。")
 
-        # --- 插入：提取后的人工核对 ---
-        extracted_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_extracted_parameters.json"
-        verified_extracted_data = save_and_verify_json(extracted_data, extracted_path, "提取的参数")
-        if verified_extracted_data is None:
-            logger.error("提取的参数核对失败或被中止。")
-            return None # 核对失败，中止流程
-        logger.info("提取的参数核对完成。")
-        # 使用核对后的数据进行下一步
-        extracted_data = verified_extracted_data
-        # --- 结束：提取后的人工核对 ---
+        remarks = info_extractor.json_proc.extract_remarks(extracted_data)
+        if remarks:
+            logger.info(f"提取到的备注信息: {remarks}")
+        else:
+            remarks = {}
 
-    except KeyboardInterrupt: # 捕获用户在核对中中止信号
-        logger.warning("流程在提取核对阶段被用户中止。")
-        return None # 中止整个处理
+        # --- 插入：提取后的人工核对 (包含备注) ---
+        extracted_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_extracted_parameters_with_remarks.json"
+        verified_extracted_data = save_and_verify_json(extracted_data, extracted_path, "提取的参数和备注")
+        if verified_extracted_data is None:
+            logger.error("提取的参数和备注核对失败或被中止。")
+            return None # 如果核对失败或中止，返回 None
+        # 移除此处错误的 return None
+        logger.info("提取的参数和备注核对完成。")
+
+    except KeyboardInterrupt:
+        logger.warning("流程在提取或核对阶段被用户中止。")
+        return None
     except Exception as e:
-        logger.exception(f"信息提取或首次核对过程中发生意外错误: {e}")
+        logger.exception(f"信息提取或核对过程中发生意外错误: {e}")
         return None
 
-    # --- 3. 移除JSON验证部分，直接使用提取的数据 ---
-    # 使用merged_devices替代设备列表
-    device_list = extracted_data.get("设备列表", [])
-    if not device_list:
-        logger.warning("提取的 JSON 数据中未找到 '设备列表' 或列表为空。")
-        return {} # 返回空结果
+    # --- 3. 参数标准化 (处理提取并核对后的完整分组数据) ---
+    logger.info("开始使用 AccurateLLMStandardizer 标准化提取并核对后的完整分组数据...")
+    # 调用修改后的 standardizer.standardize 方法，输入是人工核对后的完整数据
+    standardized_grouped_data = standardizer.standardize(verified_extracted_data)
 
-    logger.info(f"开始标准化 {len(device_list)} 个设备的参数...")
-    all_processed_devices = [] # 重新初始化列表
+    if standardized_grouped_data is None:
+        logger.error("完整分组数据标准化失败。")
+        return None
+    logger.info("完整分组数据标准化完成。")
 
-    for idx, original_device_info in enumerate(device_list):
-        device_tag = original_device_info.get("位号", f"未知设备_{idx+1}")
-        logger.info(f"--- 开始标准化设备: {device_tag} ({idx+1}/{len(device_list)}) ---")
+    # --- 4. 参数合并 (合并标准化后的分组数据) ---
+    logger.info("开始合并标准化后的设备组参数...")
+    # 调用修改后的 info_extractor.json_proc.merge_parameters 方法，输入是标准化后的分组数据
+    final_merged_data = info_extractor.json_proc.merge_parameters(standardized_grouped_data)
 
-        processed_device = original_device_info.copy() # 复制原始信息，保留元数据
-        actual_params = processed_device.pop('参数', {}) # 提取并移除原始参数字典
+    if final_merged_data is None or "设备列表" not in final_merged_data:
+        logger.error("合并标准化后的参数失败或结果格式不正确。")
+        return None
+    logger.info(f"标准化参数合并完成，得到 {len(final_merged_data.get('设备列表', []))} 个独立设备。")
 
-        if not actual_params:
-            logger.warning(f"设备 '{device_tag}' 没有参数信息，跳过标准化。")
-            processed_device['标准化参数'] = {}
-            all_processed_devices.append(processed_device)
-            continue
+    # --- 5. 保存最终的合并标准化结果 ---
+    logger.info(f"准备保存最终的合并标准化结果...")
+    final_output_data = final_merged_data # 最终数据就是合并后的结果
 
-        # a. 参数标准化
-        standardized_params_result: Dict[str, str] = {}
-        logger.debug(f"开始标准化设备 '{device_tag}' 的 {len(actual_params)} 个参数...")
-        for actual_name, actual_value in actual_params.items():
-            if not isinstance(actual_value, (str, int, float)):
-                 logger.warning(f"参数 '{actual_name}' 的值类型不支持标准化 ({type(actual_value)})，跳过。")
-                 continue
-            actual_value_str = str(actual_value)
-
-            search_result: Optional[Tuple[str, str, str]] = None
-            try:
-                search_result = search_service.search(actual_name, actual_value_str)
-            except Exception as e:
-                 logger.error(f"为参数 '{actual_name}'='{actual_value_str}' 调用 SearchService 时出错: {e}", exc_info=True)
-
-            if search_result:
-                std_name, _, _ = search_result
-                # 保留原始值，键使用标准名和原始名组合
-                output_key = f"{std_name} ({actual_name})"
-                standardized_params_result[output_key] = actual_value_str
-                logger.debug(f"  '{actual_name}':'{actual_value_str}' -> 标准化键:'{output_key}', 值:'{actual_value_str}'")
-            else:
-                logger.warning(f"未能为参数 '{actual_name}':'{actual_value_str}' 找到标准匹配，保留原始参数。")
-                # 保留原始键值对
-                standardized_params_result[actual_name] = actual_value_str
-
-        if not standardized_params_result:
-             logger.warning(f"设备 '{device_tag}' 处理后参数列表为空。")
-             processed_device['标准化参数'] = {}
-        else:
-             logger.info(f"设备 '{device_tag}' 标准化完成，共 {len(standardized_params_result)} 个标准参数。")
-             processed_device['标准化参数'] = standardized_params_result
-
-        all_processed_devices.append(processed_device)
-        logger.info(f"--- 设备 {device_tag} 标准化处理完毕 ---")
-
-    # --- 保存标准化结果 ---
-    if all_processed_devices:
-        # 使用之前定义的 combined_standardized_path
-        final_standardized_data = {"设备列表": all_processed_devices}
-
-        try:
-            combined_standardized_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(combined_standardized_path, 'w', encoding='utf-8') as f:
-                json.dump(final_standardized_data, f, ensure_ascii=False, indent=4)
-            logger.info(f"标准化参数数据已成功保存至: {combined_standardized_path}")
-            logger.info(f"===== 文档处理完成: {input_file_path.name} =====")
-            return combined_standardized_path # 成功保存，返回文件路径
-        except Exception as e:
-            logger.error(f"保存标准化 JSON 数据到 {combined_standardized_path} 时出错: {e}", exc_info=True)
-            print(f"错误：无法保存标准化 JSON 文件。")
-            return None # 保存失败
-    else:
-        logger.warning("没有设备被成功处理并标准化，无法保存标准化文件。")
-        return None # 没有数据可保存
+    try:
+        combined_standardized_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(combined_standardized_path, 'w', encoding='utf-8') as f:
+            json.dump(final_output_data, f, ensure_ascii=False, indent=4)
+        logger.info(f"最终合并标准化参数数据已成功保存至: {combined_standardized_path}")
+        logger.info(f"===== 文档处理完成: {input_file_path.name} =====")
+        return combined_standardized_path
+    except Exception as e:
+        logger.error(f"保存最终合并标准化 JSON 数据到 {combined_standardized_path} 时出错: {e}", exc_info=True)
+        print(f"错误：无法保存最终的 JSON 文件。")
+        return None
 
 
 def main():
     """主函数：解析命令行参数并启动处理流程。"""
-    # --- 0. 配置日志 ---
     try:
         logging_config.setup_logging()
     except Exception as e:
         print(f"致命错误：无法配置日志系统: {e}")
         sys.exit(1)
 
-    # --- 解析命令行参数 ---
     parser = argparse.ArgumentParser(description="一体式温度变送器参数提取与标准化系统")
     parser.add_argument(
         "input_file",
         type=str,
         help="要处理的输入文档路径 (例如 'data/input/温变规格书.pdf')"
     )
-    # 移除 --output-json 参数
-    # parser.add_argument(
-    #     "--output-json",
-    #     type=str,
-    #     default=None,
-    #     help="可选：保存最终结果 (位号到产品代码映射) 的 JSON 文件路径。"
-    # )
     parser.add_argument(
         "--skip-extraction",
-        action="store_true", # 设置为布尔标志
+        action="store_true",
         help="如果指定，则跳过信息提取和参数标准化步骤，尝试加载已存在的标准化文件。"
     )
-    # 可以添加更多参数，例如 --log-level 来覆盖 settings.py 中的设置
 
     args = parser.parse_args()
-
     input_file = Path(args.input_file)
 
-    # 检查输入文件是否存在
     if not input_file.is_file():
         logger.critical(f"输入文件未找到: {input_file}")
         print(f"错误: 输入文件未找到: {input_file}")
         sys.exit(1)
 
-    # --- 启动处理 ---
-    # 传递 skip_extraction 参数
-    # 接收返回的路径或 None
     standardized_file_path = process_document(input_file, skip_extraction=args.skip_extraction)
 
-    # --- 输出结果 ---
     if standardized_file_path is not None:
-        # 处理成功
         print("\n--- 处理成功 ---")
         print(f"标准化参数已保存至文件:")
         print(standardized_file_path)
-        # 正常退出
         sys.exit(0)
     else:
-        # 处理失败
         print("\n处理过程中发生错误或未生成标准化文件。请检查日志文件获取详细信息。")
-        sys.exit(1) # 以错误码退出
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

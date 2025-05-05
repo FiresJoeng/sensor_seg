@@ -1,4 +1,4 @@
-# new_sensor_project/src/info_extractor/extractor.py
+
 import os
 import json
 import re
@@ -167,15 +167,27 @@ class InfoExtractor:
                 messages=messages,
                 temperature=self.temperature
             )
+            # 添加日志记录 API 调用结果的类型
+            logger.debug(f"API call successful. Type of result: {type(api_result)}")
+            return api_result
         except Exception as e:
             logger.error(f"API请求构建失败：{str(e)}")
             return None
 
     def _handle_api_response(self, response: Any, file_path: Path, output_filename: Optional[str]) -> Optional[Dict]:
         """统一处理API响应"""
+        # 添加日志记录接收到的 response 的类型和部分内容
+        logger.debug(f"Handling API response. Type: {type(response)}, Value (partial): {str(response)[:200]}...")
         try:
+            # 在访问属性前检查响应类型是否符合预期
+            if not hasattr(response, 'choices'):
+                 logger.error(f"API 响应格式不符合预期，缺少 'choices' 属性。响应类型: {type(response)}")
+                 logger.error(f"响应内容 (部分): {str(response)[:500]}...")
+                 return None
+
+            # 现在可以安全地检查 choices
             if not response.choices:
-                logger.error("API返回空响应")
+                logger.error("API返回空响应 (choices is empty or None)")
                 return None
 
             raw_content = response.choices[0].message.content
@@ -259,15 +271,25 @@ class InfoExtractor:
 
             if '设备列表' not in data or not isinstance(data['设备列表'], list):
                 logger.warning("输入数据中缺少'设备列表'或格式不正确，无法执行合并。")
-                return {"设备列表": merged_device_list, "stats": stats}
+                # 即使没有设备列表，也尝试保留备注信息
+                remarks = data.get('备注')
+                return {"设备列表": merged_device_list, "stats": stats, "备注": remarks}
 
             stats['total_groups'] = len(data['设备列表']) # 统计设备组数量
+            remarks = data.get('备注') # 保留备注信息
 
-            # 遍历每个设备组
+            # 遍历每个设备组 (现在这些组可能已经过标准化)
             for device_group in data['设备列表']:
                 tag_nos = device_group.get('位号', []) # 获取位号列表
-                common_params = device_group.get('共用参数', {}) # 获取共用参数
-                diff_params = device_group.get('不同参数', {}) # 获取不同参数
+
+                # 优先获取标准化后的共用参数，如果不存在，则获取原始共用参数
+                standardized_common_params = device_group.get('标准化共用参数')
+                common_params_to_merge = standardized_common_params if isinstance(standardized_common_params, dict) else device_group.get('共用参数', {})
+
+                # 优先获取标准化后的不同参数，如果不存在，则获取原始不同参数
+                standardized_diff_params = device_group.get('标准化不同参数')
+                diff_params_to_merge = standardized_diff_params if isinstance(standardized_diff_params, dict) else device_group.get('不同参数', {})
+
 
                 if not tag_nos:
                     logger.warning(f"设备组缺少'位号'信息，跳过处理: {device_group}")
@@ -278,15 +300,32 @@ class InfoExtractor:
                 # 遍历该组中的每个位号
                 for tag_no in tag_nos:
                     # 为每个位号创建一个新的设备字典
-                    individual_device_params = common_params.copy() # 复制共用参数作为基础
+                    individual_device_params = {} # 初始化参数字典
 
-                    # 遍历不同参数，并将对应位号的值合并进来
-                    for param_name, tag_value_map in diff_params.items():
-                        if isinstance(tag_value_map, dict) and tag_no in tag_value_map:
-                            individual_device_params[param_name] = tag_value_map[tag_no] # 添加或覆盖特定参数值
-                        else:
-                            # 如果不同参数的值不是字典或者当前位号不在其中，记录一个警告（可选）
-                            logger.debug(f"位号 '{tag_no}' 在不同参数 '{param_name}' 中未找到特定值或格式错误。")
+                    # 合并共用参数
+                    if common_params_to_merge:
+                        individual_device_params.update(common_params_to_merge)
+                    elif standardized_common_params is None and '共用参数' in device_group:
+                         # 标准化失败且原始共用参数存在
+                         logger.debug(f"位号 '{tag_no}' 所在组共用参数标准化失败，使用原始共用参数。")
+                    else:
+                         logger.debug(f"位号 '{tag_no}' 所在组无有效共用参数或标准化共用参数。")
+
+
+                    # 遍历不同参数，并将对应位号的值合并进来 (覆盖共用参数中的同名项)
+                    if diff_params_to_merge:
+                        for param_name, tag_value_map in diff_params_to_merge.items():
+                            if isinstance(tag_value_map, dict) and tag_no in tag_value_map:
+                                individual_device_params[param_name] = tag_value_map[tag_no] # 添加或覆盖特定参数值
+                            else:
+                                # 如果不同参数的值不是字典或者当前位号不在其中，记录一个调试信息（可选）
+                                logger.debug(f"位号 '{tag_no}' 在不同参数 '{param_name}' 中未找到特定值或格式错误。")
+                    elif standardized_diff_params is None and '不同参数' in device_group:
+                         # 标准化失败且原始不同参数存在
+                         logger.debug(f"位号 '{tag_no}' 所在组不同参数标准化失败，使用原始不同参数。")
+                    else:
+                        logger.debug(f"设备组 '{', '.join(tag_nos)}' 无有效不同参数或标准化不同参数。")
+
 
                     # 将合并后的设备信息添加到结果列表
                     merged_device_list.append({
@@ -298,7 +337,8 @@ class InfoExtractor:
             logger.info(f"参数合并完成。处理了 {stats['total_groups']} 个设备组，"
                         f"共 {stats['total_devices']} 个位号，成功处理 {stats['processed_devices']} 个。")
 
-            return {"设备列表": merged_device_list, "stats": stats} # 返回包含合并后设备列表的字典
+            # 返回包含合并后设备列表和备注的字典
+            return {"设备列表": merged_device_list, "stats": stats, "备注": remarks}
 
         def extract_remarks(self, data: Dict[str, Any]) -> Optional[Dict[str, str]]:
             """
@@ -321,4 +361,3 @@ class InfoExtractor:
             else:
                 # 如果 "备注" 键不存在
                 logger.info("未在数据中找到'备注'信息。")
-                return None # 返回 None

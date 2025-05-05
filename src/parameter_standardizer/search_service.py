@@ -184,4 +184,65 @@ class SearchService:
 
         return standard_param_name, standard_param_value, standard_code
 
+    def get_vector_suggestions(self, query_text: str, n_results: int = 5) -> Optional[List[Dict[str, Any]]]:
+        """
+        获取向量数据库的原始查询建议。
+
+        Args:
+            query_text (str): 用于查询的文本。
+            n_results (int): 希望返回的结果数量。
+
+        Returns:
+            Optional[List[Dict[str, Any]]]: 包含查询结果的列表，每个字典包含 'metadata' 和 'distance'。
+                                           如果查询失败或无结果，返回 None。
+        """
+        logger.debug(f"--- 获取向量建议: '{query_text}', 数量: {n_results} ---")
+        if not self.is_ready():
+            logger.error("获取建议失败：搜索服务未就绪。")
+            return None
+
+        # 1. 编码查询文本
+        query_embedding_array = self._encode_query(query_text)
+        if query_embedding_array is None:
+            logger.error("查询文本编码失败。")
+            return None
+        query_embedding_list = [query_embedding_array.tolist()]
+
+        # 2. 查询向量数据库
+        logger.debug(f"向向量数据库查询 {n_results} 个建议...")
+        search_start_time = time.time()
+        try:
+            vector_results = self.vector_store.query_collection(
+                query_embeddings=query_embedding_list,
+                n_results=n_results,
+                include_fields=['metadatas', 'distances']
+            )
+        except Exception as e:
+            logger.error(f"向量数据库查询时出错: {e}", exc_info=True)
+            return None
+        finally:
+            search_end_time = time.time()
+            logger.debug(f"向量数据库查询耗时: {search_end_time - search_start_time:.4f} 秒")
+
+        if vector_results is None:
+            logger.error("向量数据库查询失败或未返回结果。")
+            return None
+
+        # 3. 格式化结果
+        ids_list = vector_results.get('ids', [[]])[0]
+        distances_list = vector_results.get('distances', [[]])[0]
+        metadatas_list = vector_results.get('metadatas', [[]])[0]
+
+        if not ids_list:
+            logger.debug(f"对于查询 '{query_text}' 未找到任何向量建议。")
+            return [] # 返回空列表表示未找到
+
+        suggestions = []
+        for metadata, distance in zip(metadatas_list, distances_list):
+            if metadata is not None and distance is not None:
+                 suggestions.append({'metadata': metadata, 'distance': distance})
+
+        logger.debug(f"成功获取 {len(suggestions)} 条向量建议。")
+        return suggestions
+
 # 注意：原 __main__ 部分已移除，因为此类应作为模块被 pipeline 调用。
