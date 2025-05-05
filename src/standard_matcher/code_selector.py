@@ -384,7 +384,16 @@ if __name__ == "__main__":
 
     # 1. 定义示例输入数据 (来自 ModelMatcher 的输出格式)
     example_matched_models = {
-    "'元件数量': '单支'": [
+    "'元件类型 ': '热电阻 '": [
+        {
+            "model": "元件类型",
+            "code": "HZ",
+            "description": "热电阻",
+            "param": "",
+            "is_default": "1"
+        }
+    ],
+    "'元件数量 ': '单支式'": [
         {
             "model": "元件数量",
             "code": "-S",
@@ -400,7 +409,95 @@ if __name__ == "__main__":
             "is_default": "0"
         }
     ],
-    "'分度号': 'IEC标准 Pt100'": [
+    "'铠套外径（d）': 'Ø6'": [
+        {
+            "model": "铠套外径(d)",
+            "code": "3",
+            "description": "Ø3mm（仅用于固定式接头结构）",
+            "param": "3；3mm；φ3；φ3mm",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "4",
+            "description": "Ø4mm（仅用于固定式接头结构）",
+            "param": "4；4mm；φ4；φ4mm",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "5",
+            "description": "Ø5mm",
+            "param": "5mm；φ5mm；5；φ5",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "6",
+            "description": "Ø6mm",
+            "param": "6；φ6；6mm；Φ6mm",
+            "is_default": "1"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "8",
+            "description": "Ø8mm",
+            "param": "8；8mm；φ8；φ8mm",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "10",
+            "description": "Ø10mm",
+            "param": "10；10mm；φ10；φ10mm",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "Z",
+            "description": "其它",
+            "param": "其他",
+            "is_default": "0"
+        }
+    ],
+    "'铠套材质 ': '316SS '": [
+        {
+            "model": "铠套材质",
+            "code": "PN",
+            "description": "304SS",
+            "param": "304SS；AISI 304；304；30408；S30408；06Cr19Ni10",
+            "is_default": "1"
+        },
+        {
+            "model": "铠套材质",
+            "code": "SN",
+            "description": "321SS",
+            "param": "321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套材质",
+            "code": "RN",
+            "description": "316SS",
+            "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套材质",
+            "code": "GH",
+            "description": "GH3030",
+            "param": "GH3030",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套材质",
+            "code": "Z",
+            "description": "其它",
+            "param": "其他",
+            "is_default": "0"
+        }
+    ],
+    "'分度号 ': 'PT100 三线 '": [
         {
             "model": "分度号",
             "code": "3",
@@ -479,431 +576,7 @@ if __name__ == "__main__":
             "is_default": "0"
         }
     ],
-    "'铠套材质': '316'": [
-        {
-            "model": "铠套材质",
-            "code": "PN",
-            "description": "304SS",
-            "param": "304SS；AISI 304；304；30408；S30408；06Cr19Ni10",
-            "is_default": "1"
-        },
-        {
-            "model": "铠套材质",
-            "code": "SN",
-            "description": "321SS",
-            "param": "321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套材质",
-            "code": "RN",
-            "description": "316SS",
-            "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套材质",
-            "code": "GH",
-            "description": "GH3030",
-            "param": "GH3030",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套材质",
-            "code": "Z",
-            "description": "其它",
-            "param": "其他",
-            "is_default": "0"
-        }
-    ],
-    "'TG套管形式': '整体钻孔锥形保护管'": [
-        {
-            "model": "TG套管形式",
-            "code": "-K",
-            "description": "K型法兰安装 锥形保护套管",
-            "param": "整体钻孔直形套管；直型；直形；整体钻孔直形保护管；直形Straight；法兰式整体钻孔式直形；固定直形整体钻孔法兰套管；法兰直形套管；整体钻孔保护管Tapered Type；Solid hole， tapered；Tapered from drilled barstock；整体钻孔锥型；Tapered；单端钻孔锥型套管；法兰连接整体锥型钻孔；法兰式锥形整体钻孔外套管；钢棒整体钻孔锥形套管；固定法兰式整体钻孔锥形保护套管；固定法兰锥形整体钻孔式；加强型锥型整体钻孔；锥形；一体化整体钻孔锥形法兰套管；整体锥形套管；整体锥形钻孔；整体钻孔式的锥形套管；整体钻孔锥形；整体钻孔锥形保护管；整体钻孔锥形管；整体钻孔锥形套管；整钻锥形；锥形整体钻孔；锥形整体钻孔式套管；整体钻孔保护管",
-            "is_default": "0"
-        },
-        {
-            "model": "TG套管形式",
-            "code": "-L",
-            "description": "L型法兰安装 直形保护套管",
-            "param": "整体钻孔直形套管；直型；直形；整体钻孔直形保护管；直形Straight；法兰式整体钻孔式直形；固定直形整体钻孔法兰套管；法兰直形套管；整体钻孔保护管",
-            "is_default": "0"
-        },
-        {
-            "model": "TG套管形式",
-            "code": "-M",
-            "description": "M型法兰安装 台阶形保护套管",
-            "param": "台阶形保护管；阶梯形保护管；Stepped；Stepped Type",
-            "is_default": "0"
-        }
-    ],
-    "'套管材质': '316'": [
-        {
-            "model": "套管材质",
-            "code": "GH",
-            "description": "GH3030",
-            "param": "GH3030",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "GN",
-            "description": "GH3039",
-            "param": "GH3039",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "HC",
-            "description": "Hastelloy C-276",
-            "param": "Hastelloy C-276；哈氏C276；HC276",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "JN",
-            "description": "Inconel 625",
-            "param": "Inconel 625",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "N1",
-            "description": "碳钢（SA-105）",
-            "param": "SA-105",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "N2",
-            "description": "碳钢（15CrMo）",
-            "param": "15CrMo",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "PN",
-            "description": "304不锈钢",
-            "param": "304SS；AISI 304；304；30408；S30408；06Cr19Ni10;0Cr18Ni9",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "QN",
-            "description": "310不锈钢",
-            "param": "S31008；310S；310；310SS；06Cr25Ni20",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "RN",
-            "description": "316不锈钢",
-            "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "RH",
-            "description": "316H不锈钢",
-            "param": "316H",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "RL",
-            "description": "316L不锈钢",
-            "param": "316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2；00Cr17Ni14Mo2",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "SN",
-            "description": "321不锈钢",
-            "param": "321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti；0Cr18Ni10Ti",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "TA",
-            "description": "钛(TA2)",
-            "param": "TA2；钛",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "DP",
-            "description": "2205双相不锈钢",
-            "param": "2205；S22053；022Cr25Ni5Mo3N",
-            "is_default": "0"
-        },
-        {
-            "model": "套管材质",
-            "code": "Z",
-            "description": "其它",
-            "param": "其它",
-            "is_default": "0"
-        }
-    ],
-    "'根部直径（Q）': '根部不大于28,套管厚度由供货商根据振动频率和温度计算确定'": [
-        {
-            "model": "根部直径 (Q)",
-            "code": "-22",
-            "description": "22mm",
-            "param": "",
-            "is_default": "0"
-        },
-        {
-            "model": "根部直径 (Q)",
-            "code": "-27",
-            "description": "27mm",
-            "param": "（不适用于DN25（1\"））",
-            "is_default": "0"
-        },
-        {
-            "model": "根部直径 (Q)",
-            "code": "-%int%",
-            "description": "单位mm",
-            "param": "",
-            "is_default": "0"
-        }
-    ],
-    "'过程连接（法兰尺寸（Fs））': 'DN40'": [
-        {
-            "model": "过程连接（法兰尺寸（Fs））",
-            "code": "1",
-            "description": "DN25（1\"）",
-            "param": "DN25；□□DN25□□；1\"；□□1\"□□； 25-□□",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰尺寸（Fs））",
-            "code": "2",
-            "description": "DN40（1-1/2\"）",
-            "param": "DN40；□□DN40□□；1-1/2\"；□□1-1/2\"□□；1 1/2\"；□□1 1/2\"□□；40-□□",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰尺寸（Fs））",
-            "code": "3",
-            "description": "DN50（2\"）",
-            "param": "DN50；□□DN50□□；2\"；□□2\"□□；50-□□",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰尺寸（Fs））",
-            "code": "Z",
-            "description": "其它",
-            "param": "其它",
-            "is_default": "0"
-        }
-    ],
-    "'过程连接（法兰标准）': 'HG/T20615-2009'": [
-        {
-            "model": "过程连接（法兰标准）",
-            "code": "-A",
-            "description": "ANSI",
-            "param": "ANSI；ANSI B16.5； ASME；ASME B16.5",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰标准）",
-            "code": "-D",
-            "description": "DIN",
-            "param": "DIN；DIN □□",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰标准）",
-            "code": "-G",
-            "description": "GB/T 9123",
-            "param": "GB/T9123；GB/T9123 □□",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰标准）",
-            "code": "-H",
-            "description": "HG20592、HG20615",
-            "param": "HG□□；化工法兰",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰标准）",
-            "code": "-Z",
-            "description": "其它",
-            "param": "GB□□；SH□□；JIS□□；API□□；",
-            "is_default": "0"
-        }
-    ],
-    "'法兰材质': '316'": [
-        {
-            "model": "法兰材质",
-            "code": "GH",
-            "description": "GH3030",
-            "param": "GH3030",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "GN",
-            "description": "GH3039",
-            "param": "GH3039",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "HC",
-            "description": "Hastelloy C-276",
-            "param": "Hastelloy C-276；哈氏C276；HC276",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "JN",
-            "description": "Inconel 625",
-            "param": "Inconel 625",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "N1",
-            "description": "碳钢（SA-105）",
-            "param": "SA-105",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "N2",
-            "description": "碳钢（15CrMo）",
-            "param": "15CrMo",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "PN",
-            "description": "304不锈钢",
-            "param": "304SS；AISI 304；304；30408；S30408；06Cr19Ni10;0Cr18Ni9",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "QN",
-            "description": "310不锈钢",
-            "param": "S31008；310S；310；310SS；06Cr25Ni20",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "RN",
-            "description": "316不锈钢",
-            "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "RH",
-            "description": "316H不锈钢",
-            "param": "316H",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "RL",
-            "description": "316L不锈钢",
-            "param": "316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2；00Cr17Ni14Mo2",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "SN",
-            "description": "321不锈钢",
-            "param": "321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti；0Cr18Ni10Ti",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "TA",
-            "description": "钛(TA2)",
-            "param": "TA2；钛",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "DP",
-            "description": "2205双相不锈钢",
-            "param": "2205；S22053；022Cr25Ni5Mo3N",
-            "is_default": "0"
-        },
-        {
-            "model": "法兰材质",
-            "code": "Z",
-            "description": "其它",
-            "param": "其它",
-            "is_default": "0"
-        }
-    ],
-    "'元件类型': '热电阻'": [
-        {
-            "model": "传感器主型号",
-            "code": "HZ",
-            "description": "热电阻",
-            "param": "",
-            "is_default": "1"
-        }
-    ],
-    "'铠套外径': 'φ6'": [
-        {
-            "model": "铠套外径(d)",
-            "code": "3",
-            "description": "Ø3mm（仅用于固定式接头结构）",
-            "param": "3；3mm；φ3；φ3mm",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "4",
-            "description": "Ø4mm（仅用于固定式接头结构）",
-            "param": "4；4mm；φ4；φ4mm",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "5",
-            "description": "Ø5mm",
-            "param": "5mm；φ5mm；5；φ5",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "6",
-            "description": "Ø6mm",
-            "param": "6；φ6；6mm；Φ6mm",
-            "is_default": "1"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "8",
-            "description": "Ø8mm",
-            "param": "8；8mm；φ8；φ8mm",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "10",
-            "description": "Ø10mm",
-            "param": "10；10mm；φ10；φ10mm",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "Z",
-            "description": "其它",
-            "param": "其他",
-            "is_default": "0"
-        }
-    ],
-    "'接线盒形式代码': '分体式'": [
+    "'接线盒形式': '分体式 '": [
         {
             "model": "接线盒形式",
             "code": "-1",
@@ -940,165 +613,133 @@ if __name__ == "__main__":
             "is_default": "0"
         }
     ],
-    "'壳体代码': '304'": [
+    "'TG套管形式 ': '整体钻孔锥形保护管 '": [
         {
-            "model": "套管主型号",
-            "code": "TG",
-            "description": "保护套管",
-            "param": "",
-            "is_default": "1"
+            "model": "套管形式",
+            "code": "TG-K",
+            "description": "K型法兰安装 锥形保护套管",
+            "param": "整体钻孔直形套管；直型；直形；整体钻孔直形保护管；直形Straight；法兰式整体钻孔式直形；固定直形整体钻孔法兰套管；法兰直形套管；整体钻孔保护管Tapered Type；Solid hole， tapered；Tapered from drilled barstock；整体钻孔锥型；Tapered；单端钻孔锥型套管；法兰连接整体锥型钻孔；法兰式锥形整体钻孔外套管；钢棒整体钻孔锥形套管；固定法兰式整体钻孔锥形保护套管；固定法兰锥形整体钻孔式；加强型锥型整体钻孔；锥形；一体化整体钻孔锥形法兰套管；整体锥形套管；整体锥形钻孔；整体钻孔式的锥形套管；整体钻孔锥形；整体钻孔锥形保护管；整体钻孔锥形管；整体钻孔锥形套管；整钻锥形；锥形整体钻孔；锥形整体钻孔式套管；整体钻孔保护管",
+            "is_default": "0"
+        },
+        {
+            "model": "套管形式",
+            "code": "TG-L",
+            "description": "L型法兰安装 直形保护套管",
+            "param": "整体钻孔直形套管；直型；直形；整体钻孔直形保护管；直形Straight；法兰式整体钻孔式直形；固定直形整体钻孔法兰套管；法兰直形套管；整体钻孔保护管",
+            "is_default": "0"
+        },
+        {
+            "model": "套管形式",
+            "code": "TG-M",
+            "description": "M型法兰安装 台阶形保护套管",
+            "param": "台阶形保护管；阶梯形保护管；Stepped；Stepped Type",
+            "is_default": "0"
         }
     ],
-    "'接线口': '1/2\" NPT (F)'": [
+    "'套管材质 ': '316SS '": [
         {
-            "model": "传感器连接螺纹（S）",
-            "code": "1",
-            "description": "M12×1.5",
-            "param": "M12；M12*1.5；M12×1.5",
+            "model": "套管材质",
+            "code": "GH",
+            "description": "GH3030",
+            "param": "GH3030",
             "is_default": "0"
         },
         {
-            "model": "传感器连接螺纹（S）",
-            "code": "2",
-            "description": "M16×1.5",
-            "param": "M16；M16*1.5；M16×1.5",
+            "model": "套管材质",
+            "code": "GN",
+            "description": "GH3039",
+            "param": "GH3039",
             "is_default": "0"
         },
         {
-            "model": "传感器连接螺纹（S）",
-            "code": "3",
-            "description": "M27×2",
-            "param": "M27；M27*2；M27×2；M27X2；固定外螺纹 M27×2；FIXED THREAD M27x2；Screw ThreadM27X2",
+            "model": "套管材质",
+            "code": "HC",
+            "description": "Hastelloy C-276",
+            "param": "Hastelloy C-276；哈氏C276；HC276",
             "is_default": "0"
         },
         {
-            "model": "传感器连接螺纹（S）",
-            "code": "4",
-            "description": "G1/2",
-            "param": "G1/2；G1/2外螺纹(M)；G1/2(M)",
+            "model": "套管材质",
+            "code": "JN",
+            "description": "Inconel 625",
+            "param": "Inconel 625",
             "is_default": "0"
         },
         {
-            "model": "传感器连接螺纹（S）",
-            "code": "5",
-            "description": "M20×1.5",
-            "param": "M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；固定外螺纹M20x1.5",
+            "model": "套管材质",
+            "code": "N1",
+            "description": "碳钢（SA-105）",
+            "param": "SA-105",
             "is_default": "0"
         },
         {
-            "model": "传感器连接螺纹（S）",
-            "code": "6",
-            "description": "1/2NPT",
-            "param": "1/2NPT；1/2\"NPT；NPT1/2；NPT1/2\"；1/2NPT(M)；1/2\"NPT(M)；NPT1/2(M)；NPT1/2\"(M)；1/2\"NPT(外螺纹)；1/2\"NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2\"NPT；MFR STD",
+            "model": "套管材质",
+            "code": "N2",
+            "description": "碳钢（15CrMo）",
+            "param": "15CrMo",
             "is_default": "0"
         },
         {
-            "model": "传感器连接螺纹（S）",
+            "model": "套管材质",
+            "code": "PN",
+            "description": "304不锈钢",
+            "param": "304SS；AISI 304；304；30408；S30408；06Cr19Ni10;0Cr18Ni9",
+            "is_default": "0"
+        },
+        {
+            "model": "套管材质",
+            "code": "QN",
+            "description": "310不锈钢",
+            "param": "S31008；310S；310；310SS；06Cr25Ni20",
+            "is_default": "0"
+        },
+        {
+            "model": "套管材质",
+            "code": "RN",
+            "description": "316不锈钢",
+            "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2",
+            "is_default": "0"
+        },
+        {
+            "model": "套管材质",
+            "code": "RH",
+            "description": "316H不锈钢",
+            "param": "316H",
+            "is_default": "0"
+        },
+        {
+            "model": "套管材质",
+            "code": "RL",
+            "description": "316L不锈钢",
+            "param": "316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2；00Cr17Ni14Mo2",
+            "is_default": "0"
+        },
+        {
+            "model": "套管材质",
+            "code": "SN",
+            "description": "321不锈钢",
+            "param": "321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti；0Cr18Ni10Ti",
+            "is_default": "0"
+        },
+        {
+            "model": "套管材质",
+            "code": "TA",
+            "description": "钛(TA2)",
+            "param": "TA2；钛",
+            "is_default": "0"
+        },
+        {
+            "model": "套管材质",
+            "code": "DP",
+            "description": "2205双相不锈钢",
+            "param": "2205；S22053；022Cr25Ni5Mo3N",
+            "is_default": "0"
+        },
+        {
+            "model": "套管材质",
             "code": "Z",
             "description": "其它",
             "param": "其它",
-            "is_default": "0"
-        }
-    ],
-    "'防护等级 Enclosure Protection': 'IP65'": [
-        {
-            "model": "连接螺纹",
-            "code": "0",
-            "description": "无",
-            "param": "无；NA.",
-            "is_default": "0"
-        },
-        {
-            "model": "连接螺纹",
-            "code": "1",
-            "description": "M12×1.5",
-            "param": "M12；M12*1.5；M12×1.5",
-            "is_default": "0"
-        },
-        {
-            "model": "连接螺纹",
-            "code": "2",
-            "description": "M16×1.5",
-            "param": "M16；M16*1.5；M16×1.5",
-            "is_default": "0"
-        },
-        {
-            "model": "连接螺纹",
-            "code": "3",
-            "description": "M27×2",
-            "param": "M27；M27*2；M27×2；M27X2；固定外螺纹 M27×2；FIXED THREAD M27x2；Screw ThreadM27X2",
-            "is_default": "0"
-        },
-        {
-            "model": "连接螺纹",
-            "code": "4",
-            "description": "G1/2",
-            "param": "G1/2；G1/2外螺纹(M)；G1/2(M)",
-            "is_default": "0"
-        },
-        {
-            "model": "连接螺纹",
-            "code": "5",
-            "description": "M20×1.5",
-            "param": "M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；固定外螺纹M20x1.5",
-            "is_default": "0"
-        },
-        {
-            "model": "连接螺纹",
-            "code": "6",
-            "description": "1/2NPT",
-            "param": "1/2NPT；1/2\"NPT；NPT1/2；NPT1/2\"；1/2NPT(M)；1/2\"NPT(M)；NPT1/2(M)；NPT1/2\"(M)；1/2\"NPT(外螺纹)；1/2\"NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2\"NPT；MFR STD",
-            "is_default": "1"
-        }
-    ],
-    "'NEPSI': 'Exd II BT4'": [
-        {
-            "model": "传感器附加规格",
-            "code": "",
-            "description": "默认",
-            "param": "若甲方未提供，则选择此项",
-            "is_default": "1"
-        },
-        {
-            "model": "传感器附加规格",
-            "code": "/N1",
-            "description": "一体化温度变送器隔爆证书",
-            "param": "需一体化温度变送器与变送器NEPSI选项为NF2同时生效",
-            "is_default": "0"
-        },
-        {
-            "model": "传感器附加规格",
-            "code": "/N2",
-            "description": "一体化温度变送器本安证书",
-            "param": "需一体化温度变送器与变送器NEPSI选项为NS2或NS25同时生效",
-            "is_default": "0"
-        },
-        {
-            "model": "传感器附加规格",
-            "code": "/w",
-            "description": "电气接口弯头",
-            "param": "电气接口弯头；带",
-            "is_default": "0"
-        },
-        {
-            "model": "传感器附加规格",
-            "code": "/A1",
-            "description": "焊接座",
-            "param": "材质□□□ 长□□□mm；□□□焊接安装座，长□□□mm",
-            "is_default": "0"
-        },
-        {
-            "model": "传感器附加规格",
-            "code": "/B11",
-            "description": "防水接线盒，材质铝合金",
-            "param": "合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting;聚氨酯涂层低铜铝合金；",
-            "is_default": "0"
-        },
-        {
-            "model": "传感器附加规格",
-            "code": "/B12",
-            "description": "防水接线盒，材质不锈钢",
-            "param": "不锈钢；316SS；304SS；316；不锈钢SS；316SST；S.S 316；304SS不锈钢",
             "is_default": "0"
         }
     ],
@@ -1188,74 +829,280 @@ if __name__ == "__main__":
             "is_default": "0"
         }
     ],
-    "'法兰密封面形式': 'RF'": [
+    "'过程连接（法兰标准）': 'HG/T20615-2009'": [
         {
-            "model": "套管附加规格",
-            "code": "",
-            "description": "默认",
-            "param": "若甲方未提供，则选择此项",
+            "model": "过程连接（法兰标准）",
+            "code": "-A",
+            "description": "ANSI",
+            "param": "ANSI；ANSI B16.5； ASME；ASME B16.5",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-D",
+            "description": "DIN",
+            "param": "DIN；DIN □□",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-G",
+            "description": "GB/T 9123",
+            "param": "GB/T9123；GB/T9123 □□",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-H",
+            "description": "HG20592、HG20615",
+            "param": "HG□□；化工法兰",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-Z",
+            "description": "其它",
+            "param": "GB□□；SH□□；JIS□□；API□□；",
+            "is_default": "0"
+        }
+    ],
+    "'过程连接（法兰尺寸（Fs））': 'DN40'": [
+        {
+            "model": "过程连接（法兰尺寸（Fs））",
+            "code": "1",
+            "description": "DN25（1\"）",
+            "param": "DN25；□□DN25□□；1\"；□□1\"□□； 25-□□",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰尺寸（Fs））",
+            "code": "2",
+            "description": "DN40（1-1/2\"）",
+            "param": "DN40；□□DN40□□；1-1/2\"；□□1-1/2\"□□；1 1/2\"；□□1 1/2\"□□；40-□□",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰尺寸（Fs））",
+            "code": "3",
+            "description": "DN50（2\"）",
+            "param": "DN50；□□DN50□□；2\"；□□2\"□□；50-□□",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰尺寸（Fs））",
+            "code": "Z",
+            "description": "其它",
+            "param": "其它",
+            "is_default": "0"
+        }
+    ],
+    "'根部直径（Q）': '根部不大于28,套管厚度由供货商根据振动频率和温度计算确定'": [
+        {
+            "model": "根部直径 (Q)",
+            "code": "-22",
+            "description": "22mm",
+            "param": "",
+            "is_default": "0"
+        },
+        {
+            "model": "根部直径 (Q)",
+            "code": "-27",
+            "description": "27mm",
+            "param": "（不适用于DN25（1\"））",
+            "is_default": "0"
+        },
+        {
+            "model": "根部直径 (Q)",
+            "code": "-%int%",
+            "description": "单位mm",
+            "param": "",
+            "is_default": "0"
+        }
+    ],
+    "'法兰材质 ': '316SS '": [
+        {
+            "model": "法兰材质",
+            "code": "GH",
+            "description": "GH3030",
+            "param": "GH3030",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "GN",
+            "description": "GH3039",
+            "param": "GH3039",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "HC",
+            "description": "Hastelloy C-276",
+            "param": "Hastelloy C-276；哈氏C276；HC276",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "JN",
+            "description": "Inconel 625",
+            "param": "Inconel 625",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "N1",
+            "description": "碳钢（SA-105）",
+            "param": "SA-105",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "N2",
+            "description": "碳钢（15CrMo）",
+            "param": "15CrMo",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "PN",
+            "description": "304不锈钢",
+            "param": "304SS；AISI 304；304；30408；S30408；06Cr19Ni10;0Cr18Ni9",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "QN",
+            "description": "310不锈钢",
+            "param": "S31008；310S；310；310SS；06Cr25Ni20",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "RN",
+            "description": "316不锈钢",
+            "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "RH",
+            "description": "316H不锈钢",
+            "param": "316H",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "RL",
+            "description": "316L不锈钢",
+            "param": "316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2；00Cr17Ni14Mo2",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "SN",
+            "description": "321不锈钢",
+            "param": "321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti；0Cr18Ni10Ti",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "TA",
+            "description": "钛(TA2)",
+            "param": "TA2；钛",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "DP",
+            "description": "2205双相不锈钢",
+            "param": "2205；S22053；022Cr25Ni5Mo3N",
+            "is_default": "0"
+        },
+        {
+            "model": "法兰材质",
+            "code": "Z",
+            "description": "其它",
+            "param": "其它",
+            "is_default": "0"
+        }
+    ],
+    "'插入深度 （U）': '250 '": [
+        {
+            "model": "插入深度 (U)",
+            "code": "-%int%",
+            "description": "单位mm",
+            "param": "",
+            "is_default": "1"
+        }
+    ],
+    "'接线口': '1/2\" NPT (F) '": [
+        {
+            "model": "连接螺纹",
+            "code": "0",
+            "description": "无",
+            "param": "无；NA.",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "1",
+            "description": "M12×1.5",
+            "param": "M12；M12*1.5；M12×1.5",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "2",
+            "description": "M16×1.5",
+            "param": "M16；M16*1.5；M16×1.5",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "3",
+            "description": "M27×2",
+            "param": "M27；M27*2；M27×2；M27X2；固定外螺纹 M27×2；FIXED THREAD M27x2；Screw ThreadM27X2",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "4",
+            "description": "G1/2",
+            "param": "G1/2；G1/2外螺纹(M)；G1/2(M)",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "5",
+            "description": "M20×1.5",
+            "param": "M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；固定外螺纹M20x1.5",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "6",
+            "description": "1/2NPT",
+            "param": "1/2NPT；1/2\"NPT；NPT1/2；NPT1/2\"；1/2NPT(M)；1/2\"NPT(M)；NPT1/2(M)；NPT1/2\"(M)；1/2\"NPT(外螺纹)；1/2\"NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2\"NPT；MFR STD",
+            "is_default": "1"
+        }
+    ],
+    "'过程连接形式': '固定法兰 '": [
+        {
+            "model": "接头结构",
+            "code": "1",
+            "description": "弹簧紧压式（弹簧伸缩长度5mm）",
+            "param": "带；弹簧压紧式；弹簧压着式；有；带压紧弹簧；Yes；压簧式；接触传热；Y；弹顶装配式；压着式铠装；压着式；带弹簧铠装",
             "is_default": "1"
         },
         {
-            "model": "套管附加规格",
-            "code": "/A3",
-            "description": "外保护套管频率强度计算",
-            "param": "",
-            "is_default": "0"
-        },
-        {
-            "model": "套管附加规格",
-            "code": "/A4",
-            "description": "外保护套管材质报告",
-            "param": "",
-            "is_default": "0"
-        },
-        {
-            "model": "套管附加规格",
-            "code": "/A5",
-            "description": "外保护套管射线探伤报告",
-            "param": "",
-            "is_default": "0"
-        },
-        {
-            "model": "套管附加规格",
-            "code": "/A6",
-            "description": "外保护套管着色渗透报告",
-            "param": "",
-            "is_default": "0"
-        },
-        {
-            "model": "套管附加规格",
-            "code": "/R1",
-            "description": "外保护套管接液部分禁油处理",
-            "param": "",
-            "is_default": "0"
-        },
-        {
-            "model": "套管附加规格",
-            "code": "/F1",
-            "description": "外保护套管水压测试",
-            "param": "",
-            "is_default": "0"
-        },
-        {
-            "model": "套管附加规格",
-            "code": "/F2",
-            "description": "外保护套管接液部分抛光处理",
-            "param": "",
+            "model": "接头结构",
+            "code": "2",
+            "description": "固定式",
+            "param": "不带；NO，防内漏；",
             "is_default": "0"
         }
     ],
     "'管嘴长度 Length mm': '150'": [
-        {
-            "model": "加强管长度（N）",
-            "code": "%int%",
-            "description": "指定长度，单位mm",
-            "param": "3位代码",
-            "is_default": "0"
-        }
-    ],
-    "'插入深度（L）': '250'": [
         {
             "model": "插入长度（L）",
             "code": "-%int%",

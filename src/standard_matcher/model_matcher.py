@@ -95,7 +95,7 @@ class ModelMatcher:
 
         self.csv_list_map = csv_list_map
         self.input_json_path = Path(input_json_path)
-        self.fuzzy_threshold = 0.85  # 模糊匹配相似度阈值
+        self.fuzzy_threshold = 0.6  # 模糊匹配相似度阈值
 
         self.input_data: Dict[str, str] = self._load_input_json()
         # 结构: {'model_name': {'rows': [row_dict, ...], 'used': False}}
