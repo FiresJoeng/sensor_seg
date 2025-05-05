@@ -50,6 +50,8 @@ SKIPPABLE_MODELS = {
 }
 
 # --- 文件路径定义 ---
+
+
 def get_first_json_in_output():
     """获取 data/output 目录下的第一个 JSON 文件路径"""
     output_dir = project_root / "data" / "output"
@@ -64,8 +66,10 @@ DEFAULT_INPUT_JSON_PATH = get_first_json_in_output()
 DEFAULT_INDEX_JSON_PATH = project_root / "libs" / "standard" / "index.json"
 
 
-INPUT_JSON_PATH = Path(getattr(settings, 'INPUT_JSON_PATH', DEFAULT_INPUT_JSON_PATH))
-INDEX_JSON_PATH = Path(getattr(settings, 'INDEX_JSON_PATH', DEFAULT_INDEX_JSON_PATH))
+INPUT_JSON_PATH = Path(
+    getattr(settings, 'INPUT_JSON_PATH', DEFAULT_INPUT_JSON_PATH))
+INDEX_JSON_PATH = Path(
+    getattr(settings, 'INDEX_JSON_PATH', DEFAULT_INDEX_JSON_PATH))
 
 
 # ==============================================================================
@@ -136,20 +140,21 @@ class FetchCsvlist:
 
         # 将输入数据格式化为字符串，供 LLM 使用
         try:
-            requirements_str = json.dumps(input_data, ensure_ascii=False, indent=2)
+            requirements_str = json.dumps(
+                input_data, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error(f"将输入数据格式化为 JSON 字符串时出错: {e}")
-            return {} # 如果无法格式化输入，则无法继续
+            return {}  # 如果无法格式化输入，则无法继续
 
         # 3. 收集所有产品类型的可用关键词
         all_keywords_data = {}
-        product_types_to_process = list(index_data.keys()) # 获取所有产品类型
+        product_types_to_process = list(index_data.keys())  # 获取所有产品类型
 
-        for product_type in list(product_types_to_process): # Iterate over a copy
+        for product_type in list(product_types_to_process):  # Iterate over a copy
             keywords_dict = index_data.get(product_type, {})
             if not isinstance(keywords_dict, dict):
                 logger.warning(f"产品类型 '{product_type}' 在索引文件中的值不是字典，跳过。")
-                product_types_to_process.remove(product_type) # 从待处理列表中移除
+                product_types_to_process.remove(product_type)  # 从待处理列表中移除
                 continue
 
             available_keywords = [k for k in keywords_dict if k != "默认"]
@@ -173,61 +178,69 @@ class FetchCsvlist:
 
         # 5. 单次调用 LLM 获取所有匹配结果
         logger.info("调用 LLM 一次性获取所有产品类型的匹配关键词...")
-        llm_response = call_llm_for_match(self.SYSTEM_PROMPT, user_prompt, expect_json=True)
+        llm_response = call_llm_for_match(
+            self.SYSTEM_PROMPT, user_prompt, expect_json=True)
 
         # 6. 处理 LLM 响应并确定最终关键词
         matched_keywords = {}
         if isinstance(llm_response, dict) and 'error' not in llm_response:
             logger.info(f"LLM 成功返回 JSON 响应: {llm_response}")
-            matched_keywords = llm_response # 直接使用返回的字典
+            matched_keywords = llm_response  # 直接使用返回的字典
         elif llm_response is None:
             logger.warning("LLM 调用因客户端未初始化或API密钥问题而跳过。所有产品将使用默认值。")
         elif isinstance(llm_response, dict) and 'error' in llm_response:
-            logger.error(f"LLM 调用失败。所有产品将使用默认值。错误: {llm_response.get('details', llm_response['error'])}")
+            logger.error(
+                f"LLM 调用失败。所有产品将使用默认值。错误: {llm_response.get('details', llm_response['error'])}")
         else:
-            logger.error(f"LLM 返回了非预期的响应类型 ({type(llm_response)}) 或无效的 JSON。所有产品将使用默认值。响应: {llm_response}")
+            logger.error(
+                f"LLM 返回了非预期的响应类型 ({type(llm_response)}) 或无效的 JSON。所有产品将使用默认值。响应: {llm_response}")
 
         # 7. 遍历所有需要处理的产品类型，确定最终 CSV 列表
         for product_type in product_types_to_process:
-            keywords_dict = index_data.get(product_type) # Use .get for safety
+            keywords_dict = index_data.get(product_type)  # Use .get for safety
             if not keywords_dict or not isinstance(keywords_dict, dict):
-                 logger.warning(f"在索引数据中未找到产品类型 '{product_type}' 或其格式不正确，跳过。")
-                 continue # Skip if product_type is not found or not a dict
+                logger.warning(f"在索引数据中未找到产品类型 '{product_type}' 或其格式不正确，跳过。")
+                continue  # Skip if product_type is not found or not a dict
 
-            available_keywords = all_keywords_data.get(product_type, []) # 获取该类型的可用关键词
+            available_keywords = all_keywords_data.get(
+                product_type, [])  # 获取该类型的可用关键词
 
             # 从 LLM 响应中获取该产品类型的匹配关键词，如果响应无效或缺失则为 None
             llm_matched_keyword = matched_keywords.get(product_type)
 
-            selected_keyword = "默认" # 默认为 "默认"
+            selected_keyword = "默认"  # 默认为 "默认"
 
             if isinstance(llm_matched_keyword, str) and llm_matched_keyword != "默认":
                 # 验证 LLM 返回的非默认关键词是否有效
                 if llm_matched_keyword in available_keywords:
                     selected_keyword = llm_matched_keyword
-                    logger.info(f"LLM 为产品 '{product_type}' 成功匹配到有效关键词: '{selected_keyword}'")
+                    logger.info(
+                        f"LLM 为产品 '{product_type}' 成功匹配到有效关键词: '{selected_keyword}'")
                 else:
-                    logger.warning(f"LLM 为产品 '{product_type}' 返回的关键词 '{llm_matched_keyword}' 不在可用列表中。将使用默认值。")
+                    logger.warning(
+                        f"LLM 为产品 '{product_type}' 返回的关键词 '{llm_matched_keyword}' 不在可用列表中。将使用默认值。")
             elif llm_matched_keyword == "默认":
-                 logger.info(f"LLM 为产品 '{product_type}' 明确选择了 '默认'。")
-                 selected_keyword = "默认"
+                logger.info(f"LLM 为产品 '{product_type}' 明确选择了 '默认'。")
+                selected_keyword = "默认"
             else:
                 # 如果 LLM 响应中没有该产品类型，或值无效，则使用默认值
-                 if product_type not in matched_keywords:
-                     logger.warning(f"LLM 响应中未包含产品类型 '{product_type}'。将使用默认值。")
-                 else:
-                     logger.warning(f"LLM 为产品 '{product_type}' 返回了无效值 '{llm_matched_keyword}'。将使用默认值。")
-                 selected_keyword = "默认"
-
+                if product_type not in matched_keywords:
+                    logger.warning(f"LLM 响应中未包含产品类型 '{product_type}'。将使用默认值。")
+                else:
+                    logger.warning(
+                        f"LLM 为产品 '{product_type}' 返回了无效值 '{llm_matched_keyword}'。将使用默认值。")
+                selected_keyword = "默认"
 
             # 获取最终的 CSV 列表
             if selected_keyword in keywords_dict:
                 csv_list = keywords_dict[selected_keyword]
                 result_csv_lists[product_type] = csv_list
-                logger.info(f"产品 '{product_type}' 最终选择关键词 '{selected_keyword}'，对应 CSV 列表: {csv_list}")
+                logger.info(
+                    f"产品 '{product_type}' 最终选择关键词 '{selected_keyword}'，对应 CSV 列表: {csv_list}")
             else:
                 # 理论上 "默认" 应该总是在 keywords_dict 中
-                logger.error(f"严重错误：无法在索引中找到产品 '{product_type}' 的关键词 '{selected_keyword}' (即使是默认值)。跳过此产品。")
+                logger.error(
+                    f"严重错误：无法在索引中找到产品 '{product_type}' 的关键词 '{selected_keyword}' (即使是默认值)。跳过此产品。")
 
         logger.info("所有产品类型处理完毕。")
         return result_csv_lists
@@ -324,7 +337,8 @@ class ModelMatcher:
         """加载并处理所有 CSV 文件，按 'model' 列分组。"""
         all_csv_data = {}
         # 更新所需的列
-        required_columns = {'model', 'code', 'description', 'param', 'is_default'}
+        required_columns = {'model', 'code',
+                            'description', 'param', 'is_default'}
 
         for category, paths in self.csv_list_map.items():
             logger.debug(f"开始加载类别 '{category}' 的 CSV 文件: {paths}")
@@ -343,41 +357,49 @@ class ModelMatcher:
                         logger.warning(f"使用 utf-8 读取 {csv_path} 失败，尝试 gbk...")
                         try:
                             # 尝试 GBK, 逗号分隔
-                            df = pd.read_csv(csv_path, encoding='gbk', dtype=str).fillna('')
+                            df = pd.read_csv(
+                                csv_path, encoding='gbk', dtype=str).fillna('')
                         except Exception as e_gbk:
-                             logger.warning(f"使用 gbk 读取 {csv_path} 失败: {e_gbk}。尝试分号分隔符...")
+                            logger.warning(
+                                f"使用 gbk 读取 {csv_path} 失败: {e_gbk}。尝试分号分隔符...")
                     except Exception as e_utf8_comma:
-                         logger.warning(f"使用 utf-8 和逗号分隔符读取 {csv_path} 失败: {e_utf8_comma}。尝试分号分隔符...")
-
+                        logger.warning(
+                            f"使用 utf-8 和逗号分隔符读取 {csv_path} 失败: {e_utf8_comma}。尝试分号分隔符...")
 
                     # 如果逗号分隔失败，尝试分号分隔符
                     if df is None or not required_columns.issubset(df.columns):
                         logger.warning(f"尝试使用分号分隔符读取 {csv_path}...")
                         try:
                             # 尝试 UTF-8, 分号分隔
-                            df_semi = pd.read_csv(csv_path, sep=';', dtype=str).fillna('')
+                            df_semi = pd.read_csv(
+                                csv_path, sep=';', dtype=str).fillna('')
                             if required_columns.issubset(df_semi.columns):
                                 df = df_semi
                             else:
-                                logger.warning(f"使用 utf-8 和分号分隔符读取 {csv_path} 仍缺少列。尝试 GBK...")
+                                logger.warning(
+                                    f"使用 utf-8 和分号分隔符读取 {csv_path} 仍缺少列。尝试 GBK...")
                         except UnicodeDecodeError:
-                             logger.warning(f"使用 utf-8 和分号分隔符读取 {csv_path} 失败，尝试 gbk...")
+                            logger.warning(
+                                f"使用 utf-8 和分号分隔符读取 {csv_path} 失败，尝试 gbk...")
                         except Exception as e_utf8_semi:
-                             logger.warning(f"使用 utf-8 和分号分隔符读取 {csv_path} 失败: {e_utf8_semi}。尝试 GBK...")
+                            logger.warning(
+                                f"使用 utf-8 和分号分隔符读取 {csv_path} 失败: {e_utf8_semi}。尝试 GBK...")
 
                         if df is None or not required_columns.issubset(df.columns):
                             try:
                                 # 尝试 GBK, 分号分隔
-                                df_semi_gbk = pd.read_csv(csv_path, sep=';', encoding='gbk', dtype=str).fillna('')
+                                df_semi_gbk = pd.read_csv(
+                                    csv_path, sep=';', encoding='gbk', dtype=str).fillna('')
                                 if required_columns.issubset(df_semi_gbk.columns):
                                     df = df_semi_gbk
                                 else:
-                                     logger.error(f"尝试多种编码和分隔符后，CSV 文件 {csv_path} 仍缺少必需的列。")
-                                     continue # 跳过此文件
+                                    logger.error(
+                                        f"尝试多种编码和分隔符后，CSV 文件 {csv_path} 仍缺少必需的列。")
+                                    continue  # 跳过此文件
                             except Exception as e_gbk_semi:
-                                logger.error(f"尝试多种编码和分隔符后，读取 CSV 文件 {csv_path} 失败: {e_gbk_semi}")
-                                continue # 跳过此文件
-
+                                logger.error(
+                                    f"尝试多种编码和分隔符后，读取 CSV 文件 {csv_path} 失败: {e_gbk_semi}")
+                                continue  # 跳过此文件
 
                     # 检查必需的列 (再次确认)
                     if df is None or not required_columns.issubset(df.columns):
@@ -406,7 +428,8 @@ class ModelMatcher:
                             # 如果模型已存在（可能来自不同文件），合并行，但要小心重复
                             # 这里简单地追加，如果需要更复杂的去重逻辑可以在此添加
                             logger.debug(f"模型 '{model_name_str}' 在多个 CSV 文件中找到。"
-                                           f"将合并来自 {csv_path} 的行。") # 改为 debug 级别
+                                         # 改为 debug 级别
+                                         f"将合并来自 {csv_path} 的行。")
                             all_csv_data[model_name_str]['rows'].extend(rows)
                         else:
                             all_csv_data[model_name_str] = {
@@ -430,9 +453,9 @@ class ModelMatcher:
         """
         if isinstance(data, tuple):  # 输入键值对
             key, _ = data  # 只需要键
-            return key.strip() # 去除键的首尾空格
+            return key.strip()  # 去除键的首尾空格
         elif isinstance(data, dict):  # CSV 行
-            return data.get('model', '').strip() # 去除模型名称的首尾空格
+            return data.get('model', '').strip()  # 去除模型名称的首尾空格
         return ""
 
     def _fuzzy_match(self) -> Tuple[Dict[str, List[Dict[str, Any]]], List[Tuple[str, str]]]:
@@ -462,7 +485,7 @@ class ModelMatcher:
         model_name_choices = list(available_models.keys())
         if not model_name_choices:
             logger.warning("没有可用的模型名称进行模糊匹配。")
-            failed_fuzzy_matches = input_items # 所有输入都失败
+            failed_fuzzy_matches = input_items  # 所有输入都失败
             return fuzzy_matches, failed_fuzzy_matches
 
         # 存储每个输入项的最佳匹配及其分数
@@ -470,20 +493,24 @@ class ModelMatcher:
         best_matches_for_inputs = {}
 
         for input_key, input_value in input_items:
-            input_key_str = input_key.strip() # 用于匹配的键
+            input_key_str = input_key.strip()  # 用于匹配的键
             # 使用 process.extractOne 找到最佳匹配
             # scorer 可以选择 fuzz.ratio, fuzz.partial_ratio, fuzz.token_sort_ratio 等
-            best_match = process.extractOne(input_key_str, model_name_choices, scorer=fuzz.token_sort_ratio)
+            best_match = process.extractOne(
+                input_key_str, model_name_choices, scorer=fuzz.token_sort_ratio)
 
             if best_match:
                 best_model_name, best_score = best_match
-                best_matches_for_inputs[(input_key, input_value)] = (best_model_name, best_score)
+                best_matches_for_inputs[(input_key, input_value)] = (
+                    best_model_name, best_score)
             else:
-                 best_matches_for_inputs[(input_key, input_value)] = (None, -1) # 没有找到匹配
+                best_matches_for_inputs[(input_key, input_value)] = (
+                    None, -1)  # 没有找到匹配
 
         # 排序：优先处理分数高且模型唯一的匹配
         # 1. 按分数降序排序
-        sorted_inputs = sorted(best_matches_for_inputs.items(), key=lambda item: item[1][1], reverse=True)
+        sorted_inputs = sorted(best_matches_for_inputs.items(
+        ), key=lambda item: item[1][1], reverse=True)
 
         # 2. 迭代处理，标记已使用的模型和输入
         processed_inputs = set()
@@ -498,10 +525,10 @@ class ModelMatcher:
             # 检查模型是否已被使用
             if best_model_name and best_model_name not in used_models:
                 # 成功匹配
-                match_key = f"'{input_key}': '{input_value}'" # 输出键格式
+                match_key = f"'{input_key}': '{input_value}'"  # 输出键格式
                 matched_rows = self.csv_data[best_model_name]['rows']
                 fuzzy_matches[match_key] = matched_rows
-                self.csv_data[best_model_name]['used'] = True # 更新原始数据
+                self.csv_data[best_model_name]['used'] = True  # 更新原始数据
                 used_models.add(best_model_name)
                 processed_inputs.add(input_tuple)
                 logger.info(
@@ -509,12 +536,12 @@ class ModelMatcher:
             # else: 模型已被使用或无效，此输入项暂时无法通过模糊匹配解决
 
         # 收集所有未被处理的输入项
-        failed_fuzzy_matches = [item for item in input_items if item not in processed_inputs]
+        failed_fuzzy_matches = [
+            item for item in input_items if item not in processed_inputs]
 
         logger.info(
             f"模糊匹配完成。成功 {len(fuzzy_matches)} 项，失败 {len(failed_fuzzy_matches)} 项。")
         return fuzzy_matches, failed_fuzzy_matches
-
 
     def _llm_match(self, failed_inputs: List[Tuple[str, str]],
                    available_models: Dict[str, Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
@@ -543,11 +570,12 @@ class ModelMatcher:
         # 准备提示词内容
         # 1. 准备待匹配输入键值对字符串
         failed_inputs_kv_str = "\n".join(
-            [f"- {k.strip()}: {v.strip()}" for k, v in failed_inputs]) # 使用 key: value 格式, 去除空格
+            # 使用 key: value 格式, 去除空格
+            [f"- {k.strip()}: {v.strip()}" for k, v in failed_inputs])
 
         # 2. 准备可用模型详情字符串 (model, description, param)
         available_models_details_list = []
-        model_name_to_details_map = {} # 用于快速查找模型详情
+        model_name_to_details_map = {}  # 用于快速查找模型详情
         for model_name, model_data in available_models.items():
             model_name_clean = model_name.strip()
             # 为每个 model_name 创建一个条目，包含其下所有行的相关信息
@@ -561,17 +589,24 @@ class ModelMatcher:
             model_details_parts.extend(row_details)
             detail_str = "\n".join(model_details_parts)
             available_models_details_list.append(detail_str)
-            model_name_to_details_map[model_name_clean] = model_data # 存储原始数据
+            model_name_to_details_map[model_name_clean] = model_data  # 存储原始数据
 
-        available_models_details_str = "\n\n".join(available_models_details_list)
+        available_models_details_str = "\n\n".join(
+            available_models_details_list)
         # 注意：如果可用模型条目非常多，这个字符串可能会变得很长，可能需要考虑截断或分页策略
 
         # 格式化 System Prompt 和 User Prompt
-        system_prompt_formatted = self.SYSTEM_PROMPT.format(failed_inputs_kv_str=failed_inputs_kv_str)
-        user_prompt_formatted = self.USER_PROMPT_TEMPLATE.format(available_models_details_str=available_models_details_str)
+        system_prompt_formatted = self.SYSTEM_PROMPT.format(
+            failed_inputs_kv_str=failed_inputs_kv_str)
+        user_prompt_formatted = self.USER_PROMPT_TEMPLATE.format(
+            available_models_details_str=available_models_details_str)
 
-        logger.debug(f"格式化后的 System Prompt (部分): {system_prompt_formatted[:500]}...") # 增加预览长度
-        logger.debug(f"格式化后的 User Prompt (部分): {user_prompt_formatted[:500]}...") # 增加预览长度
+        logger.debug(
+            # 增加预览长度
+            f"格式化后的 System Prompt (部分): {system_prompt_formatted[:500]}...")
+        logger.debug(
+            # 增加预览长度
+            f"格式化后的 User Prompt (部分): {user_prompt_formatted[:500]}...")
 
         # 调用 LLM
         llm_response = call_llm_for_match(
@@ -589,12 +624,12 @@ class ModelMatcher:
                 self.unmatched_inputs.update({k: v for k, v in failed_inputs})
                 return llm_matches
 
-            processed_inputs_tuples = set() # 记录已处理的 (key, value) 元组
-            used_models_by_llm = set() # 记录 LLM 在此轮匹配中使用的模型
+            processed_inputs_tuples = set()  # 记录已处理的 (key, value) 元组
+            used_models_by_llm = set()  # 记录 LLM 在此轮匹配中使用的模型
 
             # 验证 LLM 返回的匹配是否满足唯一性要求
             llm_model_usage_count = {}
-            valid_llm_matches = {} # 存储初步验证通过的匹配 {input_key: model_name}
+            valid_llm_matches = {}  # 存储初步验证通过的匹配 {input_key: model_name}
 
             for input_key_from_llm, matched_model_name in llm_response.items():
                 input_key_clean = input_key_from_llm.strip()
@@ -603,26 +638,31 @@ class ModelMatcher:
                 # 检查模型是否存在于可用模型中
                 if model_name_clean in model_name_to_details_map:
                     valid_llm_matches[input_key_clean] = model_name_clean
-                    llm_model_usage_count[model_name_clean] = llm_model_usage_count.get(model_name_clean, 0) + 1
+                    llm_model_usage_count[model_name_clean] = llm_model_usage_count.get(
+                        model_name_clean, 0) + 1
                 else:
-                    logger.warning(f"LLM 为输入 '{input_key_clean}' 返回了无效或不可用的模型名称 '{model_name_clean}'，忽略此匹配。")
+                    logger.warning(
+                        f"LLM 为输入 '{input_key_clean}' 返回了无效或不可用的模型名称 '{model_name_clean}'，忽略此匹配。")
 
             # 检查是否有模型被重复使用
-            duplicate_models = {model: count for model, count in llm_model_usage_count.items() if count > 1}
+            duplicate_models = {model: count for model,
+                                count in llm_model_usage_count.items() if count > 1}
             if duplicate_models:
                 logger.error(f"LLM 违反唯一性规则，重复使用了以下模型: {duplicate_models}")
                 # 如何处理？可以选择全部放弃，或尝试保留第一个？这里选择全部放弃重复使用的模型的匹配
-                keys_to_remove = [key for key, model in valid_llm_matches.items() if model in duplicate_models]
+                keys_to_remove = [
+                    key for key, model in valid_llm_matches.items() if model in duplicate_models]
                 for key in keys_to_remove:
-                    logger.warning(f"因模型 '{valid_llm_matches[key]}' 被重复使用，放弃输入 '{key}' 的 LLM 匹配。")
-                    del valid_llm_matches[key] # 从有效匹配中移除
+                    logger.warning(
+                        f"因模型 '{valid_llm_matches[key]}' 被重复使用，放弃输入 '{key}' 的 LLM 匹配。")
+                    del valid_llm_matches[key]  # 从有效匹配中移除
 
             # 处理最终确认的有效且唯一的 LLM 匹配
             for input_key_clean, model_name_clean in valid_llm_matches.items():
-                 # 从原始 failed_inputs 中找到对应的 (key, value) 元组
+                # 从原始 failed_inputs 中找到对应的 (key, value) 元组
                 original_input_tuple = None
                 for k, v in failed_inputs:
-                    if k.strip() == input_key_clean: # 匹配清理后的键
+                    if k.strip() == input_key_clean:  # 匹配清理后的键
                         original_input_tuple = (k, v)
                         break
 
@@ -642,17 +682,19 @@ class ModelMatcher:
                         llm_matches[final_match_key] = matched_rows
                         # 标记整个模型为已使用
                         self.csv_data[original_model_key]['used'] = True
-                        used_models_by_llm.add(original_model_key) # 使用原始 key 标记
-                        processed_inputs_tuples.add(original_input_tuple) # 标记原始元组为已处理
+                        used_models_by_llm.add(
+                            original_model_key)  # 使用原始 key 标记
+                        processed_inputs_tuples.add(
+                            original_input_tuple)  # 标记原始元组为已处理
                         logger.info(
                             f"LLM 匹配成功: {final_match_key} -> 模型 '{model_name_clean}'")
                     else:
-                         logger.error(f"内部错误：无法找到模型 '{model_name_clean}' 的原始键。")
+                        logger.error(f"内部错误：无法找到模型 '{model_name_clean}' 的原始键。")
 
                 else:
                     # 这种情况理论上不应发生
-                    logger.warning(f"LLM 返回了无法在失败列表中找到其原始元组的输入键: '{input_key_clean}'")
-
+                    logger.warning(
+                        f"LLM 返回了无法在失败列表中找到其原始元组的输入键: '{input_key_clean}'")
 
             # 将 LLM 未能成功匹配或处理的项记录为无法匹配
             remaining_failed = [
@@ -703,7 +745,8 @@ class ModelMatcher:
                     f"  - 未匹配输入键: '{unmatched_key}' (值: '{unmatched_value}')")
 
         # 记录未被匹配的标准模型组
-        unmatched_models = [name for name, data in self.csv_data.items() if not data['used']]
+        unmatched_models = [name for name,
+                            data in self.csv_data.items() if not data['used']]
         if unmatched_models:
             logger.warning(f"有 {len(unmatched_models)} 个标准模型组未被任何输入参数匹配:")
             # 只记录前 10 个未匹配的模型以避免日志过长
@@ -711,7 +754,8 @@ class ModelMatcher:
                 if i < 10:
                     logger.warning(f"  - 未匹配模型组: '{model_name}'")
                 elif i == 10:
-                    logger.warning(f"  - ... (还有 {len(unmatched_models) - 10} 个未显示)")
+                    logger.warning(
+                        f"  - ... (还有 {len(unmatched_models) - 10} 个未显示)")
                     break
         # else: # 如果不需要在所有模型都匹配时输出信息，可以注释掉这部分
         #     logger.info("所有标准模型组都已成功匹配或尝试匹配。")
@@ -807,18 +851,21 @@ class CodeSelector:
                 # 如果 code 包含 %int%，尝试从 input_str 提取数字并替换
                 if isinstance(original_code, str) and '%int%' in original_code:
                     # 尝试从 input_str (格式 "'key': 'value'") 提取 value 中的内容
-                    match = re.search(r":\s*'([^']*)'", input_str) # 捕获引号内的所有内容 (包括空)
+                    # 捕获引号内的所有内容 (包括空)
+                    match = re.search(r":\s*'([^']*)'", input_str)
                     if match:
-                        value_part = match.group(1).strip() # 获取值并去除首尾空格
+                        value_part = match.group(1).strip()  # 获取值并去除首尾空格
                         # 从捕获的内容中提取所有数字，去除空格和其他非数字字符
                         extracted_digits = re.sub(r'\D', '', value_part)
-                        if extracted_digits: # 确保提取到了数字
+                        if extracted_digits:  # 确保提取到了数字
                             # 替换 %int% 部分
-                            new_code = original_code.replace('%int%', extracted_digits)
+                            new_code = original_code.replace(
+                                '%int%', extracted_digits)
                             selected_row_dict['code'] = new_code
-                            logger.debug(f"为输入 '{input_str}' 的唯一候选行替换 %int% 得到 code: {new_code}")
+                            logger.debug(
+                                f"为输入 '{input_str}' 的唯一候选行替换 %int% 得到 code: {new_code}")
                         else:
-                             logger.warning(
+                            logger.warning(
                                 f"唯一候选行的 code '{original_code}' 包含 '%int%'，但在输入 '{input_str}' 的值 '{value_part}' 中未能提取到有效数字，保留原样。")
                     else:
                         logger.warning(
@@ -837,7 +884,8 @@ class CodeSelector:
             # 将输入字符串与每个候选行进行比较
             # 提取输入字符串中的 value 部分用于比较
             input_value_match = re.search(r":\s*'([^']*)'", input_str)
-            input_value_for_match = input_value_match.group(1).strip() if input_value_match else input_str # Fallback to full string
+            input_value_for_match = input_value_match.group(1).strip(
+            ) if input_value_match else input_str  # Fallback to full string
 
             for index, row in enumerate(candidate_rows):
                 row_str = self._row_to_string(row)
@@ -852,7 +900,7 @@ class CodeSelector:
             # 判断是否达到阈值
             if best_match_row and best_score >= self.fuzzy_select_threshold * 100:
                 # 使用原始 input_str 作为 key
-                selected_row_dict = best_match_row.copy() # 使用副本
+                selected_row_dict = best_match_row.copy()  # 使用副本
                 # 检查是否需要处理 %int% (即使不是唯一候选)
                 original_code = selected_row_dict.get('code', '')
                 if isinstance(original_code, str) and '%int%' in original_code:
@@ -861,9 +909,11 @@ class CodeSelector:
                         value_part = match.group(1).strip()
                         extracted_digits = re.sub(r'\D', '', value_part)
                         if extracted_digits:
-                            new_code = original_code.replace('%int%', extracted_digits)
+                            new_code = original_code.replace(
+                                '%int%', extracted_digits)
                             selected_row_dict['code'] = new_code
-                            logger.debug(f"为输入 '{input_str}' 的模糊匹配结果替换 %int% 得到 code: {new_code}")
+                            logger.debug(
+                                f"为输入 '{input_str}' 的模糊匹配结果替换 %int% 得到 code: {new_code}")
                         # else: 保留原样，日志在唯一候选时已记录
 
                 self.selected_codes[input_str] = selected_row_dict
@@ -894,24 +944,25 @@ class CodeSelector:
         logger.info(f"开始 LLM 选择，处理 {total_failed_count} 个模糊选择失败项...")
 
         batch_size = 5  # 每批处理的最大数量 (可调整)
-        processed_inputs_in_llm_responses = set() # 记录 LLM 实际返回了结果的输入字符串
+        processed_inputs_in_llm_responses = set()  # 记录 LLM 实际返回了结果的输入字符串
 
         for i in range(0, total_failed_count, batch_size):
             batch = self.failed_fuzzy_selection[i:i + batch_size]
             batch_number = (i // batch_size) + 1
             total_batches = (total_failed_count + batch_size - 1) // batch_size
-            logger.info(f"处理 LLM 选择批次 {batch_number}/{total_batches} (共 {len(batch)} 项)...")
+            logger.info(
+                f"处理 LLM 选择批次 {batch_number}/{total_batches} (共 {len(batch)} 项)...")
 
             # 准备当前批次的提示词内容
             items_to_select_str_parts = []
-            batch_input_mapping = {} # 存储当前批次的 input_str -> candidate_rows 映射
+            batch_input_mapping = {}  # 存储当前批次的 input_str -> candidate_rows 映射
             for input_str, candidate_rows in batch:
                 batch_input_mapping[input_str] = candidate_rows
                 item_str = f"输入参数: \"{input_str}\"\n候选行列表:\n"
                 for idx, row in enumerate(candidate_rows):
                     # 获取完整的 description 和 param
                     desc = row.get('description', '无描述')
-                    param = row.get('param', '无参数') # 或者根据实际情况决定默认值
+                    param = row.get('param', '无参数')  # 或者根据实际情况决定默认值
                     # 更新 item_str 的格式，只包含索引、description 和 param
                     item_str += f"  {idx}: description='{desc}', param='{param}'\n"
                 items_to_select_str_parts.append(item_str)
@@ -942,13 +993,15 @@ class CodeSelector:
                 batch_processed_inputs_str_in_response = set()
                 for input_str, selected_index in llm_response.items():
                     batch_processed_inputs_str_in_response.add(input_str)
-                    processed_inputs_in_llm_responses.add(input_str) # 加入全局已处理集合
+                    processed_inputs_in_llm_responses.add(
+                        input_str)  # 加入全局已处理集合
 
                     # 查找原始候选列表 (在当前批次的映射中查找)
                     original_candidates = batch_input_mapping.get(input_str)
 
                     if original_candidates is None:
-                        logger.warning(f"LLM 在批次 {batch_number} 返回了未知的输入参数: '{input_str}' (可能来自其他批次或无效)，跳过此项。")
+                        logger.warning(
+                            f"LLM 在批次 {batch_number} 返回了未知的输入参数: '{input_str}' (可能来自其他批次或无效)，跳过此项。")
                         continue
 
                     # 验证索引并选择
@@ -956,7 +1009,7 @@ class CodeSelector:
                         selected_index = int(selected_index)
                         if 0 <= selected_index < len(original_candidates):
                             selected_row = original_candidates[selected_index]
-                            selected_row_dict = selected_row.copy() # 使用副本
+                            selected_row_dict = selected_row.copy()  # 使用副本
 
                             # 检查并处理 %int%
                             original_code = selected_row_dict.get('code', '')
@@ -964,11 +1017,14 @@ class CodeSelector:
                                 match = re.search(r":\s*'([^']*)'", input_str)
                                 if match:
                                     value_part = match.group(1).strip()
-                                    extracted_digits = re.sub(r'\D', '', value_part)
+                                    extracted_digits = re.sub(
+                                        r'\D', '', value_part)
                                     if extracted_digits:
-                                        new_code = original_code.replace('%int%', extracted_digits)
+                                        new_code = original_code.replace(
+                                            '%int%', extracted_digits)
                                         selected_row_dict['code'] = new_code
-                                        logger.debug(f"为输入 '{input_str}' 的 LLM 选择结果替换 %int% 得到 code: {new_code}")
+                                        logger.debug(
+                                            f"为输入 '{input_str}' 的 LLM 选择结果替换 %int% 得到 code: {new_code}")
                                     # else: 保留原样
 
                             llm_selected_codes[input_str] = selected_row_dict
@@ -995,22 +1051,24 @@ class CodeSelector:
                     # 决定是否继续？这里选择抛出异常
                     raise ValueError(error_msg + " - 无法继续选择。")
 
-
             except Exception as e:
                 error_msg = f"处理批次 {batch_number}/{total_batches} 的 LLM 响应时出错: {e}"
                 logger.error(error_msg, exc_info=True)
                 raise ValueError(error_msg + " - 无法继续选择。")
 
         # 检查是否有任何失败项未被 LLM 处理 (理论上不应发生，因为前面会报错)
-        all_failed_input_strings = {item[0] for item in self.failed_fuzzy_selection}
+        all_failed_input_strings = {item[0]
+                                    for item in self.failed_fuzzy_selection}
         # 使用 processed_inputs_in_llm_responses 检查 LLM 是否处理了所有失败项
-        final_unprocessed_strings = all_failed_input_strings - processed_inputs_in_llm_responses
+        final_unprocessed_strings = all_failed_input_strings - \
+            processed_inputs_in_llm_responses
 
         if final_unprocessed_strings:
-             # 如果执行到这里，说明之前的错误处理逻辑有遗漏
-             error_msg = f"严重错误：在所有批次处理后，仍有 {len(final_unprocessed_strings)} 个模糊选择失败项未被 LLM 处理: {', '.join(final_unprocessed_strings)}"
-             logger.error(error_msg)
-             raise RuntimeError(error_msg + " - 代码选择逻辑存在问题。") # 使用 RuntimeError 表示内部逻辑错误
+            # 如果执行到这里，说明之前的错误处理逻辑有遗漏
+            error_msg = f"严重错误：在所有批次处理后，仍有 {len(final_unprocessed_strings)} 个模糊选择失败项未被 LLM 处理: {', '.join(final_unprocessed_strings)}"
+            logger.error(error_msg)
+            # 使用 RuntimeError 表示内部逻辑错误
+            raise RuntimeError(error_msg + " - 代码选择逻辑存在问题。")
 
         logger.info(f"LLM 选择流程完成。成功处理/选择了 {len(llm_selected_codes)} 项。")
         return llm_selected_codes
@@ -1091,7 +1149,7 @@ class CodeGenerator:
             if product_type in csv_list_map and csv_list_map[product_type]:
                 # 只取该产品类型的第一个CSV文件来确定顺序
                 csv_path_str = csv_list_map[product_type][0]
-                csv_path = Path(csv_path_str) # 转换为 Path 对象
+                csv_path = Path(csv_path_str)  # 转换为 Path 对象
                 logger.info(f"正在处理产品 '{product_type}' 的CSV文件以确定顺序: {csv_path}")
                 try:
                     # --- 重用 ModelMatcher 的 CSV 读取逻辑 ---
@@ -1099,13 +1157,17 @@ class CodeGenerator:
                     try:
                         df = pd.read_csv(csv_path, dtype=str)
                     except UnicodeDecodeError:
-                        logger.warning(f"Order: 使用 utf-8 读取 {csv_path} 失败，尝试 gbk...")
+                        logger.warning(
+                            f"Order: 使用 utf-8 读取 {csv_path} 失败，尝试 gbk...")
                         try:
-                            df = pd.read_csv(csv_path, encoding='gbk', dtype=str)
+                            df = pd.read_csv(
+                                csv_path, encoding='gbk', dtype=str)
                         except Exception as e_gbk:
-                             logger.warning(f"Order: 使用 gbk 读取 {csv_path} 失败: {e_gbk}。尝试分号...")
+                            logger.warning(
+                                f"Order: 使用 gbk 读取 {csv_path} 失败: {e_gbk}。尝试分号...")
                     except Exception as e_utf8_comma:
-                         logger.warning(f"Order: 使用 utf-8 和逗号读取 {csv_path} 失败: {e_utf8_comma}。尝试分号...")
+                        logger.warning(
+                            f"Order: 使用 utf-8 和逗号读取 {csv_path} 失败: {e_utf8_comma}。尝试分号...")
 
                     if df is None or 'model' not in df.columns:
                         logger.warning(f"Order: 尝试使用分号分隔符读取 {csv_path}...")
@@ -1114,31 +1176,38 @@ class CodeGenerator:
                             if 'model' in df_semi.columns:
                                 df = df_semi
                             else:
-                                logger.warning(f"Order: 使用 utf-8 和分号读取 {csv_path} 仍缺少 'model' 列。尝试 GBK...")
+                                logger.warning(
+                                    f"Order: 使用 utf-8 和分号读取 {csv_path} 仍缺少 'model' 列。尝试 GBK...")
                         except UnicodeDecodeError:
-                             logger.warning(f"Order: 使用 utf-8 和分号读取 {csv_path} 失败，尝试 gbk...")
+                            logger.warning(
+                                f"Order: 使用 utf-8 和分号读取 {csv_path} 失败，尝试 gbk...")
                         except Exception as e_utf8_semi:
-                             logger.warning(f"Order: 使用 utf-8 和分号读取 {csv_path} 失败: {e_utf8_semi}。尝试 GBK...")
+                            logger.warning(
+                                f"Order: 使用 utf-8 和分号读取 {csv_path} 失败: {e_utf8_semi}。尝试 GBK...")
 
                         if df is None or 'model' not in df.columns:
                             try:
-                                df_semi_gbk = pd.read_csv(csv_path, sep=';', encoding='gbk', dtype=str)
+                                df_semi_gbk = pd.read_csv(
+                                    csv_path, sep=';', encoding='gbk', dtype=str)
                                 if 'model' in df_semi_gbk.columns:
                                     df = df_semi_gbk
                                 else:
-                                     logger.warning(f"Order: 尝试多种方式后，CSV文件 '{csv_path}' 中仍未找到 'model' 列。")
+                                    logger.warning(
+                                        f"Order: 尝试多种方式后，CSV文件 '{csv_path}' 中仍未找到 'model' 列。")
                             except Exception as e_gbk_semi:
-                                logger.warning(f"Order: 尝试多种方式读取 CSV 文件 {csv_path} 失败: {e_gbk_semi}")
+                                logger.warning(
+                                    f"Order: 尝试多种方式读取 CSV 文件 {csv_path} 失败: {e_gbk_semi}")
 
                     # --- 提取顺序 ---
                     if df is not None and 'model' in df.columns:
                         # 提取model列，去除NaN/空值，并转换成字符串以防数字等类型
-                        models_in_csv = df['model'].dropna().astype(str).tolist()
+                        models_in_csv = df['model'].dropna().astype(
+                            str).tolist()
                         # 获取当前CSV中唯一的model，并保持首次出现的顺序
                         models_in_this_csv_ordered = []
                         seen_in_this_csv = set()
                         for model in models_in_csv:
-                            model_clean = model.strip() # 去除首尾空格
+                            model_clean = model.strip()  # 去除首尾空格
                             if model_clean and model_clean not in seen_in_this_csv:
                                 models_in_this_csv_ordered.append(model_clean)
                                 seen_in_this_csv.add(model_clean)
@@ -1164,7 +1233,6 @@ class CodeGenerator:
         logger.info(f"最终确定的各产品类型 model 排序: {ordered_models_by_product}")
         return ordered_models_by_product
 
-
     def _preload_model_details(self, csv_list_map: Dict[str, List[str]]) -> Dict[str, Dict[str, Any]]:
         """
         预加载所有相关 CSV 文件中的模型详情，包括默认代码和所有代码。
@@ -1176,9 +1244,10 @@ class CodeGenerator:
             一个字典，键是 model 名称，值是包含 "default_code", "all_codes", "product_type" 的字典。
         """
         model_details_map: Dict[str, Dict[str, Any]] = {}
-        product_order_for_defaults = ["transmitter", "sensor", "tg"] # 与 get_model_order 一致
+        product_order_for_defaults = [
+            "transmitter", "sensor", "tg"]  # 与 get_model_order 一致
 
-        processed_files = set() # 避免重复处理同一个文件
+        processed_files = set()  # 避免重复处理同一个文件
 
         for product_type_default in product_order_for_defaults:
             if product_type_default in csv_list_map and csv_list_map[product_type_default]:
@@ -1187,7 +1256,7 @@ class CodeGenerator:
                 # 改进：应该加载所有文件来查找默认值。
                 for csv_path_str in csv_list_map[product_type_default]:
                     if csv_path_str in processed_files:
-                        continue # 跳过已处理的文件
+                        continue  # 跳过已处理的文件
                     processed_files.add(csv_path_str)
 
                     csv_path_default = Path(csv_path_str)
@@ -1196,38 +1265,52 @@ class CodeGenerator:
                     try:
                         # --- 重用 ModelMatcher 的 CSV 读取逻辑 ---
                         df_default = None
-                        try: df_default = pd.read_csv(csv_path_default, dtype=str).fillna('')
+                        try:
+                            df_default = pd.read_csv(
+                                csv_path_default, dtype=str).fillna('')
                         except UnicodeDecodeError:
-                            try: df_default = pd.read_csv(csv_path_default, encoding='gbk', dtype=str).fillna('')
-                            except Exception: pass
-                        except Exception: pass
+                            try:
+                                df_default = pd.read_csv(
+                                    csv_path_default, encoding='gbk', dtype=str).fillna('')
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
 
                         if df_default is None or not {'model', 'code', 'is_default'}.issubset(df_default.columns):
                             try:
-                                df_semi = pd.read_csv(csv_path_default, sep=';', dtype=str).fillna('')
-                                if {'model', 'code', 'is_default'}.issubset(df_semi.columns): df_default = df_semi
+                                df_semi = pd.read_csv(
+                                    csv_path_default, sep=';', dtype=str).fillna('')
+                                if {'model', 'code', 'is_default'}.issubset(df_semi.columns):
+                                    df_default = df_semi
                             except UnicodeDecodeError:
                                 try:
-                                    df_semi_gbk = pd.read_csv(csv_path_default, sep=';', encoding='gbk', dtype=str).fillna('')
-                                    if {'model', 'code', 'is_default'}.issubset(df_semi_gbk.columns): df_default = df_semi_gbk
-                                except Exception: pass
-                            except Exception: pass
+                                    df_semi_gbk = pd.read_csv(
+                                        csv_path_default, sep=';', encoding='gbk', dtype=str).fillna('')
+                                    if {'model', 'code', 'is_default'}.issubset(df_semi_gbk.columns):
+                                        df_default = df_semi_gbk
+                                except Exception:
+                                    pass
+                            except Exception:
+                                pass
 
                         # 确保 'model', 'code', 'is_default' 列存在
                         if df_default is not None and all(col in df_default.columns for col in ['model', 'code', 'is_default']):
                             # 清理数据：去除 model 或 code 为空的行，并将 model, code, is_default 转为字符串
                             required_cols = ['model', 'code', 'is_default']
                             # 先填充 NaN
-                            df_default[required_cols] = df_default[required_cols].fillna('')
+                            df_default[required_cols] = df_default[required_cols].fillna(
+                                '')
                             # 过滤 model 或 code 为空的行
                             df_cleaned_default = df_default[
                                 (df_default['model'].astype(str).str.strip() != '') &
-                                (df_default['code'].astype(str).str.strip() != '')
-                            ].copy() # 使用 .copy() 避免 SettingWithCopyWarning
+                                (df_default['code'].astype(
+                                    str).str.strip() != '')
+                            ].copy()  # 使用 .copy() 避免 SettingWithCopyWarning
                             # 全部转为字符串并去除空格
                             for col in required_cols:
-                                df_cleaned_default[col] = df_cleaned_default[col].astype(str).str.strip()
-
+                                df_cleaned_default[col] = df_cleaned_default[col].astype(
+                                    str).str.strip()
 
                             # 获取每个 model 对应的所有 code 值
                             model_to_all_codes = df_cleaned_default.groupby(
@@ -1248,7 +1331,7 @@ class CodeGenerator:
                                         model_name_default)  # 获取默认 code
 
                                     details = {
-                                        "default_code": default_code_for_model, # 可能为 None
+                                        "default_code": default_code_for_model,  # 可能为 None
                                         "all_codes": all_codes_for_model,
                                         "product_type": product_type_default  # 记录来源产品类型
                                     }
@@ -1272,12 +1355,12 @@ class CodeGenerator:
                         logger.warning(
                             f"预加载: CSV文件 '{csv_path_default}' 为空，无法为 {product_type_default} 生成模型详情。")
                     except Exception as e:
-                        logger.error(f"预加载: 处理CSV文件 '{csv_path_default}' 以生成模型详情时出错: {e}")
+                        logger.error(
+                            f"预加载: 处理CSV文件 '{csv_path_default}' 以生成模型详情时出错: {e}")
 
         logger.info(f"预加载的模型详情映射完成: {len(model_details_map)} 个条目")
         # logger.debug(f"模型详情映射内容: {model_details_map}") # 内容可能过多，谨慎开启
         return model_details_map
-
 
     def generate_final_code(self, csv_list_map: Dict[str, List[str]], selected_codes_data: Dict[str, Dict[str, Any]]) -> str:
         """
@@ -1313,12 +1396,14 @@ class CodeGenerator:
         for input_str, param_data in selected_codes_data.items():
             if isinstance(param_data, dict) and 'model' in param_data and 'code' in param_data:
                 model_name = str(param_data['model']).strip()  # 确保是字符串并去空格
-                code_value = str(param_data['code']).strip() if pd.notna(param_data['code']) else '' # 处理可能的 NaN 或 None 并去空格
-                if model_name: # 确保 model 名称不为空
+                code_value = str(param_data['code']).strip() if pd.notna(
+                    param_data['code']) else ''  # 处理可能的 NaN 或 None 并去空格
+                if model_name:  # 确保 model 名称不为空
                     model_to_code_map[model_name] = code_value
                     found_models_in_selection.add(model_name)
                 else:
-                     logger.warning(f"selected_codes_data 中的条目 '{input_str}' 包含空的 model 名称，已跳过。")
+                    logger.warning(
+                        f"selected_codes_data 中的条目 '{input_str}' 包含空的 model 名称，已跳过。")
             else:
                 logger.warning(
                     f"selected_codes_data 中的条目 '{input_str}' 格式不符合预期或缺少 model/code: {param_data}")
@@ -1329,12 +1414,17 @@ class CodeGenerator:
 
         # --- 新增：1. 预先计算条件 ---
         has_tg_product = 'tg' in csv_list_map and bool(csv_list_map.get('tg'))
-        has_sensor_product = 'sensor' in csv_list_map and bool(csv_list_map.get('sensor'))
-        tg_csv_path = csv_list_map.get('tg', [None])[0] # 获取第一个tg csv路径，如果不存在则为None
+        has_sensor_product = 'sensor' in csv_list_map and bool(
+            csv_list_map.get('sensor'))
+        tg_csv_path = csv_list_map.get('tg', [None])[
+            0]  # 获取第一个tg csv路径，如果不存在则为None
         # 确保比较时路径格式一致 (例如，都使用 posix 风格)
-        specific_tg_csvs = {'libs/standard/tg/TG_PT-1.csv', 'libs/standard/tg/TG_PT-2.csv', 'libs/standard/tg/TG_PT-3.csv'}
-        is_specific_tg_csv = tg_csv_path is not None and Path(tg_csv_path).as_posix() in specific_tg_csvs
-        logger.info(f"规则条件检查: has_tg={has_tg_product}, has_sensor={has_sensor_product}, is_specific_tg_csv={is_specific_tg_csv} (path: {tg_csv_path})")
+        specific_tg_csvs = {'libs/standard/tg/TG_PT-1.csv',
+                            'libs/standard/tg/TG_PT-2.csv', 'libs/standard/tg/TG_PT-3.csv'}
+        is_specific_tg_csv = tg_csv_path is not None and Path(
+            tg_csv_path).as_posix() in specific_tg_csvs
+        logger.info(
+            f"规则条件检查: has_tg={has_tg_product}, has_sensor={has_sensor_product}, is_specific_tg_csv={is_specific_tg_csv} (path: {tg_csv_path})")
 
         # SKIPPABLE_MODELS 已在文件顶部定义
 
@@ -1352,26 +1442,30 @@ class CodeGenerator:
                 logger.info(f"产品类型 '{product_type}' 没有需要处理的 models。")
                 continue  # 跳过这个产品类型
 
-            logger.debug(f"处理产品类型 '{product_type}' 的 models: {models_for_product}")
+            logger.debug(
+                f"处理产品类型 '{product_type}' 的 models: {models_for_product}")
 
             for target_model in models_for_product:
                 target_model_str = str(target_model).strip()  # 确保比较时类型一致且无空格
-                if not target_model_str: continue # 跳过空模型
+                if not target_model_str:
+                    continue  # 跳过空模型
 
                 code_to_use = None
-                source = "unknown" # 初始化来源
-                handled_by_rule = False # 标记是否被新规则处理
-                product_type_origin = product_type # 用于日志和 %int% 提示
+                source = "unknown"  # 初始化来源
+                handled_by_rule = False  # 标记是否被新规则处理
+                product_type_origin = product_type  # 用于日志和 %int% 提示
 
                 # --- 2. 新增：复杂规则处理块 ---
                 if target_model_str == '插入长度（L）' and has_tg_product:
-                    logger.info(f"规则 2 触发：因存在 'tg' 产品，跳过模型 '{target_model_str}'。")
+                    logger.info(
+                        f"规则 2 触发：因存在 'tg' 产品，跳过模型 '{target_model_str}'。")
                     handled_by_rule = True
                     source = "rule_2_skip"
                     # code_to_use 保持 None, 不会添加代码
 
                 elif target_model_str == '传感器连接螺纹（S）' and has_sensor_product:
-                    logger.info(f"规则 4 触发：因存在 'sensor' 产品，跳过模型 '{target_model_str}'。")
+                    logger.info(
+                        f"规则 4 触发：因存在 'sensor' 产品，跳过模型 '{target_model_str}'。")
                     handled_by_rule = True
                     source = "rule_4_skip"
                     # code_to_use 保持 None, 不会添加代码
@@ -1379,7 +1473,8 @@ class CodeGenerator:
                 elif target_model_str == '接头结构' and is_specific_tg_csv:
                     code_to_use = '2'
                     source = "rule_3_override"
-                    logger.info(f"规则 3 触发：因 'tg' 产品使用特定 CSV ({tg_csv_path})，模型 '{target_model_str}' 代码强制为 '2'。")
+                    logger.info(
+                        f"规则 3 触发：因 'tg' 产品使用特定 CSV ({tg_csv_path})，模型 '{target_model_str}' 代码强制为 '2'。")
                     handled_by_rule = True
                     # 注意：强制代码 '2' 不包含 %int%，下面统一处理添加
 
@@ -1389,43 +1484,51 @@ class CodeGenerator:
                         # 在 selected_codes_data 中找到
                         code_to_use = model_to_code_map[target_model_str]
                         source = "selected"
-                        logger.debug(f"找到产品 '{product_type}' 的 model '{target_model_str}' 对应的代码 (来自选择): '{code_to_use}'")
+                        logger.debug(
+                            f"找到产品 '{product_type}' 的 model '{target_model_str}' 对应的代码 (来自选择): '{code_to_use}'")
                     else:
                         # 在 selected_codes_data 中未找到
                         missing_models_for_product.append(target_model_str)
 
                         # --- 规则 1 (旧可跳过逻辑) ---
                         if target_model_str in SKIPPABLE_MODELS:
-                            logger.info(f"规则 1 (旧) 触发：产品 '{product_type}' 的 model '{target_model_str}' 在已选代码中缺失，且为可跳过项，将跳过。")
+                            logger.info(
+                                f"规则 1 (旧) 触发：产品 '{product_type}' 的 model '{target_model_str}' 在已选代码中缺失，且为可跳过项，将跳过。")
                             source = "rule_1_skip"
                             # code_to_use 保持 None
                         else:
                             # 非可跳过项，尝试默认值
-                            model_details = model_details_map.get(target_model_str)
+                            model_details = model_details_map.get(
+                                target_model_str)
                             if model_details:
-                                default_code = model_details.get("default_code")
-                                product_type_origin = model_details.get("product_type", product_type) # 获取原始产品类型
+                                default_code = model_details.get(
+                                    "default_code")
+                                product_type_origin = model_details.get(
+                                    "product_type", product_type)  # 获取原始产品类型
 
-                                if default_code is not None: # 检查是否为 None
-                                    logger.info(f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，将使用其默认代码: '{default_code}'")
-                                    code_to_use = str(default_code) # 确保是字符串
+                                if default_code is not None:  # 检查是否为 None
+                                    logger.info(
+                                        f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，将使用其默认代码: '{default_code}'")
+                                    code_to_use = str(default_code)  # 确保是字符串
                                     source = "default"
                                 else:
-                                    logger.warning(f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，且该 model 在 CSV 中没有标记为默认 (is_default='1') 的代码，将使用 '?'。")
+                                    logger.warning(
+                                        f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，且该 model 在 CSV 中没有标记为默认 (is_default='1') 的代码，将使用 '?'。")
                                     code_to_use = "?"
                                     source = "missing_default"
                             else:
-                                logger.error(f"严重警告：在 model_details_map 中未找到 model '{target_model_str}' 的详情，无法确定默认代码，使用 '?'。")
+                                logger.error(
+                                    f"严重警告：在 model_details_map 中未找到 model '{target_model_str}' 的详情，无法确定默认代码，使用 '?'。")
                                 code_to_use = "?"
                                 source = "missing_details"
 
                 # --- 统一处理代码添加和 %int% (无论代码来源) ---
-                final_code_part = code_to_use # 初始值
+                final_code_part = code_to_use  # 初始值
 
                 # 只有当 code_to_use 不是 None (即没有被跳过) 时才处理
                 if code_to_use is not None:
-                    code_to_use_str = str(code_to_use) # 确保是字符串
-                    final_code_part = code_to_use_str # 更新 final_code_part
+                    code_to_use_str = str(code_to_use)  # 确保是字符串
+                    final_code_part = code_to_use_str  # 更新 final_code_part
 
                     if "%int%" in code_to_use_str:
                         # 确定提示信息中的产品类型
@@ -1438,7 +1541,8 @@ class CodeGenerator:
                                     f"请为 {prompt_product_type} - '{prompt_model_name}' 输入一个整数值 "
                                     f"(代码模板: {code_to_use_str}, 直接回车跳过使用 '?'): "
                                 )
-                                user_input_str = input(prompt_message).strip() # 获取输入并去空格
+                                user_input_str = input(
+                                    prompt_message).strip()  # 获取输入并去空格
 
                                 if not user_input_str:  # 用户直接按回车
                                     final_code_part = "?"
@@ -1460,14 +1564,15 @@ class CodeGenerator:
                                     f"用户为 {prompt_product_type} - '{prompt_model_name}' 输入了非整数值 '{user_input_str}'，要求重新输入。")
 
                     # 将最终处理后的代码部分添加到列表 (确保不为空)
-                    if final_code_part: # 只有非空代码才添加
+                    if final_code_part:  # 只有非空代码才添加
                         codes_for_this_product.append(final_code_part)
                     else:
-                        logger.debug(f"Model '{target_model_str}' (来源: {source}) 生成了空代码部分，已跳过添加。")
+                        logger.debug(
+                            f"Model '{target_model_str}' (来源: {source}) 生成了空代码部分，已跳过添加。")
 
-                else: # code_to_use is None (被跳过)
-                     logger.debug(f"Model '{target_model_str}' (来源: {source}) 被跳过，不生成代码。")
-
+                else:  # code_to_use is None (被跳过)
+                    logger.debug(
+                        f"Model '{target_model_str}' (来源: {source}) 被跳过，不生成代码。")
 
             if missing_models_for_product:
                 missing_models_log[product_type] = missing_models_for_product
@@ -1481,10 +1586,10 @@ class CodeGenerator:
                 logger.info(
                     f"产品类型 '{product_type}' 没有生成任何代码（可能所有 model 都被跳过或无对应 code）。")
 
-
         if missing_models_log:
             logger.warning(
-                f"以下 models 根据排序规则需要，但在 selected_codes_data 中缺失（已使用默认值或 '?' 替代，或被规则跳过）: {missing_models_log}") # 更新日志信息
+                # 更新日志信息
+                f"以下 models 根据排序规则需要，但在 selected_codes_data 中缺失（已使用默认值或 '?' 替代，或被规则跳过）: {missing_models_log}")
 
         # 5. 将不同产品的代码字符串用空格连接
         final_code = " ".join(product_code_strings)
@@ -1494,6 +1599,7 @@ class CodeGenerator:
         logger.info(f"最终生成的产品代码字符串: {output_string}")
 
         return output_string
+
 
 # ==============================================================================
 # Main Execution Logic (Example)
@@ -1515,7 +1621,8 @@ if __name__ == "__main__":
     if not csv_list_map_result:
         logger.error("未能获取 CSV 列表，流程终止。")
         sys.exit(1)
-    print(f"获取到的 CSV 列表映射: {json.dumps(csv_list_map_result, indent=2, ensure_ascii=False)}")
+    print(
+        f"获取到的 CSV 列表映射: {json.dumps(csv_list_map_result, indent=2, ensure_ascii=False)}")
 
     # --- 步骤 2: 模型匹配 ---
     print("\n--- 步骤 2: 模型匹配 ---")
@@ -1524,34 +1631,38 @@ if __name__ == "__main__":
         logger.error(f"输入文件未找到: {input_json}")
         sys.exit(1)
 
-    model_matcher = ModelMatcher(csv_list_map=csv_list_map_result, input_json_path=str(input_json))
+    model_matcher = ModelMatcher(
+        csv_list_map=csv_list_map_result, input_json_path=str(input_json))
     matched_models_result = model_matcher.match()
 
     if not matched_models_result:
         logger.warning("模型匹配未产生任何结果。")
         # 可能需要根据情况决定是否继续
-    print(f"模型匹配结果 (部分): {json.dumps(dict(list(matched_models_result.items())[:2]), indent=2, ensure_ascii=False)}...") # 打印前几项
+    # 打印前几项
+    print(
+        f"模型匹配结果 (部分): {json.dumps(dict(list(matched_models_result.items())[:2]), indent=2, ensure_ascii=False)}...")
 
     # --- 步骤 3: 代码选择 ---
     print("\n--- 步骤 3: 代码选择 ---")
     if not matched_models_result:
-         logger.warning("没有模型匹配结果，跳过代码选择。")
-         selected_codes_result = {}
+        logger.warning("没有模型匹配结果，跳过代码选择。")
+        selected_codes_result = {}
     else:
         code_selector = CodeSelector(matched_models_dict=matched_models_result)
         try:
             selected_codes_result = code_selector.select_codes()
-            print(f"代码选择结果 (部分): {json.dumps(dict(list(selected_codes_result.items())[:2]), indent=2, ensure_ascii=False)}...") # 打印前几项
+            # 打印前几项
+            print(
+                f"代码选择结果 (部分): {json.dumps(dict(list(selected_codes_result.items())[:2]), indent=2, ensure_ascii=False)}...")
         except (ValueError, RuntimeError) as e:
-             logger.error(f"代码选择过程中发生错误: {e}，流程终止。")
-             sys.exit(1)
-
+            logger.error(f"代码选择过程中发生错误: {e}，流程终止。")
+            sys.exit(1)
 
     # --- 步骤 4: 代码生成 ---
     print("\n--- 步骤 4: 代码生成 ---")
     if not selected_codes_result:
-         logger.warning("没有代码选择结果，跳过代码生成。")
-         final_code_result = "产品型号生成失败：无代码可选。"
+        logger.warning("没有代码选择结果，跳过代码生成。")
+        final_code_result = "产品型号生成失败：无代码可选。"
     else:
         code_generator = CodeGenerator()
         # 注意：generate_final_code 现在需要用户输入 %int% 值
