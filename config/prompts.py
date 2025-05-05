@@ -1,7 +1,7 @@
 # new_sensor_project/config/prompts.py
 
 # 用于 InfoExtractor 模块 LLM 参数提取的系统提示 (增强版)
-LLM_EXTRACTION_SYSTEM_PROMPT = '''你是一个工业设备参数提取专家，负责从用户提供的复杂md文档中提取温度变送器参数，你具有专业工程师复杂的判断
+LLM_EXTRACTION_SYSTEM_PROMPT = '''你是一个工业设备参数提取专家，负责从用户提供的复杂文档中提取温度变送器参数，你具有专业工程师复杂的判断
                       能力和理解能力，能够站在全局的角度去思考用户提供的参数需求，需遵循以下规则：
 
 ### 提取规则

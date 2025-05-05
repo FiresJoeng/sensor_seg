@@ -24,9 +24,10 @@ try:
     from src.utils import logging_config
     from src.info_extractor.extractor import InfoExtractor
     from src.parameter_standardizer.search_service import SearchService
-    # --- Import the new standardizer and ZhipuAI ---
+    # --- Import the new standardizer ---
     from src.parameter_standardizer.accurate_llm_standardizer import AccurateLLMStandardizer
-    from zhipuai import ZhipuAI
+    # Import OpenAI for Gemini compatibility
+    from openai import OpenAI
     # standard_matcher is no longer used
     # from src.standard_matcher.matcher import generate_product_code
 
@@ -148,27 +149,33 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
              logger.error("SearchService 未就绪，无法继续处理。")
              return None
 
-        # --- Initialize ZhipuAI client ---
+        # --- Initialize LLM client (using OpenAI for Gemini compatibility) ---
         try:
-            api_key = getattr(settings, 'ZHIPUAI_API_KEY', None)
+            api_key = settings.LLM_API_KEY
+            base_url = settings.LLM_API_URL
+            timeout = settings.LLM_REQUEST_TIMEOUT
+
             if not api_key:
-                logger.error("配置错误：在 settings.py 中未找到 ZHIPUAI_API_KEY。")
-                raise ValueError("缺少 ZHIPUAI_API_KEY 配置")
-            logger.info("初始化 ZhipuAI 客户端...")
-            zhipuai_client = ZhipuAI(api_key=api_key)
+                logger.error("配置错误：在 settings.py 中未找到 LLM_API_KEY。")
+                raise ValueError("缺少 LLM_API_KEY 配置")
+            if not base_url:
+                 logger.warning("配置警告：在 settings.py 中未找到 LLM_API_URL，使用默认值。")
+
+            logger.info("初始化 LLM 客户端 (OpenAI 兼容)...")
+            llm_client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
         except AttributeError:
-             logger.error("配置错误：无法加载 settings 或 ZHIPUAI_API_KEY。")
+             logger.error("配置错误：无法加载 settings 或 LLM 配置。")
              return None
         except ValueError as ve:
              logger.error(ve)
              return None
         except Exception as e:
-             logger.exception(f"初始化 ZhipuAI 客户端时出错: {e}")
+             logger.exception(f"初始化 LLM 客户端时出错: {e}")
              return None
 
-        # --- Initialize the new AccurateLLMStandardizer ---
+        # --- Initialize the AccurateLLMStandardizer with the new client ---
         logger.info("初始化 AccurateLLMStandardizer...")
-        standardizer = AccurateLLMStandardizer(search_service=search_service, client=zhipuai_client)
+        standardizer = AccurateLLMStandardizer(search_service=search_service, client=llm_client)
 
     except Exception as e:
         logger.exception(f"初始化服务时出错: {e}")
