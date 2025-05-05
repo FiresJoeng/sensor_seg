@@ -128,18 +128,23 @@ class CodeSelector:
                 selected_row_dict = candidate_rows[0].copy()  # 使用副本以防修改原始数据
                 original_code = selected_row_dict.get('code', '')
 
-                # 新规则：如果 code 包含 %int%，尝试从 input_str 提取数字并替换
+                # 如果 code 包含 %int%，尝试从 input_str 提取数字并替换
                 if '%int%' in original_code:
-                    # 尝试从 input_str (格式 "'key': 'value'") 提取 value 中的数字
-                    match = re.search(r":\s*'(\d+)'", input_str)
+                    # 尝试从 input_str (格式 "'key': 'value'") 提取 value 中的内容
+                    match = re.search(r":\s*'([^']+)'", input_str) # 捕获引号内的所有内容
                     if match:
-                        extracted_value = match.group(1)
-                        # 替换 %int% 部分
-                        new_code = original_code.replace('%int%', extracted_value)
-                        selected_row_dict['code'] = new_code
+                        # 从捕获的内容中提取所有数字，去除空格和其他非数字字符
+                        extracted_digits = re.sub(r'\D', '', match.group(1))
+                        if extracted_digits: # 确保提取到了数字
+                            # 替换 %int% 部分
+                            new_code = original_code.replace('%int%', extracted_digits)
+                            selected_row_dict['code'] = new_code
+                        else:
+                             logger.warning(
+                                f"唯一候选行的 code '{original_code}' 包含 '%int%'，但在输入 '{input_str}' 的值 '{match.group(1)}' 中未能提取到有效数字，保留原样。")
                     else:
                         logger.warning(
-                            f"唯一候选行的 code '{original_code}' 包含 '%int%'，但在输入 '{input_str}' 中未能提取到数字值，保留原样。")
+                            f"唯一候选行的 code '{original_code}' 包含 '%int%'，但在输入 '{input_str}' 中未能按预期格式提取到值，保留原样。")
 
                 # 使用原始 input_str 作为 key 存储选择结果（可能是修改后的，也可能是原始的）
                 self.selected_codes[input_str] = selected_row_dict
@@ -228,30 +233,18 @@ class CodeSelector:
 
             # 处理当前批次的 LLM 响应
             if not llm_response or isinstance(llm_response, str) or llm_response.get("error"):
-                logger.error(f"批次 {batch_number}/{total_batches} 的 LLM 调用失败或返回错误: {llm_response}")
-                # 当前批次失败，可以选择跳过或应用备选策略给批内所有项
-                logger.warning(f"批次 {batch_number}/{total_batches} 中的所有项将尝试使用备选策略（选择第一个）。")
-                for input_str, original_candidates in batch:
-                    if input_str not in llm_selected_codes and original_candidates: # 避免重复处理和空列表
-                        selected_row_dict = original_candidates[0]
-                        llm_selected_codes[input_str] = selected_row_dict
-                        logger.warning(
-                            f"  - LLM 批次失败，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
-                continue # 继续处理下一批
+                error_msg = f"批次 {batch_number}/{total_batches} 的 LLM 调用失败或返回错误: {llm_response}"
+                logger.error(error_msg)
+                raise ValueError(error_msg + " - 无法继续选择。")
+                # 不再继续处理下一批，直接报错退出
 
             # 成功获取响应，处理批内各项结果
             try:
                 if not isinstance(llm_response, dict):
-                    logger.error(f"批次 {batch_number}/{total_batches} 的 LLM 响应不是预期的字典格式: {llm_response}")
-                    # 格式错误，同样可以应用备选策略
-                    logger.warning(f"批次 {batch_number}/{total_batches} 响应格式错误，将尝试对批内未处理项使用备选策略。")
-                    for input_str, original_candidates in batch:
-                         if input_str not in llm_selected_codes and original_candidates:
-                            selected_row_dict = original_candidates[0]
-                            llm_selected_codes[input_str] = selected_row_dict
-                            logger.warning(
-                                f"  - LLM 响应格式错误，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
-                    continue # 继续处理下一批
+                    error_msg = f"批次 {batch_number}/{total_batches} 的 LLM 响应不是预期的字典格式: {llm_response}"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg + " - 无法继续选择。")
+                    # 不再继续处理下一批，直接报错退出
 
                 # 遍历 LLM 返回的当前批次的结果
                 batch_processed_inputs_str_in_response = set()
@@ -276,74 +269,41 @@ class CodeSelector:
                             logger.info(
                                 f"LLM 选择成功 (批次 {batch_number}): 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
                         else:
-                            logger.warning(
-                                f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。将尝试选择第一个。")
-                            if original_candidates:
-                                selected_row_dict = original_candidates[0]
-                                llm_selected_codes[input_str] = selected_row_dict
-                                logger.info(
-                                    f"LLM 选择失败 (无效索引，批次 {batch_number})，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                            error_msg = f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。"
+                            logger.error(error_msg)
+                            raise ValueError(error_msg + " - 无法继续选择。")
                     except (ValueError, TypeError):
-                        logger.warning(
-                            f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了非整数索引: '{selected_index}'。将尝试选择第一个。")
-                        if original_candidates:
-                            selected_row_dict = original_candidates[0]
-                            llm_selected_codes[input_str] = selected_row_dict
-                            logger.info(
-                                f"LLM 选择失败 (非整数索引，批次 {batch_number})，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                        error_msg = f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了非整数索引: '{selected_index}'。"
+                        logger.error(error_msg)
+                        raise ValueError(error_msg + " - 无法继续选择。")
 
                 # 检查当前批次中是否有 LLM 未返回结果的项
                 missing_in_batch_tuples = [
-                    (item[0], item[1]) for item in batch if item[0] not in batch_processed_inputs_str_in_response
+                    item[0] for item in batch if item[0] not in batch_processed_inputs_str_in_response
                 ]
                 if missing_in_batch_tuples:
-                    logger.warning(f"LLM 在批次 {batch_number} 未对以下 {len(missing_in_batch_tuples)} 项返回结果，将尝试选择第一个候选行:")
-                    for missing_input_str, original_candidates in missing_in_batch_tuples:
-                         if missing_input_str not in llm_selected_codes and original_candidates: # 避免重复处理和空列表
-                            selected_row_dict = original_candidates[0]
-                            llm_selected_codes[missing_input_str] = selected_row_dict
-                            logger.warning(
-                                f"  - LLM 未返回，备选策略 (批次 {batch_number}): 键值对 '{missing_input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
-                         elif not original_candidates:
-                             logger.warning(f"  - 备选策略失败 (批次 {batch_number}): 输入 '{missing_input_str}' 没有候选行。")
+                    error_msg = f"LLM 在批次 {batch_number} 未对以下 {len(missing_in_batch_tuples)} 项返回结果: {', '.join(missing_in_batch_tuples)}"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg + " - 无法继续选择。")
 
 
             except Exception as e:
-                logger.error(f"处理批次 {batch_number}/{total_batches} 的 LLM 响应时出错: {e}", exc_info=True)
-                # 批次处理出错，可以选择对批内未处理项应用备选策略
-                logger.warning(f"因处理批次 {batch_number} 时出错，将尝试对批内未成功处理项使用备选策略。")
-                for input_str, original_candidates in batch:
-                    if input_str not in llm_selected_codes and original_candidates:
-                        selected_row_dict = original_candidates[0]
-                        llm_selected_codes[input_str] = selected_row_dict
-                        logger.warning(
-                            f"  - LLM 批次处理异常，备选策略: 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
+                error_msg = f"处理批次 {batch_number}/{total_batches} 的 LLM 响应时出错: {e}"
+                logger.error(error_msg, exc_info=True)
+                raise ValueError(error_msg + " - 无法继续选择。")
 
-        # 所有批次处理完毕后，检查是否有任何失败项完全没有被 LLM 处理（即使是备选策略也没覆盖到）
-        # 这通常不应该发生，因为上面的逻辑会尝试覆盖所有情况，但作为最后防线检查
+        # 检查是否有任何失败项未被 LLM 处理 (理论上不应发生，因为前面会报错)
         all_failed_input_strings = {item[0] for item in self.failed_fuzzy_selection}
-        final_unprocessed_strings = all_failed_input_strings - set(llm_selected_codes.keys())
+        processed_strings = set(llm_selected_codes.keys())
+        final_unprocessed_strings = all_failed_input_strings - processed_strings
 
         if final_unprocessed_strings:
-             logger.error(f"严重警告：在所有批次处理和备选策略后，仍有 {len(final_unprocessed_strings)} 个模糊选择失败项未被处理:")
-             for unprocessed_str in final_unprocessed_strings:
-                 logger.error(f"  - 最终未处理: '{unprocessed_str}'")
-                 # 这里可以考虑是否强制选择第一个，或者保留为未选择状态
-                 # 查找原始数据以强制选择第一个
-                 candidates_for_unprocessed = None
-                 for failed_input, candidates in self.failed_fuzzy_selection:
-                     if failed_input == unprocessed_str:
-                         candidates_for_unprocessed = candidates
-                         break
-                 if candidates_for_unprocessed:
-                     selected_row_dict = candidates_for_unprocessed[0]
-                     llm_selected_codes[unprocessed_str] = selected_row_dict
-                     logger.warning(f"  - 强制最终备选策略: 键值对 '{unprocessed_str}' -> 匹配结果 {selected_row_dict} (选中索引: 0)")
-                 else:
-                      logger.error(f"  - 无法应用最终备选策略：找不到 '{unprocessed_str}' 的候选行。")
+             # 如果执行到这里，说明之前的错误处理逻辑有遗漏
+             error_msg = f"严重错误：在所有批次处理后，仍有 {len(final_unprocessed_strings)} 个模糊选择失败项未被处理: {', '.join(final_unprocessed_strings)}"
+             logger.error(error_msg)
+             raise RuntimeError(error_msg + " - 代码选择逻辑存在问题。") # 使用 RuntimeError 表示内部逻辑错误
 
-
-        logger.info(f"LLM 选择流程完成。通过 LLM (包括备选策略) 共处理/选择了 {len(llm_selected_codes)} 项。")
+        logger.info(f"LLM 选择流程完成。成功处理/选择了 {len(llm_selected_codes)} 项。")
         return llm_selected_codes
 
     def select_codes(self) -> Dict[str, Dict[str, Any]]:
@@ -370,11 +330,12 @@ class CodeSelector:
         selected_strings = set(final_selection.keys())
         unselected_strings = all_input_strings - selected_strings
         if unselected_strings:
-            logger.warning(f"有 {len(unselected_strings)} 个输入参数最终未能选定代码行:")
-            for unselected_str in unselected_strings:
-                logger.warning(f"  - 未选定: '{unselected_str}'")
+            # 如果执行到这里，说明 LLM 选择步骤没有正确抛出错误
+            error_msg = f"严重错误：有 {len(unselected_strings)} 个输入参数最终未能选定代码行: {', '.join(unselected_strings)}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg + " - 代码选择逻辑存在问题，未能为所有输入选择代码。")
 
-        logger.info(f"代码选择流程完成。最终选定 {len(final_selection)} 项。")
+        logger.info(f"代码选择流程完成。最终为所有 {len(final_selection)} 个输入参数选定代码行。")
         return final_selection
 
 

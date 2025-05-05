@@ -230,10 +230,14 @@ def generate_final_code(csv_list_map: Dict[str, List[str]], selected_codes_data:
 
         for target_model in models_for_product:
             target_model_str = str(target_model) # 确保比较时类型一致
+            code_to_use = None
+            source = None # 标记代码来源 ('selected', 'default', 'missing_default', 'missing_details')
+            product_type_origin = product_type # 默认使用当前产品类型，如果用默认值再覆盖
+
             if target_model_str in model_to_code_map:
-                code = model_to_code_map[target_model_str]
-                codes_for_this_product.append(code)
-                logger.debug(f"找到产品 '{product_type}' 的 model '{target_model_str}' 对应的代码: {code}")
+                code_to_use = model_to_code_map[target_model_str]
+                source = "selected"
+                logger.debug(f"找到产品 '{product_type}' 的 model '{target_model_str}' 对应的代码 (来自选择): {code_to_use}")
             else:
                 # 在 selected_codes_data 中未找到
                 missing_models_for_product.append(target_model_str) # 记录为在输入选择中缺失
@@ -248,49 +252,61 @@ def generate_final_code(csv_list_map: Dict[str, List[str]], selected_codes_data:
 
                     if model_details:
                         default_code = model_details.get("default_code") # 获取预加载的默认代码
-                        product_type_origin = model_details.get("product_type", product_type) # 使用原始产品类型
+                        # 使用原始产品类型进行日志记录和可能的提示
+                        product_type_origin = model_details.get("product_type", product_type)
 
                         if default_code is not None:
                             # 情况 1: 找到了标记为默认的代码 (is_default='1')
-                            logger.info(f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，使用其默认代码: '{default_code}'")
+                            logger.info(f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，将使用其默认代码: '{default_code}'")
                             code_to_use = str(default_code) # 确保是字符串
-
-                            # --- 执行 input 逻辑 (如果 default_code 含 %int%) ---
-                            if "%int%" in code_to_use:
-                                while True:
-                                    try:
-                                        prompt_message = (
-                                            f"请为 {product_type_origin} - '{target_model_str}' 输入一个整数值 "
-                                            f"(默认代码模板: {code_to_use}, 直接回车跳过使用 '?'): "
-                                        )
-                                        user_input_str = input(prompt_message)
-
-                                        if not user_input_str: # 用户直接按回车
-                                            final_code_part = "?"
-                                            logger.info(f"用户跳过了为 {product_type_origin} - '{target_model_str}' 输入整数，使用 '?' 占位。")
-                                            break # 跳出循环
-
-                                        # 用户有输入，尝试转换为整数
-                                        user_int = int(user_input_str)
-                                        # 替换占位符
-                                        final_code_part = code_to_use.replace("%int%", str(user_int))
-                                        logger.info(f"用户为 {product_type_origin} - '{target_model_str}' 输入了整数 {user_int}，替换占位符得到代码: '{final_code_part}'")
-                                        break # 输入有效，跳出循环
-                                    except ValueError:
-                                        print("输入无效，请输入一个整数或直接回车跳过。")
-                                        logger.warning(f"用户为 {product_type_origin} - '{target_model_str}' 输入了非整数值，要求重新输入。")
-                                codes_for_this_product.append(final_code_part)
-                            else:
-                                # 不需要用户输入，直接使用默认代码
-                                codes_for_this_product.append(code_to_use)
+                            source = "default"
                         else:
                             # 情况 2: 未找到标记为默认的代码
                             logger.warning(f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，且该 model 在 CSV 中没有标记为默认 (is_default='1') 的代码，将使用 '?'。")
-                            codes_for_this_product.append("?")
+                            code_to_use = "?"
+                            source = "missing_default"
                     else:
                          # 在 model_details_map 中也未找到该 model (理论上不应发生，除非CSV处理有问题)
                          logger.error(f"严重警告：在 model_details_map 中未找到 model '{target_model_str}' 的详情，无法确定默认代码，使用 '?'。")
-                         codes_for_this_product.append("?")
+                         code_to_use = "?"
+                         source = "missing_details"
+
+            # --- 新增：统一处理 %int% (在此 if/else 结构之后) ---
+            final_code_part = code_to_use # 默认使用获取到的代码
+
+            if code_to_use is not None and "%int%" in code_to_use:
+                # 确定提示信息中的产品类型和模型名称
+                # 如果代码来自默认值，使用其原始产品类型，否则用当前循环的产品类型
+                prompt_product_type = product_type_origin if source == "default" else product_type
+                prompt_model_name = target_model_str
+
+                while True:
+                    try:
+                        prompt_message = (
+                            f"请为 {prompt_product_type} - '{prompt_model_name}' 输入一个整数值 "
+                            f"(代码模板: {code_to_use}, 直接回车跳过使用 '?'): "
+                        )
+                        user_input_str = input(prompt_message)
+
+                        if not user_input_str: # 用户直接按回车
+                            final_code_part = "?"
+                            logger.info(f"用户跳过了为 {prompt_product_type} - '{prompt_model_name}' 输入整数，使用 '?' 占位。")
+                            break # 跳出循环
+
+                        # 用户有输入，尝试转换为整数
+                        user_int = int(user_input_str)
+                        # 替换占位符
+                        final_code_part = code_to_use.replace("%int%", str(user_int))
+                        logger.info(f"用户为 {prompt_product_type} - '{prompt_model_name}' 输入了整数 {user_int}，替换占位符得到代码: '{final_code_part}'")
+                        break # 输入有效，跳出循环
+                    except ValueError:
+                        print("输入无效，请输入一个整数或直接回车跳过。")
+                        logger.warning(f"用户为 {prompt_product_type} - '{prompt_model_name}' 输入了非整数值，要求重新输入。")
+
+            # 将最终处理后的代码部分添加到列表 (确保有代码可添加)
+            # 跳过的情况 source 会是 None, code_to_use 也是 None, final_code_part 也是 None
+            if final_code_part is not None:
+                codes_for_this_product.append(final_code_part)
 
 
         if missing_models_for_product:
