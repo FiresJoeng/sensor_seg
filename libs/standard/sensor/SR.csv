@@ -1,5 +1,5 @@
 model,code,description,param,is_default
-传感器主型号,SR,热电偶,NaN,1
+元件类型,SR,热电偶,NaN,1
 元件数量,-S,单支,NaN,0
 元件数量,-D,双支,NaN,0
 铠套外径,4,Φ4,NaN,0

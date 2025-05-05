@@ -516,94 +516,6 @@ if __name__ == "__main__":
             "is_default": "0"
         }
     ],
-    "'铠套外径': 'φ6'": [
-        {
-            "model": "铠套外径(d)",
-            "code": "3",
-            "description": "Ø3mm（仅用于固定式接头结构）",
-            "param": "3；3mm；φ3；φ3mm",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "4",
-            "description": "Ø4mm（仅用于固定式接头结构）",
-            "param": "4；4mm；φ4；φ4mm",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "5",
-            "description": "Ø5mm",
-            "param": "5mm；φ5mm；5；φ5",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "6",
-            "description": "Ø6mm",
-            "param": "6；φ6；6mm；Φ6mm",
-            "is_default": "1"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "8",
-            "description": "Ø8mm",
-            "param": "8；8mm；φ8；φ8mm",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "10",
-            "description": "Ø10mm",
-            "param": "10；10mm；φ10；φ10mm",
-            "is_default": "0"
-        },
-        {
-            "model": "铠套外径(d)",
-            "code": "Z",
-            "description": "其它",
-            "param": "其他",
-            "is_default": "0"
-        }
-    ],
-    "'接线盒形式代码': '分体式'": [
-        {
-            "model": "接线盒形式",
-            "code": "-1",
-            "description": "YTA610、YTA710",
-            "param": "一体式；一体化铠装热电阻-带外套管；一体化温度变送器；Head Mount；Integrate；一体式温度变送器；一体化安装；变送器一体式；一体化；Integral RTD Field Mounted Tran.；一体化温变；Integral；就地⼀体式；智能一体化；一体式温度变送器；一体化变送器；一体化温度计；integrated；就地一体式",
-            "is_default": "1"
-        },
-        {
-            "model": "接线盒形式",
-            "code": "-2",
-            "description": "接线盒、1/2NPT电气接口",
-            "param": "分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器",
-            "is_default": "0"
-        },
-        {
-            "model": "接线盒形式",
-            "code": "-3",
-            "description": "接线盒、M20*1.5电气接口",
-            "param": "分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器",
-            "is_default": "0"
-        },
-        {
-            "model": "接线盒形式",
-            "code": "-4",
-            "description": "不带接线盒、1/2NPT电气接口",
-            "param": "",
-            "is_default": "0"
-        },
-        {
-            "model": "接线盒形式",
-            "code": "-5",
-            "description": "不带接线盒、M20*1.5电气接口",
-            "param": "",
-            "is_default": "0"
-        }
-    ],
     "'TG套管形式': '整体钻孔锥形保护管'": [
         {
             "model": "TG套管形式",
@@ -728,92 +640,6 @@ if __name__ == "__main__":
         },
         {
             "model": "套管材质",
-            "code": "Z",
-            "description": "其它",
-            "param": "其它",
-            "is_default": "0"
-        }
-    ],
-    "'法兰等级': 'Class150'": [
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "1",
-            "description": "PN2.0（150#）RF",
-            "param": "PN2.0 RF；150# RF；PN20 RF；Class150 RF；150LB RF；□□-20 RF；CL150 RF；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "2",
-            "description": "PN5.0（300#）RF",
-            "param": "PN5.0 RF；300# RF；PN50 RF；Class300 RF；300LB RF；□□-50 RF；CL300 RF；PN5.0 □□ RF；300# □□ RF；PN50 □□ RF；Class300 □□ RF；300LB □□ RF；CL300 □□ RF；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "3",
-            "description": "PN11.0（600#）RF",
-            "param": "PN11.0 RF；600# RF；PN110 RF；Class600 RF；600LB RF；□□-110 RF；CL600 RF；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "4",
-            "description": "PN15.0（900#）RJ",
-            "param": "PN15.0 RJ；900# RJ；PN150 RJ；Class900 RJ；900LB RJ；□□-150 RJ；CL900 RJ；PN15.0 RTJ；900# RTJ；PN150 RTJ；Class900 RTJ；900LB RTJ；□□-150 RTJ；CL900 RTJ；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "5",
-            "description": "PN26.0（1500#）RJ",
-            "param": "PN26.0 RJ；1500# RJ；PN260 RJ；Class1500 RJ；1500LB RJ；□□-260 RJ；CL1500 RJ；PN26.0 RTJ；1500# RTJ；PN260 RTJ；Class1500 RTJ；1500LB RTJ；□□-260 RTJ；CL1500 RTJ；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "6",
-            "description": "PN42.0（2500#）RJ",
-            "param": "PN42.0 RJ；2500# RJ；PN420 RJ；Class2500 RJ；2500LB RJ；□□-420 RJ；CL2500 RJ；PN42.0 RTJ；2500# RTJ；PN420 RTJ；Class2500 RTJ；2500LB RTJ；□□-420 RTJ；CL2500 RTJ；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "7",
-            "description": "PN1.0 RF",
-            "param": "PN1.0 RF；PN10 RF；□□-10 RF；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "8",
-            "description": "PN1.6 RF",
-            "param": "PN1.6 RF；PN16 RF；□□-16 RF；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "9",
-            "description": "PN2.5 RF",
-            "param": "PN2.5 RF；PN25 RF；□□-25 RF；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "10",
-            "description": "PN4.0 RF",
-            "param": "PN4.0 RF；PN40 RF；□□-40 RF；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
-            "code": "11",
-            "description": "PN6.3 RF",
-            "param": "PN6.3 RF；PN63 RF；□□-63 RF；",
-            "is_default": "0"
-        },
-        {
-            "model": "过程连接（法兰等级）",
             "code": "Z",
             "description": "其它",
             "param": "其它",
@@ -1017,15 +843,6 @@ if __name__ == "__main__":
             "is_default": "0"
         }
     ],
-    "'插入深度（L）': '250'": [
-        {
-            "model": "插入长度（L）",
-            "code": "-%int%",
-            "description": "单位mm",
-            "param": "铠套热电阻/热点偶；带外保护套管时，此项可省略。",
-            "is_default": "1"
-        }
-    ],
     "'元件类型': '热电阻'": [
         {
             "model": "传感器主型号",
@@ -1033,6 +850,94 @@ if __name__ == "__main__":
             "description": "热电阻",
             "param": "",
             "is_default": "1"
+        }
+    ],
+    "'铠套外径': 'φ6'": [
+        {
+            "model": "铠套外径(d)",
+            "code": "3",
+            "description": "Ø3mm（仅用于固定式接头结构）",
+            "param": "3；3mm；φ3；φ3mm",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "4",
+            "description": "Ø4mm（仅用于固定式接头结构）",
+            "param": "4；4mm；φ4；φ4mm",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "5",
+            "description": "Ø5mm",
+            "param": "5mm；φ5mm；5；φ5",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "6",
+            "description": "Ø6mm",
+            "param": "6；φ6；6mm；Φ6mm",
+            "is_default": "1"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "8",
+            "description": "Ø8mm",
+            "param": "8；8mm；φ8；φ8mm",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "10",
+            "description": "Ø10mm",
+            "param": "10；10mm；φ10；φ10mm",
+            "is_default": "0"
+        },
+        {
+            "model": "铠套外径(d)",
+            "code": "Z",
+            "description": "其它",
+            "param": "其他",
+            "is_default": "0"
+        }
+    ],
+    "'接线盒形式代码': '分体式'": [
+        {
+            "model": "接线盒形式",
+            "code": "-1",
+            "description": "YTA610、YTA710",
+            "param": "一体式；一体化铠装热电阻-带外套管；一体化温度变送器；Head Mount；Integrate；一体式温度变送器；一体化安装；变送器一体式；一体化；Integral RTD Field Mounted Tran.；一体化温变；Integral；就地⼀体式；智能一体化；一体式温度变送器；一体化变送器；一体化温度计；integrated；就地一体式",
+            "is_default": "1"
+        },
+        {
+            "model": "接线盒形式",
+            "code": "-2",
+            "description": "接线盒、1/2NPT电气接口",
+            "param": "分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器",
+            "is_default": "0"
+        },
+        {
+            "model": "接线盒形式",
+            "code": "-3",
+            "description": "接线盒、M20*1.5电气接口",
+            "param": "分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器",
+            "is_default": "0"
+        },
+        {
+            "model": "接线盒形式",
+            "code": "-4",
+            "description": "不带接线盒、1/2NPT电气接口",
+            "param": "",
+            "is_default": "0"
+        },
+        {
+            "model": "接线盒形式",
+            "code": "-5",
+            "description": "不带接线盒、M20*1.5电气接口",
+            "param": "",
+            "is_default": "0"
         }
     ],
     "'壳体代码': '304'": [
@@ -1097,6 +1002,57 @@ if __name__ == "__main__":
     ],
     "'防护等级 Enclosure Protection': 'IP65'": [
         {
+            "model": "连接螺纹",
+            "code": "0",
+            "description": "无",
+            "param": "无；NA.",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "1",
+            "description": "M12×1.5",
+            "param": "M12；M12*1.5；M12×1.5",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "2",
+            "description": "M16×1.5",
+            "param": "M16；M16*1.5；M16×1.5",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "3",
+            "description": "M27×2",
+            "param": "M27；M27*2；M27×2；M27X2；固定外螺纹 M27×2；FIXED THREAD M27x2；Screw ThreadM27X2",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "4",
+            "description": "G1/2",
+            "param": "G1/2；G1/2外螺纹(M)；G1/2(M)",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "5",
+            "description": "M20×1.5",
+            "param": "M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；固定外螺纹M20x1.5",
+            "is_default": "0"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "6",
+            "description": "1/2NPT",
+            "param": "1/2NPT；1/2\"NPT；NPT1/2；NPT1/2\"；1/2NPT(M)；1/2\"NPT(M)；NPT1/2(M)；NPT1/2\"(M)；1/2\"NPT(外螺纹)；1/2\"NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2\"NPT；MFR STD",
+            "is_default": "1"
+        }
+    ],
+    "'NEPSI': 'Exd II BT4'": [
+        {
             "model": "传感器附加规格",
             "code": "",
             "description": "默认",
@@ -1146,7 +1102,93 @@ if __name__ == "__main__":
             "is_default": "0"
         }
     ],
-    "'NEPSI': 'Exd II BT4'": [
+    "'法兰等级': 'Class150'": [
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "1",
+            "description": "PN2.0（150#）RF",
+            "param": "PN2.0 RF；150# RF；PN20 RF；Class150 RF；150LB RF；□□-20 RF；CL150 RF；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "2",
+            "description": "PN5.0（300#）RF",
+            "param": "PN5.0 RF；300# RF；PN50 RF；Class300 RF；300LB RF；□□-50 RF；CL300 RF；PN5.0 □□ RF；300# □□ RF；PN50 □□ RF；Class300 □□ RF；300LB □□ RF；CL300 □□ RF；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "3",
+            "description": "PN11.0（600#）RF",
+            "param": "PN11.0 RF；600# RF；PN110 RF；Class600 RF；600LB RF；□□-110 RF；CL600 RF；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "4",
+            "description": "PN15.0（900#）RJ",
+            "param": "PN15.0 RJ；900# RJ；PN150 RJ；Class900 RJ；900LB RJ；□□-150 RJ；CL900 RJ；PN15.0 RTJ；900# RTJ；PN150 RTJ；Class900 RTJ；900LB RTJ；□□-150 RTJ；CL900 RTJ；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "5",
+            "description": "PN26.0（1500#）RJ",
+            "param": "PN26.0 RJ；1500# RJ；PN260 RJ；Class1500 RJ；1500LB RJ；□□-260 RJ；CL1500 RJ；PN26.0 RTJ；1500# RTJ；PN260 RTJ；Class1500 RTJ；1500LB RTJ；□□-260 RTJ；CL1500 RTJ；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "6",
+            "description": "PN42.0（2500#）RJ",
+            "param": "PN42.0 RJ；2500# RJ；PN420 RJ；Class2500 RJ；2500LB RJ；□□-420 RJ；CL2500 RJ；PN42.0 RTJ；2500# RTJ；PN420 RTJ；Class2500 RTJ；2500LB RTJ；□□-420 RTJ；CL2500 RTJ；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "7",
+            "description": "PN1.0 RF",
+            "param": "PN1.0 RF；PN10 RF；□□-10 RF；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "8",
+            "description": "PN1.6 RF",
+            "param": "PN1.6 RF；PN16 RF；□□-16 RF；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "9",
+            "description": "PN2.5 RF",
+            "param": "PN2.5 RF；PN25 RF；□□-25 RF；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "10",
+            "description": "PN4.0 RF",
+            "param": "PN4.0 RF；PN40 RF；□□-40 RF；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "11",
+            "description": "PN6.3 RF",
+            "param": "PN6.3 RF；PN63 RF；□□-63 RF；",
+            "is_default": "0"
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "Z",
+            "description": "其它",
+            "param": "其它",
+            "is_default": "0"
+        }
+    ],
+    "'法兰密封面形式': 'RF'": [
         {
             "model": "套管附加规格",
             "code": "",
@@ -1204,22 +1246,6 @@ if __name__ == "__main__":
             "is_default": "0"
         }
     ],
-    "'法兰密封面形式': 'RF'": [
-        {
-            "model": "接头结构",
-            "code": "1",
-            "description": "弹簧紧压式（弹簧伸缩长度5mm）",
-            "param": "带；弹簧压紧式；弹簧压着式；有；带压紧弹簧；Yes；压簧式；接触传热；Y；弹顶装配式；压着式铠装；压着式；带弹簧铠装",
-            "is_default": "1"
-        },
-        {
-            "model": "接头结构",
-            "code": "2",
-            "description": "固定式",
-            "param": "不带；NO，防内漏；",
-            "is_default": "0"
-        }
-    ],
     "'管嘴长度 Length mm': '150'": [
         {
             "model": "加强管长度（N）",
@@ -1227,6 +1253,15 @@ if __name__ == "__main__":
             "description": "指定长度，单位mm",
             "param": "3位代码",
             "is_default": "0"
+        }
+    ],
+    "'插入深度（L）': '250'": [
+        {
+            "model": "插入长度（L）",
+            "code": "-%int%",
+            "description": "单位mm",
+            "param": "铠套热电阻/热点偶；带外保护套管时，此项可省略。",
+            "is_default": "1"
         }
     ]
 }

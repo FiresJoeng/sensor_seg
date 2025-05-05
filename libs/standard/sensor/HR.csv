@@ -1,5 +1,5 @@
 model,code,description,param,is_default
-传感器主型号,HR,热电偶,NaN,1
+元件类型,HR,热电偶,NaN,1
 元件数量,-S,单支式,1；单支；Simplex；单支单点；单元件；单只；Single，单支铠装；Single，，1支；one,1
 元件数量,-D,双支式,2；双支；Double；Duplex；Two；双支式；双元件；,0
 铠套外径(d),3,Ø3mm（仅用于固定式接头结构）,3；3mm；φ3；φ3mm,0
