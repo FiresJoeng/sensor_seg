@@ -230,10 +230,14 @@ def generate_final_code(csv_list_map: Dict[str, List[str]], selected_codes_data:
 
         for target_model in models_for_product:
             target_model_str = str(target_model) # 确保比较时类型一致
+            code_to_use = None
+            source = None # 标记代码来源 ('selected', 'default', 'missing_default', 'missing_details')
+            product_type_origin = product_type # 默认使用当前产品类型，如果用默认值再覆盖
+
             if target_model_str in model_to_code_map:
-                code = model_to_code_map[target_model_str]
-                codes_for_this_product.append(code)
-                logger.debug(f"找到产品 '{product_type}' 的 model '{target_model_str}' 对应的代码: {code}")
+                code_to_use = model_to_code_map[target_model_str]
+                source = "selected"
+                logger.debug(f"找到产品 '{product_type}' 的 model '{target_model_str}' 对应的代码 (来自选择): {code_to_use}")
             else:
                 # 在 selected_codes_data 中未找到
                 missing_models_for_product.append(target_model_str) # 记录为在输入选择中缺失
@@ -248,49 +252,61 @@ def generate_final_code(csv_list_map: Dict[str, List[str]], selected_codes_data:
 
                     if model_details:
                         default_code = model_details.get("default_code") # 获取预加载的默认代码
-                        product_type_origin = model_details.get("product_type", product_type) # 使用原始产品类型
+                        # 使用原始产品类型进行日志记录和可能的提示
+                        product_type_origin = model_details.get("product_type", product_type)
 
                         if default_code is not None:
                             # 情况 1: 找到了标记为默认的代码 (is_default='1')
-                            logger.info(f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，使用其默认代码: '{default_code}'")
+                            logger.info(f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，将使用其默认代码: '{default_code}'")
                             code_to_use = str(default_code) # 确保是字符串
-
-                            # --- 执行 input 逻辑 (如果 default_code 含 %int%) ---
-                            if "%int%" in code_to_use:
-                                while True:
-                                    try:
-                                        prompt_message = (
-                                            f"请为 {product_type_origin} - '{target_model_str}' 输入一个整数值 "
-                                            f"(默认代码模板: {code_to_use}, 直接回车跳过使用 '?'): "
-                                        )
-                                        user_input_str = input(prompt_message)
-
-                                        if not user_input_str: # 用户直接按回车
-                                            final_code_part = "?"
-                                            logger.info(f"用户跳过了为 {product_type_origin} - '{target_model_str}' 输入整数，使用 '?' 占位。")
-                                            break # 跳出循环
-
-                                        # 用户有输入，尝试转换为整数
-                                        user_int = int(user_input_str)
-                                        # 替换占位符
-                                        final_code_part = code_to_use.replace("%int%", str(user_int))
-                                        logger.info(f"用户为 {product_type_origin} - '{target_model_str}' 输入了整数 {user_int}，替换占位符得到代码: '{final_code_part}'")
-                                        break # 输入有效，跳出循环
-                                    except ValueError:
-                                        print("输入无效，请输入一个整数或直接回车跳过。")
-                                        logger.warning(f"用户为 {product_type_origin} - '{target_model_str}' 输入了非整数值，要求重新输入。")
-                                codes_for_this_product.append(final_code_part)
-                            else:
-                                # 不需要用户输入，直接使用默认代码
-                                codes_for_this_product.append(code_to_use)
+                            source = "default"
                         else:
                             # 情况 2: 未找到标记为默认的代码
                             logger.warning(f"在已选代码中未找到产品 '{product_type_origin}' 的 model '{target_model_str}' (非可跳过项)，且该 model 在 CSV 中没有标记为默认 (is_default='1') 的代码，将使用 '?'。")
-                            codes_for_this_product.append("?")
+                            code_to_use = "?"
+                            source = "missing_default"
                     else:
                          # 在 model_details_map 中也未找到该 model (理论上不应发生，除非CSV处理有问题)
                          logger.error(f"严重警告：在 model_details_map 中未找到 model '{target_model_str}' 的详情，无法确定默认代码，使用 '?'。")
-                         codes_for_this_product.append("?")
+                         code_to_use = "?"
+                         source = "missing_details"
+
+            # --- 新增：统一处理 %int% (在此 if/else 结构之后) ---
+            final_code_part = code_to_use # 默认使用获取到的代码
+
+            if code_to_use is not None and "%int%" in code_to_use:
+                # 确定提示信息中的产品类型和模型名称
+                # 如果代码来自默认值，使用其原始产品类型，否则用当前循环的产品类型
+                prompt_product_type = product_type_origin if source == "default" else product_type
+                prompt_model_name = target_model_str
+
+                while True:
+                    try:
+                        prompt_message = (
+                            f"请为 {prompt_product_type} - '{prompt_model_name}' 输入一个整数值 "
+                            f"(代码模板: {code_to_use}, 直接回车跳过使用 '?'): "
+                        )
+                        user_input_str = input(prompt_message)
+
+                        if not user_input_str: # 用户直接按回车
+                            final_code_part = "?"
+                            logger.info(f"用户跳过了为 {prompt_product_type} - '{prompt_model_name}' 输入整数，使用 '?' 占位。")
+                            break # 跳出循环
+
+                        # 用户有输入，尝试转换为整数
+                        user_int = int(user_input_str)
+                        # 替换占位符
+                        final_code_part = code_to_use.replace("%int%", str(user_int))
+                        logger.info(f"用户为 {prompt_product_type} - '{prompt_model_name}' 输入了整数 {user_int}，替换占位符得到代码: '{final_code_part}'")
+                        break # 输入有效，跳出循环
+                    except ValueError:
+                        print("输入无效，请输入一个整数或直接回车跳过。")
+                        logger.warning(f"用户为 {prompt_product_type} - '{prompt_model_name}' 输入了非整数值，要求重新输入。")
+
+            # 将最终处理后的代码部分添加到列表 (确保有代码可添加)
+            # 跳过的情况 source 会是 None, code_to_use 也是 None, final_code_part 也是 None
+            if final_code_part is not None:
+                codes_for_this_product.append(final_code_part)
 
 
         if missing_models_for_product:
@@ -332,6 +348,13 @@ if __name__ == "__main__":
    
     # 模拟 code_selector.py 的输出
     mock_standardized_params = {
+    "'元件类型 ': '热电阻 '": {
+        "model": "元件类型",
+        "code": "HZ",
+        "description": "热电阻",
+        "param": "",
+        "is_default": "1"
+    },
     "'过程连接（法兰标准）': 'HG/T20615-2009'": {
         "model": "过程连接（法兰标准）",
         "code": "-H",
@@ -339,77 +362,63 @@ if __name__ == "__main__":
         "param": "HG□□；化工法兰",
         "is_default": "0"
     },
-    "'插入深度（L）': '250'": {
-        "model": "插入长度（L）",
-        "code": "-250",
+    "'插入深度 （U）': '250 '": {
+        "model": "插入深度 (U)",
+        "code": "-%int%",
         "description": "单位mm",
-        "param": "铠套热电阻/热点偶；带外保护套管时，此项可省略。",
-        "is_default": "1"
-    },
-    "'元件类型': '热电阻'": {
-        "model": "传感器主型号",
-        "code": "HZ",
-        "description": "热电阻",
-        "param": "",
-        "is_default": "1"
-    },
-    "'壳体代码': '304'": {
-        "model": "套管主型号",
-        "code": "TG",
-        "description": "保护套管",
         "param": "",
         "is_default": "1"
     },
     "'管嘴长度 Length mm': '150'": {
-        "model": "加强管长度（N）",
-        "code": "150",
-        "description": "指定长度，单位mm",
-        "param": "3位代码",
-        "is_default": "0"
+        "model": "插入长度（L）",
+        "code": "-150",
+        "description": "单位mm",
+        "param": "铠套热电阻/热点偶；带外保护套管时，此项可省略。",
+        "is_default": "1"
     },
-    "'元件数量': '单支'": {
+    "'元件数量 ': '单支式'": {
         "model": "元件数量",
         "code": "-S",
         "description": "单支式",
         "param": "1；单支；Simplex；单支单点；单元件；单只；Single，单支铠装；Single，，1支；one",
         "is_default": "1"
     },
-    "'分度号': 'IEC标准 Pt100'": {
-        "model": "分度号",
-        "code": "3",
-        "description": "PT100 三线",
-        "param": "RTD Pt100 三线制；Pt100（三线制）；三线制；Pt100；Pt100（A级 三线制)；CLASS A/三线制；IEC60751 CLASS A / 三线制；RTD Pt100 三线制；三线制 Three wire；热电阻Pt100三线制；Pt100（A级 三线制）；3线制；3线制RTD；Pt100(3-wire) IEC60751 Class A；3 wires；3线RTD；PT100 3线； PT100 AT 0℃ 3WIRE (DIN TYPE)；3-wire；3线 IEC 60751；PT100-3WIRE；Pt100 ohm，3W，Class B；3 WIRE",
-        "is_default": "0"
-    },
-    "'铠套材质': '316'": {
-        "model": "铠套材质",
-        "code": "RN",
-        "description": "316SS",
-        "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2",
-        "is_default": "0"
-    },
-    "'铠套外径': 'φ6'": {
+    "'铠套外径（d）': 'Ø6'": {
         "model": "铠套外径(d)",
         "code": "6",
         "description": "Ø6mm",
         "param": "6；φ6；6mm；Φ6mm",
         "is_default": "1"
     },
-    "'接线盒形式代码': '分体式'": {
+    "'铠套材质 ': '316SS '": {
+        "model": "铠套材质",
+        "code": "RN",
+        "description": "316SS",
+        "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2",
+        "is_default": "0"
+    },
+    "'分度号 ': 'PT100 三线 '": {
+        "model": "分度号",
+        "code": "3",
+        "description": "PT100 三线",
+        "param": "RTD Pt100 三线制；Pt100（三线制）；三线制；Pt100；Pt100（A级 三线制)；CLASS A/三线制；IEC60751 CLASS A / 三线制；RTD Pt100 三线制；三线制 Three wire；热电阻Pt100三线制；Pt100（A级 三线制）；3线制；3线制RTD；Pt100(3-wire) IEC60751 Class A；3 wires；3线RTD；PT100 3线； PT100 AT 0℃ 3WIRE (DIN TYPE)；3-wire；3线 IEC 60751；PT100-3WIRE；Pt100 ohm，3W，Class B；3 WIRE",
+        "is_default": "0"
+    },
+    "'接线盒形式': '分体式 '": {
         "model": "接线盒形式",
         "code": "-2",
         "description": "接线盒、1/2NPT电气接口",
         "param": "分体式；精小型分体式温度变送器；分体式安装；分体式温度变送器",
         "is_default": "0"
     },
-    "'TG套管形式': '整体钻孔锥形保护管'": {
-        "model": "TG套管形式",
-        "code": "-K",
+    "'TG套管形式 ': '整体钻孔锥形保护管 '": {
+        "model": "套管形式",
+        "code": "TG-K",
         "description": "K型法兰安装 锥形保护套管",
         "param": "整体钻孔直形套管；直型；直形；整体钻孔直形保护管；直形Straight；法兰式整体钻孔式直形；固定直形整体钻孔法兰套管；法兰直形套管；整体钻孔保护管Tapered Type；Solid hole， tapered；Tapered from drilled barstock；整体钻孔锥型；Tapered；单端钻孔锥型套管；法兰连接整体锥型钻孔；法兰式锥形整体钻孔外套管；钢棒整体钻孔锥形套管；固定法兰式整体钻孔锥形保护套管；固定法兰锥形整体钻孔式；加强型锥型整体钻孔；锥形；一体化整体钻孔锥形法兰套管；整体锥形套管；整体锥形钻孔；整体钻孔式的锥形套管；整体钻孔锥形；整体钻孔锥形保护管；整体钻孔锥形管；整体钻孔锥形套管；整钻锥形；锥形整体钻孔；锥形整体钻孔式套管；整体钻孔保护管",
         "is_default": "0"
     },
-    "'套管材质': '316'": {
+    "'套管材质 ': '316SS '": {
         "model": "套管材质",
         "code": "RN",
         "description": "316不锈钢",
@@ -423,13 +432,6 @@ if __name__ == "__main__":
         "param": "PN2.0 RF；150# RF；PN20 RF；Class150 RF；150LB RF；□□-20 RF；CL150 RF；",
         "is_default": "0"
     },
-    "'根部直径（Q）': '根部不大于28,套管厚度由供货商根据振动频率和温度计算确定'": {
-        "model": "根部直径 (Q)",
-        "code": "-27",
-        "description": "27mm",
-        "param": "（不适用于DN25（1\"））",
-        "is_default": "0"
-    },
     "'过程连接（法兰尺寸（Fs））': 'DN40'": {
         "model": "过程连接（法兰尺寸（Fs））",
         "code": "2",
@@ -437,35 +439,28 @@ if __name__ == "__main__":
         "param": "DN40；□□DN40□□；1-1/2\"；□□1-1/2\"□□；1 1/2\"；□□1 1/2\"□□；40-□□",
         "is_default": "0"
     },
-    "'法兰材质': '316'": {
+    "'根部直径（Q）': '根部不大于28,套管厚度由供货商根据振动频率和温度计算确定'": {
+        "model": "根部直径 (Q)",
+        "code": "-27",
+        "description": "27mm",
+        "param": "（不适用于DN25（1\"））",
+        "is_default": "0"
+    },
+    "'法兰材质 ': '316SS '": {
         "model": "法兰材质",
         "code": "RN",
         "description": "316不锈钢",
         "param": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2",
         "is_default": "0"
     },
-    "'接线口': '1/2\" NPT (F)'": {
-        "model": "传感器连接螺纹（S）",
+    "'接线口': '1/2\" NPT (F) '": {
+        "model": "连接螺纹",
         "code": "6",
         "description": "1/2NPT",
         "param": "1/2NPT；1/2\"NPT；NPT1/2；NPT1/2\"；1/2NPT(M)；1/2\"NPT(M)；NPT1/2(M)；NPT1/2\"(M)；1/2\"NPT(外螺纹)；1/2\"NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2\"NPT；MFR STD",
-        "is_default": "0"
-    },
-    "'防护等级 Enclosure Protection': 'IP65'": {
-        "model": "传感器附加规格",
-        "code": "/B11",
-        "description": "防水接线盒，材质铝合金",
-        "param": "合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting;聚氨酯涂层低铜铝合金；",
-        "is_default": "0"
-    },
-    "'NEPSI': 'Exd II BT4'": {
-        "model": "套管附加规格",
-        "code": "",
-        "description": "默认",
-        "param": "若甲方未提供，则选择此项",
         "is_default": "1"
     },
-    "'法兰密封面形式': 'RF'": {
+    "'过程连接形式': '固定法兰 '": {
         "model": "接头结构",
         "code": "2",
         "description": "固定式",

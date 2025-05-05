@@ -1,5 +1,5 @@
 model,code,description,param,is_default
-套管形式,TG-PT1,无固定装置金属保护管,NaN,1
+TG套管形式,TG-PT1,无固定装置金属保护管,NaN,1
 插入深度（U）,-%int%,单位mm,3位代码,1
 材质,GH,GH3030,GH3030,0
 材质,GN,GH3039,GH3039,0
