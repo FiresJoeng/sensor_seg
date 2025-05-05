@@ -54,6 +54,7 @@ OUTPUT_DIR = DATA_DIR / "output"
 KNOWLEDGE_BASE_DIR = BASE_DIR / "knowledge_base"
 KB_SOURCE_DIR = KNOWLEDGE_BASE_DIR / "source"
 KB_VECTOR_STORE_DIR = KNOWLEDGE_BASE_DIR / "vector_store"
+VECTOR_STORE_PATH = KB_VECTOR_STORE_DIR # 添加这一行，供 main.py 使用
 # 知识库源文件 (Excel) - 需要确认实际文件名
 # 假设与原项目一致
 KB_SOURCE_FILE = KB_SOURCE_DIR / "semantic_source.xlsx"

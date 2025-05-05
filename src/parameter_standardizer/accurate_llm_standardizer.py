@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # --- 常量 ---
 # Prompt 模板路径，相对于项目根目录
 # 注意：路径分隔符在 Windows 和 Linux/macOS 上可能不同，Path 对象会处理
-PROMPT_TEMPLATE_PATH = project_root / "test_kk/standardized_prompt.txt"
+PROMPT_TEMPLATE_PATH = Path(__file__).parent / "standardized_prompt.txt"
 VECTOR_SUGGESTION_PLACEHOLDER = "{{vector_db_suggestions}}"
 INPUT_JSON_MARKER = "1.  **实际设备列表 (JSON):**"
 STANDARD_TABLE_MARKER = "2.  **标准参数表 (参考资料):**"
@@ -387,7 +387,7 @@ class AccurateLLMStandardizer:
                     standardized_group_entry = standardized_group_list_from_llm[0]
                     if isinstance(standardized_group_entry, dict):
                         # 检查是否包含标准化参数键，例如 "标准化共用参数", "标准化不同参数"
-                        if "标准化共用参数" in standardized_group_entry or "标准化不同参数" in standardized_group_entry:
+                        if "标准化共用参数" in standardized_group_entry或 "标准化不同参数" in standardized_group_entry:
                              logger.info(f"成功从 LLM 获取设备组 {', '.join(group_tags)} 的标准化结果。")
                              standardized_device_groups.append(standardized_group_entry)
                         else:
