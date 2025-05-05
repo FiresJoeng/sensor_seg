@@ -1,5 +1,5 @@
 model,code,description,param,is_default
-变送器主型号,YTA610,温度变送器,NaN,1
+温度变送器,YTA610,温度变送器,NaN,1
 输出信号,-J,4~20 mA DC，HART 通信型,4-20 mA DC，HART通信；4~20mA，HART；4~20mA+HART；4~20mA two wires，HART；4-20mA(2-wire)/HART；4~20mA/24VDC loop power/hart；4-20 mA DC+HART；两线制 4～20mA HART ；4-20mA+HART；4 - 20mA.DC， Hart；4～20mA，Dc+Hart协议；4～20mA+Hart；4~20mA DC HART；4～20mA；4~20 mA带Hart；4-20mA/HART；4~20mA +HART；4~20mA w/HART；4～20mADC+HART；4~20mA Hart，4～20mA＋HART；4～20mA DC+HART；4-20mA@24VDC，4～20mA HART；4～20mA +HART；4～20mADC （二线制 2-wire）；4～20mA/HART；4-20mA+Hart；4-20MA+HART7.0；4-20mA（开方输出）；4-20mA Hart；4-20ma2wires；4~20mA 2-Wire；二线制4~20mA；4～20mA+HAR；4-20mA(2-wire)/HART；4…20 mA； HART7/Smart；4~20mA DC+HART；4-20mADC+HART；智能型、两线 4～20mA DC 叠加HART协议、具有宽量程比、高精度、自诊断、快速响应和良好重复性的特点；4~20mA 带HART协议；4～20mA.DC；4-20mA + HART；4～20mA/HART；2-WIRE，4~20mADC/HART 7 smart type；4~20mA.DC+Hart协议； 4～20mADC （二线制 2-wire）；24VDC /4～20mA+HART 二线制；4～20mADC with HART 7；4～20mA+HART；24VDC，4-20mA； HART/4-20mA；带HART协议；4～20mA+HART 两线制 DC24V,1
 输出信号,-F,FOUNDATION现场总线通信型 ,FF；FOUNDATION；FF ITK(LATEST),0
 说明书语言,A,Global,Glob；英语；English,0
