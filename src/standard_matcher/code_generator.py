@@ -519,13 +519,6 @@ if __name__ == "__main__":
             "description": "1/2NPT",
             "param": "1/2NPT；1/2\"NPT；NPT1/2；NPT1/2\"；1/2NPT(M)；1/2\"NPT(M)；NPT1/2(M)；NPT1/2\"(M)；1/2\"NPT(外螺纹)；1/2\"NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2\"NPT；MFR STD",
             "is_default": "1"
-        },
-        "'过程连接形式': '固定法兰 '": {
-            "model": "接头结构",
-            "code": "2",
-            "description": "固定式",
-            "param": "不带；NO，防内漏；",
-            "is_default": "0"
         }
     }
 
