@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 # 定义可跳过的 model 名称集合 (将来可以考虑移到配置)
 SKIPPABLE_MODELS = {
-    "传感器连接螺纹 (S)注：带温度元件，此项可省",
-    "插入长度（L）"
-
+    "传感器连接螺纹（S）",
+    "插入长度（L）",
+    "附加规格代码"
 }
 
 def get_model_order(csv_list_map: Dict[str, List[str]]) -> Dict[str, List[str]]:
@@ -348,16 +348,34 @@ if __name__ == "__main__":
    
     # 模拟 code_selector.py 的输出
     mock_standardized_params = {
-    "'元件类型 (仪表名称 Inst. Name)': '热电阻'": {
-        "model": "元件类型",
-        "code": "HZ",
-        "description": "热电阻",
-        "remark": ""
-    },
     "'元件数量 (类型 Type)': '单支'": {
         "model": "元件数量",
         "code": "-S",
         "description": "单支式",
+        "remark": ""
+    },
+    "'过程连接（法兰尺寸（Fs）） (连接规格Conn. Size)': 'DN40'": {
+        "model": "过程连接（法兰尺寸（Fs））",
+        "code": "3",
+        "description": "DN50（2\"）",
+        "remark": ""
+    },
+    "'过程连接 (法兰标准 Flange STD.)': 'HG/T20615-2009'": {
+        "model": "过程连接（法兰标准）",
+        "code": "-H",
+        "description": "HG20592、HG20615",
+        "remark": ""
+    },
+    "'过程连接（法兰等级） (管嘴长度 Length mm)': '150'": {
+        "model": "过程连接（法兰等级）",
+        "code": "1",
+        "description": "PN2.0（150#）RF",
+        "remark": ""
+    },
+    "'元件类型 (仪表名称 Inst. Name)': '热电阻'": {
+        "model": "元件类型",
+        "code": "HZ",
+        "description": "热电阻",
         "remark": ""
     },
     "'元件类型 (分度号 Type)': 'IEC标准 Pt100'": {
@@ -366,22 +384,10 @@ if __name__ == "__main__":
         "description": "PT100 三线",
         "remark": ""
     },
-    "'过程连接 (法兰标准 Flange STD.)': 'HG/T20615-2009'": {
-        "model": "法兰标准",
-        "code": "-H",
-        "description": "HG20592、HG20615",
-        "remark": ""
-    },
-    "'TG套管形式 (套管材质 Well Mat'l)': '316'": {
-        "model": "棒材质",
-        "code": "RN",
-        "description": "参见表2",
-        "remark": ""
-    },
-    "'过程连接（法兰等级） (压力等级 Pressure Rating)': 'Class150'": {
-        "model": "法兰材质",
-        "code": "RN",
-        "description": "参见表2",
+    "'TG套管形式 (套管形式 Well Type)': '整体钻孔锥形保护管'": {
+        "model": "TG",
+        "code": "TG",
+        "description": "保护套管",
         "remark": ""
     },
     "'过程连接（法兰等级） (插入深度 Well Length (mm))': '250'": {
@@ -390,52 +396,22 @@ if __name__ == "__main__":
         "description": "单位mm",
         "remark": ""
     },
+    "'连接螺纹 (温度元件型号 Therm. Element Model)': '缺失（文档未提供）'": {
+        "model": "连接螺纹",
+        "code": "0",
+        "description": "无",
+        "remark": "*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。"
+    },
+    "'过程连接（法兰等级） (允差等级 Tolerance Error Rating)': 'A级'": {
+        "model": "附加规格选项",
+        "code": "",
+        "description": "默认",
+        "remark": "若甲方未提供，则选择此项"
+    },
     "'铠套材质 (铠装材质 Armo. Mat'l)': '316'": {
         "model": "铠装材质",
         "code": "RN",
         "description": "316SS",
-        "remark": ""
-    },
-    "'接线口 (电气连接 Elec. Conn.)': '1/2\" NPT (F)'": {
-        "model": "连接螺纹",
-        "code": "6",
-        "description": "1/2NPT",
-        "remark": ""
-    },
-    "'过程连接（法兰尺寸（Fs）） (连接规格Conn. Size)': 'DN40'": {
-        "model": "法兰尺寸 (Fs)",
-        "code": "2",
-        "description": "DN40（1-1/2\"）",
-        "remark": ""
-    },
-    "'过程连接（法兰等级） (操作/设计压力 Oper. Press. MPa(G))': '0.3/'": {
-        "model": "法兰等级",
-        "code": "7",
-        "description": "PN1.0 RF",
-        "remark": ""
-    },
-    "'过程连接（法兰等级） (管嘴长度 Length mm)': '150'": {
-        "model": "加强管长度（N）",
-        "code": "150",
-        "description": "150mm",
-        "remark": ""
-    },
-    "'连接螺纹 (温度元件型号 Therm. Element Model)': '缺失（文档未提供）'": {
-        "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-        "code": "1",
-        "description": "M12×1.5",
-        "remark": ""
-    },
-    "'过程连接（法兰等级） (允差等级 Tolerance Error Rating)': 'A级'": {
-        "model": "附加规格选项",
-        "code": "/N1",
-        "description": "一体化温度变送器防爆粉尘证书编号:GYB22.2844X 适用标准:GBT3836.1-2021、GBT3836.2-2021、 GBT3836.31-2021 防爆标志:ExdbICT5T6Gb ExbICT70CT90C Db 环境温度:T6(气体):-40~75℃、T5(气体):-40~80C、T70℃ (粉尘环境):-30~65℃、T90C(粉尘环境):-30~80℃ 防护等级:IP66电气接口:1/2NPT内螺纹，M20内螺纹",
-        "remark": ""
-    },
-    "'元件类型 (测量端形式 Meas. End Type)': '绝缘型'": {
-        "model": "接头结构",
-        "code": "1",
-        "description": "弹簧紧压式（弹簧伸缩长度5mm）",
         "remark": ""
     },
     "'铠套外径(d) (铠装直径 Armo. Dia. (mm))': 'Ф6'": {
@@ -450,11 +426,23 @@ if __name__ == "__main__":
         "description": "接线盒，1/2NPT出气接口（仅适用于YTA50、YTA70）*4",
         "remark": "*4：仅适用于YTA50、YTA70。"
     },
-    "'TG套管形式 (套管形式 Well Type)': '整体钻孔锥形保护管'": {
-        "model": "选型",
-        "code": "-K",
-        "description": "K型法兰安装锥形保护套管",
+    "'接线口 (电气连接 Elec. Conn.)': '1/2\" NPT (F)'": {
+        "model": "传感器连接螺纹（S）",
+        "code": "6",
+        "description": "1/2NPT",
         "remark": ""
+    },
+    "'NEPSI (防爆等级 Explosion Proof)': 'Exd II BT4'": {
+        "model": "附加规格代码",
+        "code": "",
+        "description": "默认",
+        "remark": "若甲方未提供，则选择此项"
+    },
+    "'TG套管形式 (套管材质 Well Mat'l)': '316'": {
+        "model": "套管材质",
+        "code": "RN",
+        "description": "316不锈钢",
+        "remark": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2"
     },
     "'铠套外径(d) (套管外径 Well Outside Dia. (mm))': '根部不大于28,套管厚度由供货商根据振动频率和强度计算确定'": {
         "model": "根部直径 (Q)",
@@ -462,11 +450,17 @@ if __name__ == "__main__":
         "description": "单位mm",
         "remark": ""
     },
-    "'过程连接 (制造厂 Manufacturer)': '缺失（文档未提供）'": {
-        "model": "附加规格代码",
-        "code": "/A3",
-        "description": "外保护套管频率强度计算",
+    "'过程连接 (过程连接形式 Process Conn.)': '固定法兰'": {
+        "model": "接头结构",
+        "code": "2",
+        "description": "固定式",
         "remark": ""
+    },
+    "'法兰密封面形式 (法兰材质 Flange Mat'l)': '316'": {
+        "model": "法兰材质",
+        "code": "RN",
+        "description": "316不锈钢",
+        "remark": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2"
     }
 }
 

@@ -95,7 +95,7 @@ class ModelMatcher:
 
         self.csv_list_map = csv_list_map
         self.input_json_path = Path(input_json_path)
-        self.fuzzy_threshold = 0.45  # 模糊匹配相似度阈值
+        self.fuzzy_threshold = 0.6  # 模糊匹配相似度阈值
 
         self.input_data: Dict[str, str] = self._load_input_json()
         # 结构: {'model_name': {'rows': [row_dict, ...], 'used': False}}
@@ -292,28 +292,11 @@ class ModelMatcher:
         failed_inputs_str = "\n".join(
             [f"- {self._get_combined_string(item)}" for item in failed_inputs])
 
-        # 准备可用模型列表字符串，包含更丰富的上下文信息 (恢复之前的逻辑)
+        # 准备可用模型列表字符串，只包含模型名称
         available_models_str_parts = []
-        for name, data in available_models.items():
-            # 提取模型组内的一些关键信息作为上下文
-            context_lines = []
-            # 最多显示前 3 条记录的关键信息 (code: description)
-            for i, row in enumerate(data['rows']):
-                if i >= 3:
-                    context_lines.append("  ...")
-                    break
-                code = row.get('code', '')
-                desc = row.get('description', '')
-                # 限制描述长度，避免过长
-                context_lines.append(
-                    f"  - code: {code}, desc: {desc[:50]}{'...' if len(desc) > 50 else ''}") # 保持截断以防万一
-
-            model_context = "\n".join(
-                context_lines) if context_lines else "  (无详细条目信息)"
-            available_models_str_parts.append(
-                f"- 模型名称: {name}\n{model_context}")
-        available_models_str = "\n\n".join(
-            available_models_str_parts)  # 使用双换行分隔不同的模型组
+        for name in available_models.keys(): # 直接遍历模型名称
+            available_models_str_parts.append(f"- {name}") # 只添加模型名称
+        available_models_str = "\n".join(available_models_str_parts) # 使用单换行分隔
 
         # 格式化 System Prompt 和 User Prompt
         system_prompt_formatted = SYSTEM_PROMPT.format(failed_inputs_str=failed_inputs_str)
@@ -321,14 +304,13 @@ class ModelMatcher:
 
         logger.debug(f"格式化后的 System Prompt (部分): {system_prompt_formatted[:200]}...")
         logger.debug(f"格式化后的 User Prompt (部分): {user_prompt_formatted[:200]}...")
-        # print(system_prompt_formatted) # Debugging: 打印完整 Prompt
-        # print(user_prompt_formatted)   # Debugging: 打印完整 Prompt
+        print(system_prompt_formatted) # Debugging: 打印完整 Prompt
+        print(user_prompt_formatted)   # Debugging: 打印完整 Prompt
 
         # 调用 LLM
         llm_response = call_llm_for_match(
             system_prompt_formatted, user_prompt_formatted, expect_json=True)
 
-        # print('返回结果中......') # Debugging: 移除或注释掉 print
 
         if not llm_response or isinstance(llm_response, str) or llm_response.get("error"):
             logger.error(f"LLM 调用失败或返回错误: {llm_response}")

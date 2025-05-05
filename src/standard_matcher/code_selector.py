@@ -380,14 +380,6 @@ if __name__ == "__main__":
 
     # 1. 定义示例输入数据 (来自 ModelMatcher 的输出格式)
     example_matched_models = {
-    "'元件类型 (仪表名称 Inst. Name)': '热电阻'": [
-        {
-            "model": "元件类型",
-            "code": "HZ",
-            "description": "热电阻",
-            "remark": ""
-        }
-    ],
     "'元件数量 (类型 Type)': '单支'": [
         {
             "model": "元件数量",
@@ -399,6 +391,190 @@ if __name__ == "__main__":
             "model": "元件数量",
             "code": "-D",
             "description": "双支式",
+            "remark": ""
+        }
+    ],
+    "'过程连接（法兰尺寸（Fs）） (连接规格Conn. Size)': 'DN40'": [
+        {
+            "model": "过程连接（法兰尺寸（Fs））",
+            "code": "1",
+            "description": "DN25（1\"）",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰尺寸（Fs））",
+            "code": "2",
+            "description": "DN40（1-1/2\"）",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰尺寸（Fs））",
+            "code": "3",
+            "description": "DN50（2\"）",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰尺寸（Fs））",
+            "code": "z",
+            "description": "其它",
+            "remark": ""
+        }
+    ],
+    "'过程连接 (法兰标准 Flange STD.)': 'HG/T20615-2009'": [
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-A",
+            "description": "ANSI",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-D",
+            "description": "DIN",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-G",
+            "description": "GB/T 9123",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-H",
+            "description": "HG20592、HG20615",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰标准）",
+            "code": "-Z",
+            "description": "其它",
+            "remark": ""
+        }
+    ],
+    "'过程连接（法兰等级） (管嘴长度 Length mm)': '150'": [
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "1",
+            "description": "PN2.0（150#）RF",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "2",
+            "description": "PN5.0（300#）RF",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "3",
+            "description": "PN11.0（600#）RF",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "4",
+            "description": "PN15.0（900#）RJ",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "5",
+            "description": "PN26.0（1500#）RJ",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "6",
+            "description": "PN42.0（2500#）RJ",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "7",
+            "description": "PN1.0 RF",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "8",
+            "description": "PN1.6 RF",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "9",
+            "description": "PN2.5 RF",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "10",
+            "description": "PN4.0 RF",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "11",
+            "description": "PN6.3 RF",
+            "remark": ""
+        },
+        {
+            "model": "过程连接（法兰等级）",
+            "code": "Z",
+            "description": "其它",
+            "remark": ""
+        }
+    ],
+    "'元件类型 (仪表名称 Inst. Name)': '热电阻'": [
+        {
+            "model": "元件类型",
+            "code": "HZ",
+            "description": "热电阻",
+            "remark": ""
+        }
+    ],
+    "'连接螺纹 (温度元件型号 Therm. Element Model)': '缺失（文档未提供）'": [
+        {
+            "model": "连接螺纹",
+            "code": "0",
+            "description": "无",
+            "remark": "*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。"
+        },
+        {
+            "model": "连接螺纹",
+            "code": "1",
+            "description": "M12×1.5",
+            "remark": ""
+        },
+        {
+            "model": "连接螺纹",
+            "code": "2",
+            "description": "M16×1.5",
+            "remark": ""
+        },
+        {
+            "model": "连接螺纹",
+            "code": "3",
+            "description": "M27×2",
+            "remark": ""
+        },
+        {
+            "model": "连接螺纹",
+            "code": "4",
+            "description": "G1/2",
+            "remark": ""
+        },
+        {
+            "model": "连接螺纹",
+            "code": "5",
+            "description": "M20×1.5",
+            "remark": ""
+        },
+        {
+            "model": "连接螺纹",
+            "code": "6",
+            "description": "1/2NPT",
             "remark": ""
         }
     ],
@@ -446,285 +622,13 @@ if __name__ == "__main__":
             "remark": ""
         }
     ],
-    "'铠套材质 (铠装材质 Armo. Mat'l)': '316'": [
-        {
-            "model": "铠装材质",
-            "code": "PN",
-            "description": "304SS",
-            "remark": ""
-        },
-        {
-            "model": "铠装材质",
-            "code": "SN",
-            "description": "321SS",
-            "remark": ""
-        },
-        {
-            "model": "铠装材质",
-            "code": "RN",
-            "description": "316SS",
-            "remark": ""
-        },
-        {
-            "model": "铠装材质",
-            "code": "GH",
-            "description": "GH3030",
-            "remark": ""
-        },
-        {
-            "model": "铠装材质",
-            "code": "Z",
-            "description": "其它",
-            "remark": ""
-        }
-    ],
-    "'接线口 (电气连接 Elec. Conn.)': '1/2\" NPT (F)'": [
-        {
-            "model": "连接螺纹",
-            "code": "0",
-            "description": "无",
-            "remark": "*2：插入长度≤50mm，材质与外保护管一致，如需其他，请注明。"
-        },
-        {
-            "model": "连接螺纹",
-            "code": "1",
-            "description": "M12×1.5",
-            "remark": ""
-        },
-        {
-            "model": "连接螺纹",
-            "code": "2",
-            "description": "M16×1.5",
-            "remark": ""
-        },
-        {
-            "model": "连接螺纹",
-            "code": "3",
-            "description": "M27×2",
-            "remark": ""
-        },
-        {
-            "model": "连接螺纹",
-            "code": "4",
-            "description": "G1/2",
-            "remark": ""
-        },
-        {
-            "model": "连接螺纹",
-            "code": "5",
-            "description": "M20×1.5",
-            "remark": ""
-        },
-        {
-            "model": "连接螺纹",
-            "code": "6",
-            "description": "1/2NPT",
-            "remark": ""
-        }
-    ],
-    "'过程连接（法兰尺寸（Fs）） (连接规格Conn. Size)': 'DN40'": [
-        {
-            "model": "法兰尺寸 (Fs)",
-            "code": "1",
-            "description": "DN25（1\"）",
-            "remark": ""
-        },
-        {
-            "model": "法兰尺寸 (Fs)",
-            "code": "2",
-            "description": "DN40（1-1/2\"）",
-            "remark": ""
-        },
-        {
-            "model": "法兰尺寸 (Fs)",
-            "code": "3",
-            "description": "DN50（2\"）",
-            "remark": ""
-        },
-        {
-            "model": "法兰尺寸 (Fs)",
-            "code": "z",
-            "description": "其它",
-            "remark": ""
-        }
-    ],
-    "'过程连接 (法兰标准 Flange STD.)': 'HG/T20615-2009'": [
-        {
-            "model": "法兰标准",
-            "code": "-A",
-            "description": "ANSI",
-            "remark": ""
-        },
-        {
-            "model": "法兰标准",
-            "code": "-D",
-            "description": "DIN",
-            "remark": ""
-        },
-        {
-            "model": "法兰标准",
-            "code": "-G",
-            "description": "GB/T 9123",
-            "remark": ""
-        },
-        {
-            "model": "法兰标准",
-            "code": "-H",
-            "description": "HG20592、HG20615",
-            "remark": ""
-        },
-        {
-            "model": "法兰标准",
-            "code": "-Z",
-            "description": "其它",
-            "remark": ""
-        }
-    ],
-    "'过程连接（法兰等级） (操作/设计压力 Oper. Press. MPa(G))': '0.3/'": [
-        {
-            "model": "法兰等级",
-            "code": "1",
-            "description": "PN2.0（150#）RF",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "2",
-            "description": "PN5.0（300#）RF",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "3",
-            "description": "PN11.0（600#）RF",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "4",
-            "description": "PN15.0（900#）RJ",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "5",
-            "description": "PN26.0（1500#）RJ",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "6",
-            "description": "PN42.0（2500#）RJ",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "7",
-            "description": "PN1.0 RF",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "8",
-            "description": "PN1.6 RF",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "9",
-            "description": "PN2.5 RF",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "10",
-            "description": "PN4.0 RF",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "11",
-            "description": "PN6.3 RF",
-            "remark": ""
-        },
-        {
-            "model": "法兰等级",
-            "code": "Z",
-            "description": "其它",
-            "remark": ""
-        }
-    ],
-    "'过程连接（法兰等级） (管嘴长度 Length mm)': '150'": [
-        {
-            "model": "加强管长度（N）",
-            "code": "0",
-            "description": "0mm",
-            "remark": "*1：适用于PT1、PT2、PT3金属保护管时，选择000。"
-        },
-        {
-            "model": "加强管长度（N）",
-            "code": "100",
-            "description": "100mm",
-            "remark": ""
-        },
-        {
-            "model": "加强管长度（N）",
-            "code": "150",
-            "description": "150mm",
-            "remark": ""
-        },
-        {
-            "model": "加强管长度（N）",
-            "code": "200",
-            "description": "200mm",
-            "remark": ""
-        },
-        {
-            "model": "加强管长度（N）",
-            "code": "%int%",
-            "description": "指定长度，单位mm",
-            "remark": ""
-        }
-    ],
-    "'连接螺纹 (温度元件型号 Therm. Element Model)': '缺失（文档未提供）'": [
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "1",
-            "description": "M12×1.5",
-            "remark": ""
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "2",
-            "description": "M16×1.5",
-            "remark": ""
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "3",
-            "description": "M27×2",
-            "remark": ""
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "4",
-            "description": "G1/2",
-            "remark": ""
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "5",
-            "description": "G3/4",
-            "remark": ""
-        },
-        {
-            "model": "传感器连接螺纹 (S)注：带温度元件，此项可省",
-            "code": "6",
-            "description": "1/2NPT",
-            "remark": ""
-        }
-    ],
     "'过程连接（法兰等级） (允差等级 Tolerance Error Rating)': 'A级'": [
+        {
+            "model": "附加规格选项",
+            "code": "",
+            "description": "默认",
+            "remark": "若甲方未提供，则选择此项"
+        },
         {
             "model": "附加规格选项",
             "code": "/N1",
@@ -762,17 +666,35 @@ if __name__ == "__main__":
             "remark": ""
         }
     ],
-    "'元件类型 (测量端形式 Meas. End Type)': '绝缘型'": [
+    "'铠套材质 (铠装材质 Armo. Mat'l)': '316'": [
         {
-            "model": "接头结构",
-            "code": "1",
-            "description": "弹簧紧压式（弹簧伸缩长度5mm）",
+            "model": "铠装材质",
+            "code": "PN",
+            "description": "304SS",
             "remark": ""
         },
         {
-            "model": "接头结构",
-            "code": "2",
-            "description": "固定式",
+            "model": "铠装材质",
+            "code": "SN",
+            "description": "321SS",
+            "remark": ""
+        },
+        {
+            "model": "铠装材质",
+            "code": "RN",
+            "description": "316SS",
+            "remark": ""
+        },
+        {
+            "model": "铠装材质",
+            "code": "GH",
+            "description": "GH3030",
+            "remark": ""
+        },
+        {
+            "model": "铠装材质",
+            "code": "Z",
+            "description": "其它",
             "remark": ""
         }
     ],
@@ -840,63 +762,51 @@ if __name__ == "__main__":
             "remark": "*4：仅适用于YTA50、YTA70。"
         }
     ],
-    "'TG套管形式 (套管形式 Well Type)': '整体钻孔锥形保护管'": [
+    "'接线口 (电气连接 Elec. Conn.)': '1/2\" NPT (F)'": [
         {
-            "model": "选型",
-            "code": "-K",
-            "description": "K型法兰安装锥形保护套管",
+            "model": "传感器连接螺纹（S）",
+            "code": "1",
+            "description": "M12×1.5",
             "remark": ""
         },
         {
-            "model": "选型",
-            "code": "-L",
-            "description": "L型法兰安装直形保护套管",
+            "model": "传感器连接螺纹（S）",
+            "code": "2",
+            "description": "M16×1.5",
             "remark": ""
         },
         {
-            "model": "选型",
-            "code": "-M",
-            "description": "M型法兰安装台阶形保护套管",
-            "remark": ""
-        }
-    ],
-    "'TG套管形式 (套管材质 Well Mat'l)': '316'": [
-        {
-            "model": "棒材质",
-            "code": "RN",
-            "description": "参见表2",
-            "remark": ""
-        }
-    ],
-    "'过程连接（法兰等级） (压力等级 Pressure Rating)': 'Class150'": [
-        {
-            "model": "法兰材质",
-            "code": "RN",
-            "description": "参见表2",
-            "remark": ""
-        }
-    ],
-    "'铠套外径(d) (套管外径 Well Outside Dia. (mm))': '根部不大于28,套管厚度由供货商根据振动频率和强度计算确定'": [
-        {
-            "model": "根部直径 (Q)",
-            "code": "-22",
-            "description": "22mm",
+            "model": "传感器连接螺纹（S）",
+            "code": "3",
+            "description": "M27×2",
             "remark": ""
         },
         {
-            "model": "根部直径 (Q)",
-            "code": "-27",
-            "description": "27mm（不适用于DN25（1\"））",
+            "model": "传感器连接螺纹（S）",
+            "code": "4",
+            "description": "G1/2",
             "remark": ""
         },
         {
-            "model": "根部直径 (Q)",
-            "code": "-%int%",
-            "description": "单位mm",
+            "model": "传感器连接螺纹（S）",
+            "code": "5",
+            "description": "G3/4",
+            "remark": ""
+        },
+        {
+            "model": "传感器连接螺纹（S）",
+            "code": "6",
+            "description": "1/2NPT",
             "remark": ""
         }
     ],
-    "'过程连接 (制造厂 Manufacturer)': '缺失（文档未提供）'": [
+    "'NEPSI (防爆等级 Explosion Proof)': 'Exd II BT4'": [
+        {
+            "model": "附加规格代码",
+            "code": "",
+            "description": "默认",
+            "remark": "若甲方未提供，则选择此项"
+        },
         {
             "model": "附加规格代码",
             "code": "/A3",
@@ -938,6 +848,232 @@ if __name__ == "__main__":
             "code": "/F2",
             "description": "外保护套管接液部分抛光处理",
             "remark": ""
+        }
+    ],
+    "'TG套管形式 (套管形式 Well Type)': '整体钻孔锥形保护管'": [
+        {
+            "model": "TG",
+            "code": "TG",
+            "description": "保护套管",
+            "remark": ""
+        }
+    ],
+    "'TG套管形式 (套管材质 Well Mat'l)': '316'": [
+        {
+            "model": "套管材质",
+            "code": "GH",
+            "description": "GH3030",
+            "remark": "GH3030"
+        },
+        {
+            "model": "套管材质",
+            "code": "GN",
+            "description": "GH3039",
+            "remark": "GH3039"
+        },
+        {
+            "model": "套管材质",
+            "code": "HC",
+            "description": "Hastelloy C-276",
+            "remark": "Hastelloy C-276；哈氏C276；HC276"
+        },
+        {
+            "model": "套管材质",
+            "code": "JN",
+            "description": "Inconel 625",
+            "remark": "Inconel 625"
+        },
+        {
+            "model": "套管材质",
+            "code": "N1",
+            "description": "碳钢（SA-105）",
+            "remark": "SA-105"
+        },
+        {
+            "model": "套管材质",
+            "code": "N2",
+            "description": "碳钢（15CrMo）",
+            "remark": "15CrMo"
+        },
+        {
+            "model": "套管材质",
+            "code": "PN",
+            "description": "304不锈钢",
+            "remark": "304SS；AISI 304；304；30408；S30408；06Cr19Ni10;0Cr18Ni9"
+        },
+        {
+            "model": "套管材质",
+            "code": "QN",
+            "description": "310不锈钢",
+            "remark": "S31008；310S；310；310SS；06Cr25Ni20"
+        },
+        {
+            "model": "套管材质",
+            "code": "RN",
+            "description": "316不锈钢",
+            "remark": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2"
+        },
+        {
+            "model": "套管材质",
+            "code": "RH",
+            "description": "316H不锈钢",
+            "remark": "316H"
+        },
+        {
+            "model": "套管材质",
+            "code": "RL",
+            "description": "316L不锈钢",
+            "remark": "316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2；00Cr17Ni14Mo2"
+        },
+        {
+            "model": "套管材质",
+            "code": "SN",
+            "description": "321不锈钢",
+            "remark": "321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti；0Cr18Ni10Ti"
+        },
+        {
+            "model": "套管材质",
+            "code": "TA",
+            "description": "钛(TA2)",
+            "remark": "TA2；钛"
+        },
+        {
+            "model": "套管材质",
+            "code": "DP",
+            "description": "2205双相不锈钢",
+            "remark": "2205；S22053；022Cr25Ni5Mo3N"
+        },
+        {
+            "model": "套管材质",
+            "code": "Z",
+            "description": "其它",
+            "remark": "其它"
+        }
+    ],
+    "'铠套外径(d) (套管外径 Well Outside Dia. (mm))': '根部不大于28,套管厚度由供货商根据振动频率和强度计算确定'": [
+        {
+            "model": "根部直径 (Q)",
+            "code": "-22",
+            "description": "22mm",
+            "remark": ""
+        },
+        {
+            "model": "根部直径 (Q)",
+            "code": "-27",
+            "description": "27mm",
+            "remark": "（不适用于DN25（1\"））"
+        },
+        {
+            "model": "根部直径 (Q)",
+            "code": "-%int%",
+            "description": "单位mm",
+            "remark": ""
+        }
+    ],
+    "'过程连接 (过程连接形式 Process Conn.)': '固定法兰'": [
+        {
+            "model": "接头结构",
+            "code": "1",
+            "description": "弹簧紧压式（弹簧伸缩长度5mm）",
+            "remark": ""
+        },
+        {
+            "model": "接头结构",
+            "code": "2",
+            "description": "固定式",
+            "remark": ""
+        }
+    ],
+    "'法兰密封面形式 (法兰材质 Flange Mat'l)': '316'": [
+        {
+            "model": "法兰材质",
+            "code": "GH",
+            "description": "GH3030",
+            "remark": "GH3030"
+        },
+        {
+            "model": "法兰材质",
+            "code": "GN",
+            "description": "GH3039",
+            "remark": "GH3039"
+        },
+        {
+            "model": "法兰材质",
+            "code": "HC",
+            "description": "Hastelloy C-276",
+            "remark": "Hastelloy C-276；哈氏C276；HC276"
+        },
+        {
+            "model": "法兰材质",
+            "code": "JN",
+            "description": "Inconel 625",
+            "remark": "Inconel 625"
+        },
+        {
+            "model": "法兰材质",
+            "code": "N1",
+            "description": "碳钢（SA-105）",
+            "remark": "SA-105"
+        },
+        {
+            "model": "法兰材质",
+            "code": "N2",
+            "description": "碳钢（15CrMo）",
+            "remark": "15CrMo"
+        },
+        {
+            "model": "法兰材质",
+            "code": "PN",
+            "description": "304不锈钢",
+            "remark": "304SS；AISI 304；304；30408；S30408；06Cr19Ni10;0Cr18Ni9"
+        },
+        {
+            "model": "法兰材质",
+            "code": "QN",
+            "description": "310不锈钢",
+            "remark": "S31008；310S；310；310SS；06Cr25Ni20"
+        },
+        {
+            "model": "法兰材质",
+            "code": "RN",
+            "description": "316不锈钢",
+            "remark": "316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2"
+        },
+        {
+            "model": "法兰材质",
+            "code": "RH",
+            "description": "316H不锈钢",
+            "remark": "316H"
+        },
+        {
+            "model": "法兰材质",
+            "code": "RL",
+            "description": "316L不锈钢",
+            "remark": "316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2；00Cr17Ni14Mo2"
+        },
+        {
+            "model": "法兰材质",
+            "code": "SN",
+            "description": "321不锈钢",
+            "remark": "321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti；0Cr18Ni10Ti"
+        },
+        {
+            "model": "法兰材质",
+            "code": "TA",
+            "description": "钛(TA2)",
+            "remark": "TA2；钛"
+        },
+        {
+            "model": "法兰材质",
+            "code": "DP",
+            "description": "2205双相不锈钢",
+            "remark": "2205；S22053；022Cr25Ni5Mo3N"
+        },
+        {
+            "model": "法兰材质",
+            "code": "Z",
+            "description": "其它",
+            "remark": "其它"
         }
     ],
     "'过程连接（法兰等级） (插入深度 Well Length (mm))': '250'": [

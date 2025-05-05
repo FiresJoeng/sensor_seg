@@ -1,20 +1,34 @@
-model,code,description,remark
-温度变送器,YTA610,温度变送器,NaN
-输出信号,-J,4~20 mA DC，HART 通信型,NaN
-输出信号,-F,FOUNDATION现场总线通信型 ,NaN
-说明书语言,A,Global,NaN
-说明书语言,B,中文,*2： 不能在中国以外的国家或地区销售。 ；*3： 中国国内生产的产品随附中文铭牌和中文IM手册。 
-传感器输入,1,单支输入,NaN
-传感器输入,2,双支输入,NaN
-壳体代码,A,铝,NaN
-壳体代码,C,不锈钢,NaN
-接线口,0,G1/2 内螺纹,NaN
-接线口,2,1/2NPT 内螺纹,NaN
-接线口,4,M20 内螺纹,NaN
-内置指示器,D,数字指示器（带现场参数设定功能）,NaN
-内置指示器,N,无,NaN
-安装支架,B,304 SST 或 ASTM304L 2B 水平管道安装用,*1： 壁装时，请自备螺栓和螺母。 
-安装支架,D,304 SST 或 ASTM304L 2B 垂直管道安装用,NaN
-安装支架,J,316 SST 或 ASTM316L 2B 水平管道安装用,*1： 壁装时，请自备螺栓和螺母。 
-安装支架,K,316 SST 或 ASTM316L 2B 垂直管道安装用,NaN
-安装支架,N,无,NaN
+model,code,description,param,is_default
+变送器主型号,YTA610,温度变送器,NaN,1
+输出信号,-J,4~20 mA DC，HART 通信型,4-20 mA DC，HART通信；4~20mA，HART；4~20mA+HART；4~20mA two wires，HART；4-20mA(2-wire)/HART；4~20mA/24VDC loop power/hart；4-20 mA DC+HART；两线制 4～20mA HART ；4-20mA+HART；4 - 20mA.DC， Hart；4～20mA，Dc+Hart协议；4～20mA+Hart；4~20mA DC HART；4～20mA；4~20 mA带Hart；4-20mA/HART；4~20mA +HART；4~20mA w/HART；4～20mADC+HART；4~20mA Hart，4～20mA＋HART；4～20mA DC+HART；4-20mA@24VDC，4～20mA HART；4～20mA +HART；4～20mADC （二线制 2-wire）；4～20mA/HART；4-20mA+Hart；4-20MA+HART7.0；4-20mA（开方输出）；4-20mA Hart；4-20ma2wires；4~20mA 2-Wire；二线制4~20mA；4～20mA+HAR；4-20mA(2-wire)/HART；4…20 mA； HART7/Smart；4~20mA DC+HART；4-20mADC+HART；智能型、两线 4～20mA DC 叠加HART协议、具有宽量程比、高精度、自诊断、快速响应和良好重复性的特点；4~20mA 带HART协议；4～20mA.DC；4-20mA + HART；4～20mA/HART；2-WIRE，4~20mADC/HART 7 smart type；4~20mA.DC+Hart协议； 4～20mADC （二线制 2-wire）；24VDC /4～20mA+HART 二线制；4～20mADC with HART 7；4～20mA+HART；24VDC，4-20mA； HART/4-20mA；带HART协议；4～20mA+HART 两线制 DC24V,1
+输出信号,-F,FOUNDATION现场总线通信型 ,FF；FOUNDATION；FF ITK(LATEST),0
+说明书语言,A,Global,Glob；英语；English,0
+说明书语言,B,中文,中文，带中文说明,0
+传感器输入,1,单支输入,双支输入；双支式温度传感器,0
+传感器输入,2,双支输入,NaN,0
+壳体代码,A,铝,合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting聚氨酯涂层低铜铝合金；,1
+壳体代码,C,不锈钢,不锈钢；316SS；304SS；316；不锈钢SS；316SST；S.S 316；304SS不锈钢,0
+接线口,0,G1/2 内螺纹,G1/2,0
+接线口,2,1/2NPT 内螺纹,1/2"NPT(F)；1/2"NPT(内螺纹)；1/2NPT；1/2NPT(F)；NPT1/2内螺纹口；NPT1/2"；1/2"NPTF；1/2"FNPT；1/2”NPT(F)；1/2”NPT；1/2NPT内螺纹；NPT(F)1/2” ；1/2“NPT(F)；1/2''NPT；1/2"NPT（F）,1
+接线口,4,M20 内螺纹,M20×1.5；M20x1.5(F)；M20*1.5；M20X1.5；M20×1.5（F）；M20×1.5(F)；M20X1.5(F)；M20*1.5(F)；M20,0
+内置指示器,D,数字指示器（带现场参数设定功能）,LCD DISPLAY；带；YES；带可修改量程显示屏；液晶数显LCD；带；LCD；液晶显示；LCD显示屏；带；液晶数字表头；带LCD；LCD表头；LCD带背光,0
+内置指示器,N,无,无；NA；不带,1
+安装支架,B,304 SST 或 ASTM304L 2B 水平管道安装用,支架安装，2"管装，2“钢管，2''管安装，有，304水平安装支架， 2"横管安装 不锈钢材质， 2"横管安装，支架材质304SS，2″管装平板支架，带2"管支架及U型栓，带，304SS，YES,0
+安装支架,D,304 SST 或 ASTM304L 2B 垂直管道安装用,304垂直安装支架，2"管垂直安装,0
+安装支架,J,316 SST 或 ASTM316L 2B 水平管道安装用,316水平安装支架，316安装支架,0
+安装支架,K,316 SST 或 ASTM316L 2B 垂直管道安装用,316垂直安装支架,0
+安装支架,N,无,无，不带，N/A,1
+附加规格,NaN,默认,若甲方未提供，则选择此项,1
+附加代码,/A,带避雷器；浪涌保护器；Surge Protection Device；防雷保护,带；带装配式浪涌；带电涌保护器；内置；Yes；需要；内置(T1),0
+附加代码,/P1,涂层颜色：蒙塞尔N1.5 (黑色) 涂层：高防腐涂层,黑色环氧漆；黑色,0
+附加代码,/P2,涂层颜色：蒙塞尔7.5BG4/1.5 (翠绿色) 涂层：高防腐涂层,绿色环氧漆；绿色,0
+附加代码,/P7,涂层颜色：金属银 涂层：高防腐涂层,银色环氧漆；银色,0
+附加代码,/PR,涂层颜色：蒙塞尔7.5R4/14或相当颜色 涂层：高防腐涂层,红色环氧漆；红色,0
+附加代码,/X2,高防腐涂层,环氧漆；防腐涂层,0
+附加代码,/C1,故障报警输出：变送器异常时的输出方向LOW侧设定,将异常时的输出值设定在LOW侧(-5％，3.2 mA DC或以下) 将传感器断偶的输出值设定在LOW侧(-2.5％，3.6 mA DC),0
+附加代码,/C2,故障报警输出：兼容NAMUR NE43标准输出,输出电流范围： 3.8～20.5 mA DC；将异常时的输出值设定在LOW侧(-5％，3.2 mA DC或以下) 将传感器断偶值设定在LOW侧(-2.5％，3.6 mA DC),0
+附加代码,/C3,故障报警输出：兼容NAMUR NE43标准输出,3.8～20.5 mA DC；将异常时的输出值设定在HIGH侧(110%，21.6 mA DC或以上) 将传感器断偶值设定在HIGH侧(110%，21.6 mA DC),0
+附加代码,/N4,位号牌,提供位号牌；位号牌,0
+附加代码,/NF2,4-20 mA和现场总线：[防火和防尘隔爆认证]|4-20 mA：[本安认证],ExdⅡ；隔爆；ExdⅡBT4；Exd II CT4；Ex dⅡ CT4 Gb；Ex dbIICT6；ExdIIBT4；Ex d IIB T4 Gc；Exd IIB T4，Ex tD A21 T265℃ /dIICT4；隔爆型flame proof，ExdIICT4；Ex D IIC T6；Exd IIBT4；Exd II BT4；Ex d IIC T4；Ex dIIBT4；ExdⅡCT4；Ex.d IIB T4；Exd IICT6；Ex d II BT4 (min.)；ExdⅡBT4/ Ex tD A22 IIIB T135°C Db，Exd IICT4；EExdIIBT4+DIPA22T135；Ex d ⅡCT4；Exd IIC T4,0
+附加代码,/NS2,4-20 mA：[本安认证],本安，Ex ia，ExiaⅡCT4，ExiaIICT4，ia Ⅱ CT4，ExiaⅡCT4+Extb lllBT130°C，Ex iaⅡCT4，iaIICT4，Exia IICT4，Ex iaIICT4，ExiaⅡCT4 Gb，IP66/ExiaⅡCT4，Exia IIC T4 Gb，Ex ia IICT4&Ex ia IICT，Exia II CT4 Ga，NEPSI Ex ia IIC T4/T5 GaExiaCT4，ExiaIICT4~T6，Exia ⅡBT4，Exia II CT4，Ex ia II CT4,0
+附加代码,/S25,现场总线： [本安认证],本安，Ex ia，ExiaⅡCT4，ExiaIICT4，ia Ⅱ CT4，ExiaⅡCT4+Extb lllBT130°C，Ex iaⅡCT4，iaIICT4，Exia IICT4，Ex iaIICT4，ExiaⅡCT4 Gb，IP66/ExiaⅡCT4，Exia IIC T4 Gb，Ex ia IICT4&Ex ia IICT，Exia II CT4 Ga，NEPSI Ex ia IIC T4/T5 GaExiaCT4，ExiaIICT4~T6，Exia ⅡBT4，Exia II CT4，Ex ia II CT4,0
