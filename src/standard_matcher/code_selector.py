@@ -47,7 +47,7 @@ SELECTOR_SYSTEM_PROMPT = """
 你是一个精确的代码选择助手。你的任务是：对于用户提供的每个“输入参数”（键值对形式），从其对应的“候选标准行列表”中，选择**唯一**的最匹配的那一行。
 
 **重要规则:**
-1.  **选择基础**: 你的选择必须基于“输入参数的键和值整体”与“候选行**完整内容**（包括 model, code, description, remark 等字段）”之间的**语义相似度**。你需要理解输入参数的含义，并找到语义上最贴合的那一行候选标准代码。
+1.  **选择基础**: 你的选择必须基于“输入参数的键和值整体”与“候选行提供的 **description 和 param 字段内容**”之间的**语义相似度**。你需要理解输入参数的含义，并找到语义上最贴合的那一行候选标准代码（基于其 description 和 param）。
 2.  **唯一性**: 对于每个输入参数，你必须从其候选列表中选择**且仅选择一个**最佳匹配行。
 3.  **输出格式**: 必须以 JSON 格式返回选择结果。JSON 的键是原始的输入参数字符串（格式："key: value"），值是你选择的最佳匹配行的**索引号 (从 0 开始)**。
     示例: `{"输入参数键1: 输入参数值1": 0, "输入参数键2: 输入参数值2": 2}`
@@ -105,10 +105,12 @@ class CodeSelector:
     # _parse_input_string 函数不再需要，已移除
 
     def _row_to_string(self, row_dict: Dict[str, Any]) -> str:
-        """将 CSV 行字典转换为用于匹配的单一字符串。"""
-        # 组合 model, code, description, remark
-        # description 通常最重要，放在前面
-        return f"{row_dict.get('description', '')} {row_dict.get('model', '')} {row_dict.get('code', '')} {row_dict.get('remark', '')}".strip()
+        """将 CSV 行字典的关键描述信息转换为用于匹配的单一字符串。"""
+        # 只使用 description 和 param 进行匹配
+        desc = row_dict.get('description', '')
+        param = row_dict.get('param', '')
+        # 确保两者之间有空格分隔，除非其中一个为空
+        return f"{desc} {param}".strip()
 
     def _fuzzy_select(self):
         """执行模糊选择逻辑。"""
@@ -209,9 +211,11 @@ class CodeSelector:
                 batch_input_mapping[input_str] = candidate_rows
                 item_str = f"输入参数: \"{input_str}\"\n候选行列表:\n"
                 for idx, row in enumerate(candidate_rows):
-                    code = row.get('code', 'N/A')
+                    # 获取完整的 description 和 param
                     desc = row.get('description', '无描述')
-                    item_str += f"  {idx}: code='{code}', description='{desc[:60]}{'...' if len(desc) > 60 else ''}'\n"
+                    param = row.get('param', '无参数') # 或者根据实际情况决定默认值
+                    # 更新 item_str 的格式，只包含索引、description 和 param
+                    item_str += f"  {idx}: description='{desc}', param='{param}'\n"
                 items_to_select_str_parts.append(item_str)
 
             items_to_select_str = "\n---\n".join(items_to_select_str_parts)
