@@ -1,10 +1,10 @@
 {
     "transmitter": {
         "默认": [],
-        "YTA610（变送器精度≤±0.1℃）": [
+        "YTA610": [
             "libs/standard/transmitter/YTA610.csv"
         ],
-        "YTA710（变送器精度≥±0.1℃）": [
+        "YTA710（变送器精度±0.1℃）": [
             "libs/standard/transmitter/YTA710.csv"
         ]
     },
