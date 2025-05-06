@@ -35,7 +35,7 @@ VECTOR_SUGGESTION_PLACEHOLDER = "{{vector_db_suggestions}}"
 INPUT_JSON_MARKER = "1.  **实际设备列表 (JSON):**"
 STANDARD_TABLE_MARKER = "2.  **标准参数表 (参考资料):**"
 # 定义完整语义表 Excel 文件的路径
-FULL_SEMANTIC_TABLE_PATH = Path("C:/Users/41041/Desktop/一体化温度变送器语义库 - 副本(3).xlsx")
+FULL_SEMANTIC_TABLE_PATH = Path("一体化温度变送器语义库 - 副本(3).xlsx")
 
 # --- 辅助函数 ---
 def load_prompt_template(file_path: Path) -> Optional[str]:
@@ -334,9 +334,9 @@ class AccurateLLMStandardizer:
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=self.temperature, # 使用 settings 中的温度参数
-                max_tokens=18000, # 增加最大 token 数以适应更大的输入和完整语义表
-                timeout=self.request_timeout # 使用 settings 中的超时参数
+                temperature=self.temperature, # 使用 settings 中的温度参数 
+                timeout=self.request_timeout,# 使用 settings 中的超时参数
+                reasoning_effort='high', #深度思考
             )
 
             # 检查响应是否有效

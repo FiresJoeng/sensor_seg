@@ -40,7 +40,7 @@ if LLM_API_URL == "default-api-url":
     print("警告: 未在 .env 文件中找到 LLM_API_URL。将使用默认值 'default-api-url'。")
 
 
-LLM_TEMPERATURE = 0.3 # LLM 温度参数
+LLM_TEMPERATURE = 0.4# LLM 温度参数
 LLM_REQUEST_TIMEOUT = 300 # LLM API 请求超时时间 (秒) - Kept increased timeout
 
 # --- File Paths ---

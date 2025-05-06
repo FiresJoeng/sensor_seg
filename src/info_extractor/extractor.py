@@ -9,6 +9,7 @@ from openai import OpenAI
 from base64 import b64encode
 from typing import Dict, List, Any, Optional, Union, Tuple
 import io  # Added for in-memory file operations
+import pdfplumber # 导入 pdfplumber 库
 
 try:
     from config import settings, prompts
@@ -93,8 +94,26 @@ class InfoExtractor:
         """文件内容处理器"""
         try:
             if file_type == "pdf":
-                content = self._encode_to_base64(file_path)
-                return {"data": content, "type": "application/pdf", "mode": "image_url"}
+                # 提取 Base64 图像数据
+                image_content = self._encode_to_base64(file_path)
+                
+                # 使用 pdfplumber 提取文本内容
+                text_content = ""
+                try:
+                    with pdfplumber.open(file_path) as pdf:
+                        for page in pdf.pages:
+                            text_content += page.extract_text() or "" # 提取页面文本，如果为空则使用空字符串
+                    logger.info(f"成功从PDF提取文本内容: {file_path.name}")
+                except Exception as e:
+                    logger.warning(f"使用 pdfplumber 提取文本失败: {e}", exc_info=True)
+                    text_content = "无法提取文本内容。" # 提取失败时提供默认文本
+
+                return {
+                    "data": image_content, # Base64 图像数据
+                    "type": "application/pdf",
+                    "mode": "image_url",
+                    "text_content": text_content # 提取出的文本内容
+                }
             
             elif file_type == "excel":
                 # 在内存中处理Excel转CSV，不保存到磁盘
@@ -156,22 +175,46 @@ class InfoExtractor:
                     "text": processed_data["text_content"]
                 })
 
-            # 添加提示词
-            messages[1]["content"].insert(0, {
+            # 添加用户提示词（重复系统提示，如原代码逻辑）
+            messages[1]["content"].append({
                 "type": "text",
                 "text": prompts.LLM_EXTRACTION_SYSTEM_PROMPT
             })
 
-            return client.chat.completions.create(
+            # 根据文件类型添加内容
+            if processed_data["mode"] == "image_url":
+                # 添加图像内容
+                messages[1]["content"].append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{processed_data['type']};base64,{processed_data['data']}"
+                    }
+                })
+                # 如果提取了文本内容，也添加到消息中
+                if "text_content" in processed_data and processed_data["text_content"]:
+                     messages[1]["content"].append({
+                        "type": "text",
+                        "text": f"以下是使用文本解析工具从PDF中提取的文本内容，供您参考和校对：\n\n{processed_data['text_content']}"
+                    })
+
+            elif processed_data["mode"] == "text":
+                # 添加文本内容
+                messages[1]["content"].append({
+                    "type": "text",
+                    "text": processed_data["text_content"]
+                })
+
+            api_result = client.chat.completions.create( # 将 api_result 赋值给变量
                 model=self.model,
                 messages=messages,
-                temperature=self.temperature
+                temperature=self.temperature,
+                reasoning_effort='high'
             )
             # 添加日志记录 API 调用结果的类型
             logger.debug(f"API call successful. Type of result: {type(api_result)}")
             return api_result
         except Exception as e:
-            logger.error(f"API请求构建失败：{str(e)}")
+            logger.error(f"API请求构建失败：{str(e)}", exc_info=True) # 记录详细错误信息
             return None
 
     def _handle_api_response(self, response: Any, file_path: Path, output_filename: Optional[str]) -> Optional[Dict]:
