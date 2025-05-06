@@ -779,7 +779,7 @@ class CodeSelector:
 1.  **选择基础**: 你的选择必须基于“输入参数的键和值整体”与“候选行提供的 **description 和 param 字段内容**”之间的**语义相似度**。你需要理解输入参数的含义，并找到语义上最贴合的那一行候选标准代码（基于其 description 和 param）。
 2.  **唯一性**: 对于每个输入参数，你必须从其候选列表中选择**且仅选择一个**最佳匹配行。
 3.  **输出格式**: 必须以 JSON 格式返回选择结果。JSON 的键是原始的输入参数字符串（格式："key: value"），值是你选择的最佳匹配行的**索引号 (从 0 开始)**。
-    示例: `{"输入参数键1: 输入参数值1": 0, "输入参数键2: 输入参数值2": 2}`
+    示例: `{"输入参数键1: 输入参数值1": 0, "输入参数键2: 输入参数值2": 2}`请注意引号（单引号不需要）、反斜杠等特殊字符必须正确转义，避免输出JSON时出现格式错误。
 4.  **完整性**: 确保为每一个提供的“输入参数”都选择一个候选行索引。
 """
 
@@ -1455,30 +1455,42 @@ class CodeGenerator:
                 handled_by_rule = False  # 标记是否被新规则处理
                 product_type_origin = product_type  # 用于日志和 %int% 提示
 
-                # --- 2. 新增：复杂规则处理块 ---
+                # --- 2. 复杂规则处理块 ---
                 if target_model_str == '插入长度（L）' and has_tg_product:
                     logger.info(
-                        f"规则 2 触发：因存在 'tg' 产品，跳过模型 '{target_model_str}'。")
+                        f"规则 1 触发：因存在 'tg' 产品，跳过模型 '{target_model_str}'。")
                     handled_by_rule = True
-                    source = "rule_2_skip"
-                    # code_to_use 保持 None, 不会添加代码
+                    source = "rule_1_skip"
 
                 elif target_model_str == '传感器连接螺纹（S）' and has_sensor_product:
                     logger.info(
-                        f"规则 4 触发：因存在 'sensor' 产品，跳过模型 '{target_model_str}'。")
+                        f"规则 2 触发：因存在 'sensor' 产品，跳过模型 '{target_model_str}'。")
                     handled_by_rule = True
-                    source = "rule_4_skip"
-                    # code_to_use 保持 None, 不会添加代码
+                    source = "rule_2_skip"
 
                 elif target_model_str == '接头结构' and is_specific_tg_csv:
                     code_to_use = '2'
-                    source = "rule_3_override"
                     logger.info(
                         f"规则 3 触发：因 'tg' 产品使用特定 CSV ({tg_csv_path})，模型 '{target_model_str}' 代码强制为 '2'。")
                     handled_by_rule = True
-                    # 注意：强制代码 '2' 不包含 %int%，下面统一处理添加
+                    source = "rule_3_override"
 
-                # --- 3. 标准代码查找 (仅当未被新规则处理时) ---
+                elif target_model_str == "传感器输入":
+                    element_quantity_code = model_to_code_map.get("元件数量")
+                    if element_quantity_code == "-S":
+                        code_to_use = "1"
+                        logger.info(
+                            f"规则 4 触发：model '元件数量' code 为 -S，强制 model '传感器输入' ({product_type}) code 为 '1'")
+                        handled_by_rule = True
+                        source = "rule_4_element_quantity_S"
+                    elif element_quantity_code == "-D":
+                        code_to_use = "2"
+                        logger.info(
+                            f"规则 4 触发：model '元件数量' code 为 -D，强制 model '传感器输入' ({product_type}) code 为 '2'")
+                        handled_by_rule = True
+                        source = "rule_4_element_quantity_D"
+
+                # --- 3. 标准代码查找 (仅当未被规则处理时) ---
                 if not handled_by_rule:
                     if target_model_str in model_to_code_map:
                         # 在 selected_codes_data 中找到
