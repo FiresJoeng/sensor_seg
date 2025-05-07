@@ -478,7 +478,7 @@ class AccurateLLMStandardizer:
                     standardized_group_entry = standardized_group_list_from_llm[0]
                     if isinstance(standardized_group_entry, dict):
                         # 检查是否包含标准化参数键，例如 "标准化共用参数", "标准化不同参数"
-                        if "标准化共用参数" in standardized_group_entry或 "标准化不同参数" in standardized_group_entry:
+                        if "标准化共用参数" in standardized_group_entry or "标准化不同参数" in standardized_group_entry:
                              logger.info(f"成功从 LLM 获取设备组 {', '.join(group_tags)} 的标准化结果。")
                              standardized_device_groups.append(standardized_group_entry)
                         else:
