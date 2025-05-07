@@ -1445,16 +1445,84 @@ class CodeGenerator:
         # logger.debug(f"在 selected_codes_data 中找到的 models: {found_models_in_selection}") # 可能过长
 
         # --- 1. 预先计算条件 ---
+        logger.info("--- CodeGenerator: 进入预计算条件部分 ---")
+        logger.debug(f"预计算前 CSV列表映射 (完整): {json.dumps(csv_list_map, indent=2, ensure_ascii=False)}")
+        logger.debug(f"预计算前 CSV列表映射的类型: {type(csv_list_map)}")
+        
+        value_for_tg_debug = csv_list_map.get('tg', [None])
+        logger.debug(f"  csv_list_map.get('tg', [None]) 的结果 (value_for_tg_debug): {value_for_tg_debug}")
+        logger.debug(f"  value_for_tg_debug 的类型: {type(value_for_tg_debug)}")
+
+        if isinstance(value_for_tg_debug, list):
+            logger.debug(f"  value_for_tg_debug 是列表，长度: {len(value_for_tg_debug)}")
+            if len(value_for_tg_debug) > 0:
+                logger.debug(f"  value_for_tg_debug[0] 的值: {value_for_tg_debug[0]}")
+                logger.debug(f"  value_for_tg_debug[0] 的类型: {type(value_for_tg_debug[0])}")
+        elif isinstance(value_for_tg_debug, str): # 理论上不应是字符串，但以防万一
+            logger.debug(f"  value_for_tg_debug 是字符串，内容: {value_for_tg_debug}")
+            if len(value_for_tg_debug) > 0:
+                logger.debug(f"  value_for_tg_debug[0] 的值: {value_for_tg_debug[0]}")
+                logger.debug(f"  value_for_tg_debug[0] 的类型: {type(value_for_tg_debug[0])}")
+        
         has_tg_product = 'tg' in csv_list_map and bool(csv_list_map.get('tg'))
         has_sensor_product = 'sensor' in csv_list_map and bool(
             csv_list_map.get('sensor'))
-        tg_csv_path = csv_list_map.get('tg', [None])[
-            0]  # 获取第一个tg csv路径，如果不存在则为None
+        
+        tg_csv_path = None # 初始化
+        logger.info("准备执行 tg_csv_path 的获取逻辑...")
+        try:
+            intermediate_val = csv_list_map.get('tg', [None])
+            logger.info(f"  intermediate_val (csv_list_map.get('tg', [None])): {intermediate_val}")
+            logger.info(f"  intermediate_val 类型: {type(intermediate_val)}")
+            if intermediate_val is not None and isinstance(intermediate_val, list) and len(intermediate_val) > 0:
+                tg_csv_path = intermediate_val[0]
+                logger.info(f"  成功获取 tg_csv_path: {tg_csv_path} (类型: {type(tg_csv_path)})")
+            elif intermediate_val is not None and isinstance(intermediate_val, list) and len(intermediate_val) == 0:
+                logger.info("  intermediate_val 是一个空列表，tg_csv_path 将保持为 None (或根据逻辑处理为 IndexError)。")
+                # 如果原始逻辑是直接 [0] 导致 IndexError，这里可以选择模拟或记录
+                # 为了与原始逻辑更接近，如果列表为空，直接访问 [0] 会出错。
+                # 但我们的目标是调试 TypeError，所以先这样。如果后续需要 IndexError，可以调整。
+                # 或者，如果原始代码依赖于此处的 IndexError，那么这里应该让它发生。
+                # 考虑到原始错误是 TypeError，我们先关注它。
+                # 如果原始代码期望空列表时 tg_csv_path 为 None，那么当前逻辑是OK的。
+                # 如果原始代码期望空列表时报错，那么这里应该模拟：
+                # if not intermediate_val: raise IndexError("list index out of range for tg_csv_path from empty list")
+                # 但我们先不主动抛出IndexError，因为原始错误是TypeError
+            else: # intermediate_val is None or not a list or an empty list (already handled)
+                logger.info(f"  intermediate_val 不是预期的非空列表 (可能是 [None] 或其他)，tg_csv_path 将为 None。")
+                # 如果 intermediate_val 是 [None]，那么 [None][0] 是 None。
+                if intermediate_val == [None]: # 特殊处理默认情况
+                    tg_csv_path = intermediate_val[0] # 这会是 None
+                    logger.info(f"  intermediate_val 是 [None]，tg_csv_path 设为: {tg_csv_path}")
+
+
+        except TypeError as te:
+            logger.error(f"  在获取 tg_csv_path 时发生 TypeError: {te}", exc_info=True)
+            raise # 重新抛出原始的 TypeError
+        except IndexError as ie:
+            logger.error(f"  在获取 tg_csv_path 时发生 IndexError: {ie}", exc_info=True)
+            # 根据原始代码，如果列表为空，这里应该发生 IndexError
+            # 如果原始代码不应该在这里处理 IndexError，而是依赖后续的 Path(None) TypeError，那么这里可以不 raise
+            # 但为了调试，我们先记录并重新抛出
+            raise
+        except Exception as e:
+            logger.error(f"  在获取 tg_csv_path 时发生其他未知错误: {e}", exc_info=True)
+            raise
+
         # 确保比较时路径格式一致 (例如，都使用 posix 风格)
         specific_tg_csvs = {'libs/standard/tg/TG_PT-1.csv',
                             'libs/standard/tg/TG_PT-2.csv', 'libs/standard/tg/TG_PT-3.csv'}
-        is_specific_tg_csv = tg_csv_path is not None and Path(
-            tg_csv_path).as_posix() in specific_tg_csvs
+        # 注意：如果 tg_csv_path 为 None，Path(tg_csv_path) 会在 Python 3.9+ 产生 TypeError
+        # 我们需要确保 is_specific_tg_csv 的计算考虑到 tg_csv_path 可能为 None
+        is_specific_tg_csv = False # 默认值
+        if tg_csv_path is not None:
+            try:
+                is_specific_tg_csv = Path(tg_csv_path).as_posix() in specific_tg_csvs
+            except TypeError as e_path: # 捕获 Path(None) 可能的 TypeError
+                logger.error(f"  创建 Path 对象时出错 (tg_csv_path: {tg_csv_path}): {e_path}")
+                # is_specific_tg_csv 保持 False
+        else:
+            logger.info("  tg_csv_path 为 None，is_specific_tg_csv 将为 False。")
         logger.info(
             f"规则条件检查: has_tg={has_tg_product}, has_sensor={has_sensor_product}, is_specific_tg_csv={is_specific_tg_csv} (path: {tg_csv_path})")
 
@@ -1546,19 +1614,20 @@ class CodeGenerator:
                         source = "rule_5_flange_from_sleeve"
 
                 elif target_model_str == "接线盒形式":
-                    wiring_port_code = model_to_code_map.get("接线口")
-                    if wiring_port_code == "2":
-                        code_to_use = "-2"
-                        logger.info(
-                            f"规则 6 触发：model '接线口' code 为 '2'，强制 model '接线盒形式' ({product_type}) code 为 '-2'")
-                        handled_by_rule = True
-                        source = "rule_6_wiring_port_2"
-                    elif wiring_port_code == "4":
-                        code_to_use = "-3"
-                        logger.info(
-                            f"规则 6 触发：model '接线口' code 为 '4'，强制 model '接线盒形式' ({product_type}) code 为 '-3'")
-                        handled_by_rule = True
-                        source = "rule_6_wiring_port_4"
+                    if not model_to_code_map.get("接线盒形式"):
+                        wiring_port_code = model_to_code_map.get("接线口")
+                        if wiring_port_code == "2":
+                            code_to_use = "-2"
+                            logger.info(
+                                f"规则 6 触发：'接线盒形式' 缺失，'接线口' code 为 '2'，强制 model '接线盒形式' ({product_type}) code 为 '-2'")
+                            handled_by_rule = True
+                            source = "rule_6_missing_jxhxs_wp_2"
+                        elif wiring_port_code == "4":
+                            code_to_use = "-3"
+                            logger.info(
+                                f"规则 6 触发：'接线盒形式' 缺失，'接线口' code 为 '4'，强制 model '接线盒形式' ({product_type}) code 为 '-3'")
+                            handled_by_rule = True
+                            source = "rule_6_missing_jxhxs_wp_4"
 
                 # --- 3. 标准代码查找 (仅当未被规则处理时) ---
                 if not handled_by_rule:
@@ -1572,10 +1641,10 @@ class CodeGenerator:
                         # 在 selected_codes_data 中未找到
                         missing_models_for_product.append(target_model_str)
 
-                        # --- 规则 1 (旧可跳过逻辑) ---
+                        # --- 旧可跳过逻辑 ---
                         if target_model_str in SKIPPABLE_MODELS:
                             logger.info(
-                                f"规则 1 (旧) 触发：产品 '{product_type}' 的 model '{target_model_str}' 在已选代码中缺失，且为可跳过项，将跳过。")
+                                f"规则 通用 触发：产品 '{product_type}' 的 model '{target_model_str}' 在已选代码中缺失，且为可跳过项，将跳过。")
                             source = "rule_1_skip"
                             # code_to_use 保持 None
                         else:
