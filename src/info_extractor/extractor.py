@@ -10,6 +10,7 @@ from base64 import b64encode
 from typing import Dict, List, Any, Optional, Union, Tuple
 import io  # Added for in-memory file operations
 import pdfplumber # 导入 pdfplumber 库
+import camelot # 导入 camelot 库用于表格提取
 
 try:
     from config import settings, prompts
@@ -108,11 +109,31 @@ class InfoExtractor:
                     logger.warning(f"使用 pdfplumber 提取文本失败: {e}", exc_info=True)
                     text_content = "无法提取文本内容。" # 提取失败时提供默认文本
 
+                # 使用 camelot 提取表格数据
+                table_content_csv = ""
+                try:
+                    tables = camelot.read_pdf(str(file_path), flavor='lattice', pages='all') # 使用 lattice 模式提取所有页面的表格
+                    logger.info(f"成功使用 camelot 提取到 {len(tables)} 个表格: {file_path.name}")
+                    for i, table in enumerate(tables):
+                        # 将每个表格转换为 CSV 字符串
+                        table_csv = table.df.to_csv(index=False, encoding='utf-8')
+                        table_content_csv += f"--- Table {i+1} ---\n" # 添加表格分隔符
+                        table_content_csv += table_csv + "\n\n"
+                    if not table_content_csv:
+                         logger.warning(f"使用 camelot 未提取到任何表格数据: {file_path.name}")
+                         table_content_csv = "未从PDF中提取到表格数据。" # 未提取到表格时提供默认文本
+
+                except Exception as e:
+                    logger.warning(f"使用 camelot 提取表格失败: {e}", exc_info=True)
+                    table_content_csv = "使用 camelot 提取表格失败。" # 提取失败时提供默认文本
+
+
                 return {
                     "data": image_content, # Base64 图像数据
                     "type": "application/pdf",
                     "mode": "image_url",
-                    "text_content": text_content # 提取出的文本内容
+                    "text_content": text_content, # pdfplumber 提取的文本内容
+                    "table_content_csv": table_content_csv # camelot 提取的表格内容 (CSV 格式)
                 }
             
             elif file_type == "excel":
@@ -196,6 +217,14 @@ class InfoExtractor:
                         "type": "text",
                         "text": f"以下是使用文本解析工具从PDF中提取的文本内容，供您参考和校对：\n\n{processed_data['text_content']}"
                     })
+                
+                # 如果提取了表格内容，也添加到消息中
+                if "table_content_csv" in processed_data and processed_data["table_content_csv"]:
+                     messages[1]["content"].append({
+                        "type": "text",
+                        "text": f"以下是使用表格提取工具从PDF中提取的结构化表格数据（CSV格式）。请优先参考这些数据来准确识别参数和值，特别是处理表格中的信息时：\n\n{processed_data['table_content_csv']}"
+                    })
+
 
             elif processed_data["mode"] == "text":
                 # 添加文本内容
