@@ -773,7 +773,7 @@ class CodeSelector:
     """
     # --- LLM 提示词定义 ---
     SELECTOR_SYSTEM_PROMPT = """
-你是一个精确的代码选择助手。你的任务是：对于用户提供的每个“输入参数”（键值对形式），从其对应的“候选标准行列表”中，选择**唯一**的最匹配的那一行。
+你是一个精确的代码选择  助手。你的任务是：对于用户提供的每个“输入参数”（键值对形式），从其对应的“候选标准行列表”中，选择**唯一**的最匹配的那一行。
 
 **重要规则:**
 1.  **选择基础**: 你的选择必须基于“输入参数的键和值整体”与“候选行提供的 **description 和 param 字段内容**”之间的**语义相似度**。你需要理解输入参数的含义，并找到语义上最贴合的那一行候选标准代码（基于其 description 和 param）。
@@ -781,22 +781,7 @@ class CodeSelector:
 3.  **输出格式**: 必须以 JSON 格式返回选择结果。JSON 的键是原始的输入参数字符串（格式："key: value"），值是你选择的最佳匹配行的**索引号 (从 0 开始)**。
     示例: `{"输入参数键1: 输入参数值1": 0, "输入参数键2: 输入参数值2": 2}`
 4.  **完整性**: 确保为每一个提供的“输入参数”都选择一个候选行索引。
-5. **JSON格式重要说明**
-    1). **必须输出完整、合法的JSON格式**
-    - 确保所有大括号{}和方括号[]的开闭配对正确
-    - 确保所有字符串都用双引号包围，不使用单引号
-    - 确保JSON的最外层是一个对象{}，不是数组[]
-    - 不要在JSON中包含任何注释
-    - 不要在JSON回复中添加任何非JSON的文本或解释
-
-    2). **切勿遗漏关键结构**
-    - JSON必须包含"设备列表"键
-    - 每个设备必须有"位号"和"参数"两个键
-    - 不要提前截断列表，所有设备必须完整输出
-
-    3. **注意特殊字符处理**
-    - 引号、反斜杠等特殊字符必须正确转义
-    - 单位表示中的度数、小数点等必须按原文保留
+5.  **注意转义**: 请注意引号、反斜杠等特殊字符必须正确转义，如：“1/2" NPT (F)”应该正确转义成“1/2\" NPT (F)”，避免输出JSON时出现格式错误。返回参数时注意不要增加其他的符号。
 """
 
     SELECTOR_USER_PROMPT_TEMPLATE = """
@@ -1006,18 +991,44 @@ class CodeSelector:
                     raise ValueError(error_msg + " - 无法继续选择。")
 
                 # 遍历 LLM 返回的当前批次的结果
-                batch_processed_inputs_str_in_response = set()
-                for input_str, selected_index in llm_response.items():
-                    batch_processed_inputs_str_in_response.add(input_str)
-                    processed_inputs_in_llm_responses.add(
-                        input_str)  # 加入全局已处理集合
+                batch_processed_internal_keys_in_response = set()  # 用于存储当前批次中，LLM已响应并转换为内部格式的键
+                for llm_key_str, selected_index in llm_response.items():  # llm_key_str 是 LLM 返回的 "key: value" 格式
+                    # 解析 LLM 返回的键 ("key: value") 以便转换为内部格式 ("'key': 'value'")
+                    match_llm_key = re.match(r"^(.*?):\s*(.*)$", llm_key_str)
+                    if not match_llm_key:
+                        logger.warning(
+                            f"LLM 在批次 {batch_number} 返回了无法解析的键格式: '{llm_key_str}'，跳过此项。")
+                        continue
 
-                    # 查找原始候选列表 (在当前批次的映射中查找)
-                    original_candidates = batch_input_mapping.get(input_str)
+                    parsed_llm_key_part_raw = match_llm_key.group(1)
+                    parsed_llm_value_part_raw = match_llm_key.group(2)
+
+                    # 清理从LLM键中解析出的键和值部分，去除可能存在的多余单引号
+                    cleaned_key_part = parsed_llm_key_part_raw.strip("'")
+                    cleaned_value_part = parsed_llm_value_part_raw.strip("'")
+
+                    # 转换为内部使用的键格式："'key': 'value'"
+                    internal_key_str = f"'{cleaned_key_part}': '{cleaned_value_part}'"
+
+                    batch_processed_internal_keys_in_response.add(
+                        internal_key_str)
+                    processed_inputs_in_llm_responses.add(
+                        internal_key_str)  # 加入全局已处理集合（使用内部键格式）
+
+                    # 查找原始候选列表 (在当前批次的映射中查找，使用内部键格式)
+                    original_candidates = batch_input_mapping.get(
+                        internal_key_str)
 
                     if original_candidates is None:
+                        # 此警告现在表示LLM返回了一个在当前批次中（即使转换格式后）也找不到的键
+                        # 在日志中同时显示原始解析部分和清理后部分，方便调试
                         logger.warning(
-                            f"LLM 在批次 {batch_number} 返回了未知的输入参数: '{input_str}' (可能来自其他批次或无效)，跳过此项。")
+                            f"LLM 在批次 {batch_number} 返回了与批次输入不符的键: "
+                            f"LLM原始键='{llm_key_str}' -> "
+                            f"解析前(key='{parsed_llm_key_part_raw}', value='{parsed_llm_value_part_raw}') -> "
+                            f"解析后(key='{cleaned_key_part}', value='{cleaned_value_part}') -> "
+                            f"最终内部键='{internal_key_str}'，跳过此项。"
+                        )
                         continue
 
                     # 验证索引并选择
@@ -1030,9 +1041,12 @@ class CodeSelector:
                             # 检查并处理 %int%
                             original_code = selected_row_dict.get('code', '')
                             if isinstance(original_code, str) and '%int%' in original_code:
-                                match = re.search(r":\s*'([^']*)'", input_str)
-                                if match:
-                                    value_part = match.group(1).strip()
+                                # 注意：这里的 input_str 用于提取 %int% 的值，应使用 internal_key_str
+                                match_percent_int = re.search(
+                                    r":\s*'([^']*)'", internal_key_str)
+                                if match_percent_int:
+                                    value_part = match_percent_int.group(
+                                        1).strip()
                                     extracted_digits = re.sub(
                                         r'\D', '', value_part)
                                     if extracted_digits:
@@ -1040,29 +1054,31 @@ class CodeSelector:
                                             '%int%', extracted_digits)
                                         selected_row_dict['code'] = new_code
                                         logger.debug(
-                                            f"为输入 '{input_str}' 的 LLM 选择结果替换 %int% 得到 code: {new_code}")
+                                            f"为输入 '{internal_key_str}' 的 LLM 选择结果替换 %int% 得到 code: {new_code}")
                                     # else: 保留原样
 
-                            llm_selected_codes[input_str] = selected_row_dict
+                            # 使用内部键格式存储结果
+                            llm_selected_codes[internal_key_str] = selected_row_dict
                             logger.info(
-                                f"LLM 选择成功 (批次 {batch_number}): 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
+                                f"LLM 选择成功 (批次 {batch_number}): 键值对 '{internal_key_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
                         else:
-                            error_msg = f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。"
+                            error_msg = f"LLM 在批次 {batch_number} 为输入 '{internal_key_str}' (LLM原始键: '{llm_key_str}') 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。"
                             logger.error(error_msg)
-                            # 决定是否继续？这里选择抛出异常
                             raise ValueError(error_msg + " - 无法继续选择。")
                     except (ValueError, TypeError):
-                        error_msg = f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了非整数索引: '{selected_index}'。"
+                        error_msg = f"LLM 在批次 {batch_number} 为输入 '{internal_key_str}' (LLM原始键: '{llm_key_str}') 返回了非整数索引: '{selected_index}'。"
                         logger.error(error_msg)
-                        # 决定是否继续？这里选择抛出异常
                         raise ValueError(error_msg + " - 无法继续选择。")
 
                 # 检查当前批次中是否有 LLM 未返回结果的项
-                missing_in_batch_tuples = [
-                    item[0] for item in batch if item[0] not in batch_processed_inputs_str_in_response
+                # batch 中的 item[0] 是 internal_key_str ("'key': 'value'") 格式
+                # batch_processed_internal_keys_in_response 也包含 internal_key_str 格式
+                missing_in_batch_internal_keys = [
+                    item_tuple[0] for item_tuple in batch if item_tuple[0] not in batch_processed_internal_keys_in_response
                 ]
-                if missing_in_batch_tuples:
-                    error_msg = f"LLM 在批次 {batch_number} 未对以下 {len(missing_in_batch_tuples)} 项返回结果: {', '.join(missing_in_batch_tuples)}"
+                if missing_in_batch_internal_keys:
+                    # missing_in_batch_internal_keys 已经是内部格式的字符串列表
+                    error_msg = f"LLM 在批次 {batch_number} 未对以下 {len(missing_in_batch_internal_keys)} 项返回结果: {', '.join([f'{k}' for k in missing_in_batch_internal_keys])}"
                     logger.error(error_msg)
                     # 决定是否继续？这里选择抛出异常
                     raise ValueError(error_msg + " - 无法继续选择。")
@@ -1428,7 +1444,7 @@ class CodeGenerator:
             f"从 selected_codes_data 构建的 model->code 映射: {len(model_to_code_map)} 个条目")
         # logger.debug(f"在 selected_codes_data 中找到的 models: {found_models_in_selection}") # 可能过长
 
-        # --- 新增：1. 预先计算条件 ---
+        # --- 1. 预先计算条件 ---
         has_tg_product = 'tg' in csv_list_map and bool(csv_list_map.get('tg'))
         has_sensor_product = 'sensor' in csv_list_map and bool(
             csv_list_map.get('sensor'))
@@ -1505,6 +1521,44 @@ class CodeGenerator:
                             f"规则 4 触发：model '元件数量' code 为 -D，强制 model '传感器输入' ({product_type}) code 为 '2'")
                         handled_by_rule = True
                         source = "rule_4_element_quantity_D"
+
+                elif target_model_str == "法兰材质" or target_model_str == "套管材质":
+                    flange_material_code = model_to_code_map.get("法兰材质")
+                    sleeve_material_code = model_to_code_map.get("套管材质")
+
+                    # 检查 code 是否有效 (非 None 且非空字符串)
+                    flange_code_specified = flange_material_code is not None and flange_material_code != ""
+                    sleeve_code_specified = sleeve_material_code is not None and sleeve_material_code != ""
+
+                    if target_model_str == "套管材质" and flange_code_specified and not sleeve_code_specified:
+                        code_to_use = flange_material_code
+                        logger.info(
+                            f"规则 5 触发：model '法兰材质' code 为 '{flange_material_code}'，'套管材质' 未指定 code，"
+                            f"强制 model '套管材质' ({product_type}) code 与 '法兰材质' 一致。")
+                        handled_by_rule = True
+                        source = "rule_5_sleeve_from_flange"
+                    elif target_model_str == "法兰材质" and sleeve_code_specified and not flange_code_specified:
+                        code_to_use = sleeve_material_code
+                        logger.info(
+                            f"规则 5 触发：model '套管材质' code 为 '{sleeve_material_code}'，'法兰材质' 未指定 code，"
+                            f"强制 model '法兰材质' ({product_type}) code 与 '套管材质' 一致。")
+                        handled_by_rule = True
+                        source = "rule_5_flange_from_sleeve"
+
+                elif target_model_str == "接线盒形式":
+                    wiring_port_code = model_to_code_map.get("接线口")
+                    if wiring_port_code == "2":
+                        code_to_use = "-2"
+                        logger.info(
+                            f"规则 6 触发：model '接线口' code 为 '2'，强制 model '接线盒形式' ({product_type}) code 为 '-2'")
+                        handled_by_rule = True
+                        source = "rule_6_wiring_port_2"
+                    elif wiring_port_code == "4":
+                        code_to_use = "-3"
+                        logger.info(
+                            f"规则 6 触发：model '接线口' code 为 '4'，强制 model '接线盒形式' ({product_type}) code 为 '-3'")
+                        handled_by_rule = True
+                        source = "rule_6_wiring_port_4"
 
                 # --- 3. 标准代码查找 (仅当未被规则处理时) ---
                 if not handled_by_rule:
