@@ -7,6 +7,9 @@ from typing import Optional, List
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
+from .vector_store_manager import VectorStoreManager  # 使用点号表示同目录
+from .data_processor import DataProcessor  # 同目录下的其他文件
+from ..utils.logging_config import setup_logging  # 使用..表示父目录
 
 # 导入项目配置
 try:
