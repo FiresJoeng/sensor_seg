@@ -4,8 +4,8 @@ model,code,description,param,is_default
 输出信号,-F,FOUNDATION现场总线通信型 ,FF；FOUNDATION；FF ITK(LATEST),0
 说明书语言,A,Global,Glob；英语；English,0
 说明书语言,B,中文,中文，带中文说明,1
-传感器输入,1,单支输入,双支输入；双支式温度传感器,0
-传感器输入,2,双支输入,NaN,0
+传感器输入,1,单支输入,单支输入；单支式温度传感器,0
+传感器输入,2,双支输入,双支输入；双支式温度传感器,0
 壳体代码,A,铝,合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting聚氨酯涂层低铜铝合金；,1
 壳体代码,C,不锈钢,不锈钢；316SS；304SS；316；不锈钢SS；316SST；S.S 316；304SS不锈钢,0
 接线口,0,G1/2 内螺纹,G1/2,0

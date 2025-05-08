@@ -7,7 +7,7 @@ model,code,description,param,is_default
 铠套外径,6,Φ6,NaN,0
 铠套材质,PN,304 SS,NaN,0
 铠套材质,RL,316L SS,NaN,0
-铠套材质,SN,321 SS,NaN,0
+铠套材质,SN,321 SS,NaN,1
 分度号,3,PT100，3线,NaN,0
 分度号,4,PT100，4线,NaN,0
 分度号,E,镍铬-铜镍,NaN,0

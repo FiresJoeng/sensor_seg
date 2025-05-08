@@ -92,7 +92,10 @@ def call_llm_for_match(system_prompt: str, user_prompt: str, expect_json: bool =
 
             # 如果期望 JSON，尝试解析
             try:
-                result = json.loads(cleaned_content)
+                # 在解析前，修复无效的单引号转义
+                content_to_parse = cleaned_content.replace("\\'", "'")
+                logger.debug(f"修复转义后的内容准备解析: {content_to_parse[:200]}...") # 记录部分修复后内容
+                result = json.loads(content_to_parse)
                 logger.info("LLM 调用成功并解析了 JSON 响应。")
                 return result  # 返回解析后的字典
             except json.JSONDecodeError as json_err:

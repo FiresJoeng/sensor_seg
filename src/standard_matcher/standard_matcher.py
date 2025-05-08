@@ -265,7 +265,7 @@ class ModelMatcher:
 1.  **匹配基础**: 匹配决策必须基于“待匹配输入参数的**键值对**”与“可用标准模型库条目”的**整体语义相关性**。你需要理解输入键值对的含义，并找到在语义上最贴合的标准模型条目（由模型名称、描述和参数定义）。
 2.  **优先最佳**: 必须优先匹配关联度最高的输入键值对和标准模型条目。
 3.  **严格唯一**: 每个“待匹配输入参数的**键值对**”**必须**匹配到**一个且仅一个**“可用标准模型库条目”。反之，每个“可用标准模型库条目”也**必须**被**一个且仅一个**“待匹配输入参数的键值对”匹配。不允许遗漏任何输入键值对，也不允许重复使用任何标准模型条目。
-4.  **完整匹配**: 尽可能为**每一个**“待匹配输入参数的**键值对**”找到一个唯一的匹配模型条目，但不能生搬硬套、强行匹配。
+4.  **完整匹配**: 尽可能为**每一个**“待匹配输入参数的**键值对**”找到一个唯一的“有关键词关联的”匹配模型条目，不能生搬硬套、强行匹配。对于毫无关联性的的输入参数键值对，可以放弃它的匹配。
 5.  **输出格式**: **非常重要** - 返回结果**必须**严格按照以下 JSON 格式。JSON 的键**必须**是原始输入参数的**键 (Key)**，值是匹配到的标准模型库条目的**模型名称 (model)**。即使匹配是基于模型条目的详细信息（模型、描述、参数），最终返回的也**只是模型名称**。
     示例: `{{"输入参数键1": "匹配到的模型名称A", "输入参数键2": "匹配到的模型名称B", ...}}`
 """
@@ -773,7 +773,7 @@ class CodeSelector:
     """
     # --- LLM 提示词定义 ---
     SELECTOR_SYSTEM_PROMPT = """
-你是一个精确的代码选择助手。你的任务是：对于用户提供的每个“输入参数”（键值对形式），从其对应的“候选标准行列表”中，选择**唯一**的最匹配的那一行。
+你是一个精确的代码选择  助手。你的任务是：对于用户提供的每个“输入参数”（键值对形式），从其对应的“候选标准行列表”中，选择**唯一**的最匹配的那一行。
 
 **重要规则:**
 1.  **选择基础**: 你的选择必须基于“输入参数的键和值整体”与“候选行提供的 **description 和 param 字段内容**”之间的**语义相似度**。你需要理解输入参数的含义，并找到语义上最贴合的那一行候选标准代码（基于其 description 和 param）。
@@ -781,6 +781,7 @@ class CodeSelector:
 3.  **输出格式**: 必须以 JSON 格式返回选择结果。JSON 的键是原始的输入参数字符串（格式："key: value"），值是你选择的最佳匹配行的**索引号 (从 0 开始)**。
     示例: `{"输入参数键1: 输入参数值1": 0, "输入参数键2: 输入参数值2": 2}`
 4.  **完整性**: 确保为每一个提供的“输入参数”都选择一个候选行索引。
+5.  **注意转义**: 请注意引号、反斜杠等特殊字符必须正确转义，如：“1/2" NPT (F)”应该正确转义成“1/2\" NPT (F)”，避免输出JSON时出现格式错误。返回参数时注意不要增加其他的符号。
 """
 
     SELECTOR_USER_PROMPT_TEMPLATE = """
@@ -990,18 +991,44 @@ class CodeSelector:
                     raise ValueError(error_msg + " - 无法继续选择。")
 
                 # 遍历 LLM 返回的当前批次的结果
-                batch_processed_inputs_str_in_response = set()
-                for input_str, selected_index in llm_response.items():
-                    batch_processed_inputs_str_in_response.add(input_str)
-                    processed_inputs_in_llm_responses.add(
-                        input_str)  # 加入全局已处理集合
+                batch_processed_internal_keys_in_response = set()  # 用于存储当前批次中，LLM已响应并转换为内部格式的键
+                for llm_key_str, selected_index in llm_response.items():  # llm_key_str 是 LLM 返回的 "key: value" 格式
+                    # 解析 LLM 返回的键 ("key: value") 以便转换为内部格式 ("'key': 'value'")
+                    match_llm_key = re.match(r"^(.*?):\s*(.*)$", llm_key_str)
+                    if not match_llm_key:
+                        logger.warning(
+                            f"LLM 在批次 {batch_number} 返回了无法解析的键格式: '{llm_key_str}'，跳过此项。")
+                        continue
 
-                    # 查找原始候选列表 (在当前批次的映射中查找)
-                    original_candidates = batch_input_mapping.get(input_str)
+                    parsed_llm_key_part_raw = match_llm_key.group(1)
+                    parsed_llm_value_part_raw = match_llm_key.group(2)
+
+                    # 清理从LLM键中解析出的键和值部分，去除可能存在的多余单引号
+                    cleaned_key_part = parsed_llm_key_part_raw.strip("'")
+                    cleaned_value_part = parsed_llm_value_part_raw.strip("'")
+
+                    # 转换为内部使用的键格式："'key': 'value'"
+                    internal_key_str = f"'{cleaned_key_part}': '{cleaned_value_part}'"
+
+                    batch_processed_internal_keys_in_response.add(
+                        internal_key_str)
+                    processed_inputs_in_llm_responses.add(
+                        internal_key_str)  # 加入全局已处理集合（使用内部键格式）
+
+                    # 查找原始候选列表 (在当前批次的映射中查找，使用内部键格式)
+                    original_candidates = batch_input_mapping.get(
+                        internal_key_str)
 
                     if original_candidates is None:
+                        # 此警告现在表示LLM返回了一个在当前批次中（即使转换格式后）也找不到的键
+                        # 在日志中同时显示原始解析部分和清理后部分，方便调试
                         logger.warning(
-                            f"LLM 在批次 {batch_number} 返回了未知的输入参数: '{input_str}' (可能来自其他批次或无效)，跳过此项。")
+                            f"LLM 在批次 {batch_number} 返回了与批次输入不符的键: "
+                            f"LLM原始键='{llm_key_str}' -> "
+                            f"解析前(key='{parsed_llm_key_part_raw}', value='{parsed_llm_value_part_raw}') -> "
+                            f"解析后(key='{cleaned_key_part}', value='{cleaned_value_part}') -> "
+                            f"最终内部键='{internal_key_str}'，跳过此项。"
+                        )
                         continue
 
                     # 验证索引并选择
@@ -1014,9 +1041,12 @@ class CodeSelector:
                             # 检查并处理 %int%
                             original_code = selected_row_dict.get('code', '')
                             if isinstance(original_code, str) and '%int%' in original_code:
-                                match = re.search(r":\s*'([^']*)'", input_str)
-                                if match:
-                                    value_part = match.group(1).strip()
+                                # 注意：这里的 input_str 用于提取 %int% 的值，应使用 internal_key_str
+                                match_percent_int = re.search(
+                                    r":\s*'([^']*)'", internal_key_str)
+                                if match_percent_int:
+                                    value_part = match_percent_int.group(
+                                        1).strip()
                                     extracted_digits = re.sub(
                                         r'\D', '', value_part)
                                     if extracted_digits:
@@ -1024,29 +1054,31 @@ class CodeSelector:
                                             '%int%', extracted_digits)
                                         selected_row_dict['code'] = new_code
                                         logger.debug(
-                                            f"为输入 '{input_str}' 的 LLM 选择结果替换 %int% 得到 code: {new_code}")
+                                            f"为输入 '{internal_key_str}' 的 LLM 选择结果替换 %int% 得到 code: {new_code}")
                                     # else: 保留原样
 
-                            llm_selected_codes[input_str] = selected_row_dict
+                            # 使用内部键格式存储结果
+                            llm_selected_codes[internal_key_str] = selected_row_dict
                             logger.info(
-                                f"LLM 选择成功 (批次 {batch_number}): 键值对 '{input_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
+                                f"LLM 选择成功 (批次 {batch_number}): 键值对 '{internal_key_str}' -> 匹配结果 {selected_row_dict} (选中索引: {selected_index})")
                         else:
-                            error_msg = f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。"
+                            error_msg = f"LLM 在批次 {batch_number} 为输入 '{internal_key_str}' (LLM原始键: '{llm_key_str}') 返回了无效索引: {selected_index} (候选数量: {len(original_candidates)})。"
                             logger.error(error_msg)
-                            # 决定是否继续？这里选择抛出异常
                             raise ValueError(error_msg + " - 无法继续选择。")
                     except (ValueError, TypeError):
-                        error_msg = f"LLM 在批次 {batch_number} 为输入 '{input_str}' 返回了非整数索引: '{selected_index}'。"
+                        error_msg = f"LLM 在批次 {batch_number} 为输入 '{internal_key_str}' (LLM原始键: '{llm_key_str}') 返回了非整数索引: '{selected_index}'。"
                         logger.error(error_msg)
-                        # 决定是否继续？这里选择抛出异常
                         raise ValueError(error_msg + " - 无法继续选择。")
 
                 # 检查当前批次中是否有 LLM 未返回结果的项
-                missing_in_batch_tuples = [
-                    item[0] for item in batch if item[0] not in batch_processed_inputs_str_in_response
+                # batch 中的 item[0] 是 internal_key_str ("'key': 'value'") 格式
+                # batch_processed_internal_keys_in_response 也包含 internal_key_str 格式
+                missing_in_batch_internal_keys = [
+                    item_tuple[0] for item_tuple in batch if item_tuple[0] not in batch_processed_internal_keys_in_response
                 ]
-                if missing_in_batch_tuples:
-                    error_msg = f"LLM 在批次 {batch_number} 未对以下 {len(missing_in_batch_tuples)} 项返回结果: {', '.join(missing_in_batch_tuples)}"
+                if missing_in_batch_internal_keys:
+                    # missing_in_batch_internal_keys 已经是内部格式的字符串列表
+                    error_msg = f"LLM 在批次 {batch_number} 未对以下 {len(missing_in_batch_internal_keys)} 项返回结果: {', '.join([f'{k}' for k in missing_in_batch_internal_keys])}"
                     logger.error(error_msg)
                     # 决定是否继续？这里选择抛出异常
                     raise ValueError(error_msg + " - 无法继续选择。")
@@ -1412,17 +1444,85 @@ class CodeGenerator:
             f"从 selected_codes_data 构建的 model->code 映射: {len(model_to_code_map)} 个条目")
         # logger.debug(f"在 selected_codes_data 中找到的 models: {found_models_in_selection}") # 可能过长
 
-        # --- 新增：1. 预先计算条件 ---
+        # --- 1. 预先计算条件 ---
+        logger.info("--- CodeGenerator: 进入预计算条件部分 ---")
+        logger.debug(f"预计算前 CSV列表映射 (完整): {json.dumps(csv_list_map, indent=2, ensure_ascii=False)}")
+        logger.debug(f"预计算前 CSV列表映射的类型: {type(csv_list_map)}")
+        
+        value_for_tg_debug = csv_list_map.get('tg', [None])
+        logger.debug(f"  csv_list_map.get('tg', [None]) 的结果 (value_for_tg_debug): {value_for_tg_debug}")
+        logger.debug(f"  value_for_tg_debug 的类型: {type(value_for_tg_debug)}")
+
+        if isinstance(value_for_tg_debug, list):
+            logger.debug(f"  value_for_tg_debug 是列表，长度: {len(value_for_tg_debug)}")
+            if len(value_for_tg_debug) > 0:
+                logger.debug(f"  value_for_tg_debug[0] 的值: {value_for_tg_debug[0]}")
+                logger.debug(f"  value_for_tg_debug[0] 的类型: {type(value_for_tg_debug[0])}")
+        elif isinstance(value_for_tg_debug, str): # 理论上不应是字符串，但以防万一
+            logger.debug(f"  value_for_tg_debug 是字符串，内容: {value_for_tg_debug}")
+            if len(value_for_tg_debug) > 0:
+                logger.debug(f"  value_for_tg_debug[0] 的值: {value_for_tg_debug[0]}")
+                logger.debug(f"  value_for_tg_debug[0] 的类型: {type(value_for_tg_debug[0])}")
+        
         has_tg_product = 'tg' in csv_list_map and bool(csv_list_map.get('tg'))
         has_sensor_product = 'sensor' in csv_list_map and bool(
             csv_list_map.get('sensor'))
-        tg_csv_path = csv_list_map.get('tg', [None])[
-            0]  # 获取第一个tg csv路径，如果不存在则为None
+        
+        tg_csv_path = None # 初始化
+        logger.info("准备执行 tg_csv_path 的获取逻辑...")
+        try:
+            intermediate_val = csv_list_map.get('tg', [None])
+            logger.info(f"  intermediate_val (csv_list_map.get('tg', [None])): {intermediate_val}")
+            logger.info(f"  intermediate_val 类型: {type(intermediate_val)}")
+            if intermediate_val is not None and isinstance(intermediate_val, list) and len(intermediate_val) > 0:
+                tg_csv_path = intermediate_val[0]
+                logger.info(f"  成功获取 tg_csv_path: {tg_csv_path} (类型: {type(tg_csv_path)})")
+            elif intermediate_val is not None and isinstance(intermediate_val, list) and len(intermediate_val) == 0:
+                logger.info("  intermediate_val 是一个空列表，tg_csv_path 将保持为 None (或根据逻辑处理为 IndexError)。")
+                # 如果原始逻辑是直接 [0] 导致 IndexError，这里可以选择模拟或记录
+                # 为了与原始逻辑更接近，如果列表为空，直接访问 [0] 会出错。
+                # 但我们的目标是调试 TypeError，所以先这样。如果后续需要 IndexError，可以调整。
+                # 或者，如果原始代码依赖于此处的 IndexError，那么这里应该让它发生。
+                # 考虑到原始错误是 TypeError，我们先关注它。
+                # 如果原始代码期望空列表时 tg_csv_path 为 None，那么当前逻辑是OK的。
+                # 如果原始代码期望空列表时报错，那么这里应该模拟：
+                # if not intermediate_val: raise IndexError("list index out of range for tg_csv_path from empty list")
+                # 但我们先不主动抛出IndexError，因为原始错误是TypeError
+            else: # intermediate_val is None or not a list or an empty list (already handled)
+                logger.info(f"  intermediate_val 不是预期的非空列表 (可能是 [None] 或其他)，tg_csv_path 将为 None。")
+                # 如果 intermediate_val 是 [None]，那么 [None][0] 是 None。
+                if intermediate_val == [None]: # 特殊处理默认情况
+                    tg_csv_path = intermediate_val[0] # 这会是 None
+                    logger.info(f"  intermediate_val 是 [None]，tg_csv_path 设为: {tg_csv_path}")
+
+
+        except TypeError as te:
+            logger.error(f"  在获取 tg_csv_path 时发生 TypeError: {te}", exc_info=True)
+            raise # 重新抛出原始的 TypeError
+        except IndexError as ie:
+            logger.error(f"  在获取 tg_csv_path 时发生 IndexError: {ie}", exc_info=True)
+            # 根据原始代码，如果列表为空，这里应该发生 IndexError
+            # 如果原始代码不应该在这里处理 IndexError，而是依赖后续的 Path(None) TypeError，那么这里可以不 raise
+            # 但为了调试，我们先记录并重新抛出
+            raise
+        except Exception as e:
+            logger.error(f"  在获取 tg_csv_path 时发生其他未知错误: {e}", exc_info=True)
+            raise
+
         # 确保比较时路径格式一致 (例如，都使用 posix 风格)
         specific_tg_csvs = {'libs/standard/tg/TG_PT-1.csv',
                             'libs/standard/tg/TG_PT-2.csv', 'libs/standard/tg/TG_PT-3.csv'}
-        is_specific_tg_csv = tg_csv_path is not None and Path(
-            tg_csv_path).as_posix() in specific_tg_csvs
+        # 注意：如果 tg_csv_path 为 None，Path(tg_csv_path) 会在 Python 3.9+ 产生 TypeError
+        # 我们需要确保 is_specific_tg_csv 的计算考虑到 tg_csv_path 可能为 None
+        is_specific_tg_csv = False # 默认值
+        if tg_csv_path is not None:
+            try:
+                is_specific_tg_csv = Path(tg_csv_path).as_posix() in specific_tg_csvs
+            except TypeError as e_path: # 捕获 Path(None) 可能的 TypeError
+                logger.error(f"  创建 Path 对象时出错 (tg_csv_path: {tg_csv_path}): {e_path}")
+                # is_specific_tg_csv 保持 False
+        else:
+            logger.info("  tg_csv_path 为 None，is_specific_tg_csv 将为 False。")
         logger.info(
             f"规则条件检查: has_tg={has_tg_product}, has_sensor={has_sensor_product}, is_specific_tg_csv={is_specific_tg_csv} (path: {tg_csv_path})")
 
@@ -1455,30 +1555,81 @@ class CodeGenerator:
                 handled_by_rule = False  # 标记是否被新规则处理
                 product_type_origin = product_type  # 用于日志和 %int% 提示
 
-                # --- 2. 新增：复杂规则处理块 ---
+                # --- 2. 复杂规则处理块 ---
                 if target_model_str == '插入长度（L）' and has_tg_product:
                     logger.info(
-                        f"规则 2 触发：因存在 'tg' 产品，跳过模型 '{target_model_str}'。")
+                        f"规则 1 触发：因存在 'tg' 产品，跳过模型 '{target_model_str}'。")
                     handled_by_rule = True
-                    source = "rule_2_skip"
-                    # code_to_use 保持 None, 不会添加代码
+                    source = "rule_1_skip"
 
                 elif target_model_str == '传感器连接螺纹（S）' and has_sensor_product:
                     logger.info(
-                        f"规则 4 触发：因存在 'sensor' 产品，跳过模型 '{target_model_str}'。")
+                        f"规则 2 触发：因存在 'sensor' 产品，跳过模型 '{target_model_str}'。")
                     handled_by_rule = True
-                    source = "rule_4_skip"
-                    # code_to_use 保持 None, 不会添加代码
+                    source = "rule_2_skip"
 
                 elif target_model_str == '接头结构' and is_specific_tg_csv:
                     code_to_use = '2'
-                    source = "rule_3_override"
                     logger.info(
                         f"规则 3 触发：因 'tg' 产品使用特定 CSV ({tg_csv_path})，模型 '{target_model_str}' 代码强制为 '2'。")
                     handled_by_rule = True
-                    # 注意：强制代码 '2' 不包含 %int%，下面统一处理添加
+                    source = "rule_3_override"
 
-                # --- 3. 标准代码查找 (仅当未被新规则处理时) ---
+                elif target_model_str == "传感器输入":
+                    element_quantity_code = model_to_code_map.get("元件数量")
+                    if element_quantity_code == "-S":
+                        code_to_use = "1"
+                        logger.info(
+                            f"规则 4 触发：model '元件数量' code 为 -S，强制 model '传感器输入' ({product_type}) code 为 '1'")
+                        handled_by_rule = True
+                        source = "rule_4_element_quantity_S"
+                    elif element_quantity_code == "-D":
+                        code_to_use = "2"
+                        logger.info(
+                            f"规则 4 触发：model '元件数量' code 为 -D，强制 model '传感器输入' ({product_type}) code 为 '2'")
+                        handled_by_rule = True
+                        source = "rule_4_element_quantity_D"
+
+                elif target_model_str == "法兰材质" or target_model_str == "套管材质":
+                    flange_material_code = model_to_code_map.get("法兰材质")
+                    sleeve_material_code = model_to_code_map.get("套管材质")
+
+                    # 检查 code 是否有效 (非 None 且非空字符串)
+                    flange_code_specified = flange_material_code is not None and flange_material_code != ""
+                    sleeve_code_specified = sleeve_material_code is not None and sleeve_material_code != ""
+
+                    if target_model_str == "套管材质" and flange_code_specified and not sleeve_code_specified:
+                        code_to_use = flange_material_code
+                        logger.info(
+                            f"规则 5 触发：model '法兰材质' code 为 '{flange_material_code}'，'套管材质' 未指定 code，"
+                            f"强制 model '套管材质' ({product_type}) code 与 '法兰材质' 一致。")
+                        handled_by_rule = True
+                        source = "rule_5_sleeve_from_flange"
+                    elif target_model_str == "法兰材质" and sleeve_code_specified and not flange_code_specified:
+                        code_to_use = sleeve_material_code
+                        logger.info(
+                            f"规则 5 触发：model '套管材质' code 为 '{sleeve_material_code}'，'法兰材质' 未指定 code，"
+                            f"强制 model '法兰材质' ({product_type}) code 与 '套管材质' 一致。")
+                        handled_by_rule = True
+                        source = "rule_5_flange_from_sleeve"
+
+                elif target_model_str == "接线盒形式":
+                    if not model_to_code_map.get("接线盒形式"):
+                        wiring_port_code = model_to_code_map.get("接线口")
+                        if wiring_port_code == "2":
+                            code_to_use = "-2"
+                            logger.info(
+                                f"规则 6 触发：'接线盒形式' 缺失，'接线口' code 为 '2'，强制 model '接线盒形式' ({product_type}) code 为 '-2'")
+                            handled_by_rule = True
+                            source = "rule_6_missing_jxhxs_wp_2"
+                        elif wiring_port_code == "4":
+                            code_to_use = "-3"
+                            logger.info(
+                                f"规则 6 触发：'接线盒形式' 缺失，'接线口' code 为 '4'，强制 model '接线盒形式' ({product_type}) code 为 '-3'")
+                            handled_by_rule = True
+                            source = "rule_6_missing_jxhxs_wp_4"
+
+                # --- 3. 标准代码查找 (仅当未被规则处理时) ---
                 if not handled_by_rule:
                     if target_model_str in model_to_code_map:
                         # 在 selected_codes_data 中找到
@@ -1490,10 +1641,10 @@ class CodeGenerator:
                         # 在 selected_codes_data 中未找到
                         missing_models_for_product.append(target_model_str)
 
-                        # --- 规则 1 (旧可跳过逻辑) ---
+                        # --- 旧可跳过逻辑 ---
                         if target_model_str in SKIPPABLE_MODELS:
                             logger.info(
-                                f"规则 1 (旧) 触发：产品 '{product_type}' 的 model '{target_model_str}' 在已选代码中缺失，且为可跳过项，将跳过。")
+                                f"规则 通用 触发：产品 '{product_type}' 的 model '{target_model_str}' 在已选代码中缺失，且为可跳过项，将跳过。")
                             source = "rule_1_skip"
                             # code_to_use 保持 None
                         else:

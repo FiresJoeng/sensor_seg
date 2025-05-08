@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from tenacity import retry, stop_after_attempt, wait_fixed
+import pandas as pd # 导入 pandas 库
+import io # 导入 io 库
 
 # 确保项目根目录在 sys.path 中
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -13,10 +15,13 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from zhipuai import ZhipuAI
-    from config import settings # 假设 API Key 和模型名在 settings 中
+    # 导入 OpenAI 库
+    from openai import OpenAI
+    # 假设 API Key 和模型名在 settings 中
+    from config import settings
     from src.parameter_standardizer.search_service import SearchService
 except ImportError as e:
+    # 如果导入失败，打印错误信息并退出
     print(f"ERROR: Failed to import necessary modules in accurate_llm_standardizer.py: {e}. Ensure all dependencies are installed and PYTHONPATH is correct.", file=sys.stderr)
     sys.exit(1)
 
@@ -29,6 +34,8 @@ PROMPT_TEMPLATE_PATH = Path(__file__).parent / "standardized_prompt.txt"
 VECTOR_SUGGESTION_PLACEHOLDER = "{{vector_db_suggestions}}"
 INPUT_JSON_MARKER = "1.  **实际设备列表 (JSON):**"
 STANDARD_TABLE_MARKER = "2.  **标准参数表 (参考资料):**"
+# 定义完整语义表 Excel 文件的路径
+FULL_SEMANTIC_TABLE_PATH = Path("一体化温度变送器语义库 - 副本(3).xlsx")
 
 # --- 辅助函数 ---
 def load_prompt_template(file_path: Path) -> Optional[str]:
@@ -86,24 +93,25 @@ def extract_json_from_response(response_content: str) -> Optional[str]:
     logger.warning("无法在响应中定位 JSON 对象。")
     return None
 
-# 定义一个回调函数，用于在重试耗尽时记录日志
-def log_retry_error(retry_state):
-    logger.error(f"ZhipuAI API 调用在 {retry_state.attempt_number} 次尝试后最终失败: {retry_state.outcome.exception()}")
+# 移除 ZhipuAI 特定的重试日志函数
+# def log_retry_error(retry_state):
+#     logger.error(f"ZhipuAI API 调用在 {retry_state.attempt_number} 次尝试后最终失败: {retry_state.outcome.exception()}")
 
 class AccurateLLMStandardizer:
     """
     使用 LLM 和向量参考进行参数标准化的类。
     封装了 test_kk/llm_standardizer_with_vector_ref.py 的核心逻辑。
     """
-    def __init__(self, search_service: SearchService, client: ZhipuAI):
+    # 修改 __init__ 方法，接受 OpenAI 客户端
+    def __init__(self, search_service: SearchService, client: OpenAI):
         """
         初始化标准化器。
 
         Args:
             search_service: 用于获取向量建议的 SearchService 实例。
-            client: 已初始化的 ZhipuAI 客户端实例。
+            client: 已初始化的 OpenAI 客户端实例。
         """
-        # 初始化 SearchService 和 ZhipuAI 客户端
+        # 初始化 SearchService 和 OpenAI 客户端
         self.search_service = search_service
         self.client = client
         # 加载 Prompt 模板
@@ -111,9 +119,78 @@ class AccurateLLMStandardizer:
         if not self.prompt_template:
             # 如果无法加载 Prompt 模板，则引发 ValueError
             raise ValueError("无法加载 Prompt 模板，标准化器无法初始化。")
-        # 从 settings 获取模型名称，如果 settings 中没有，则使用默认值
-        self.model_name = getattr(settings, 'ZHIPUAI_MODEL_NAME', 'glm-4-plus')
+
+        # 加载完整语义表 Excel 内容
+        self.full_semantic_table_content = self._load_excel_as_csv_string(FULL_SEMANTIC_TABLE_PATH)
+        if not self.full_semantic_table_content:
+             # 如果无法加载 Excel 内容，记录错误但允许继续（Prompt 中将缺少标准表）
+             logger.error(f"无法加载完整语义表 Excel 文件: {FULL_SEMANTIC_TABLE_PATH}。Prompt 中将缺少标准表内容。")
+             self.full_semantic_table_content = "无法加载标准参数表。" # 提供一个默认文本
+
+        # 从 settings 获取模型名称，使用通用的 LLM 配置
+        self.model_name = settings.LLM_MODEL_NAME
+        self.temperature = settings.LLM_TEMPERATURE # 使用 settings 中的温度参数
+        self.request_timeout = settings.LLM_REQUEST_TIMEOUT # 使用 settings 中的超时参数
         logger.info(f"AccurateLLMStandardizer 初始化完成，使用模型: {self.model_name}")
+
+    def _load_excel_as_csv_string(self, file_path: Path) -> Optional[str]:
+        """
+        读取 Excel 文件中的所有表格，合并后将其内容转换为 CSV 格式的字符串。
+        参考了 InfoExtractor 中的 Excel 处理逻辑。
+        """
+        # 读取 Excel 文件中的所有表格，合并后将其内容转换为 CSV 格式的字符串
+        if not file_path.exists():
+            logger.error(f"Excel file not found: {file_path}")
+            return None
+        try:
+            # 使用 ExcelFile 读取所有 Sheet
+            xls = pd.ExcelFile(file_path)
+            sheet_names = xls.sheet_names
+            all_sheets_df = []
+
+            if not sheet_names:
+                logger.warning(f"Excel file {file_path} contains no sheets.")
+                return None
+
+            logger.info(f"Reading sheets: {sheet_names} from {file_path.name}")
+
+            for sheet_name in sheet_names:
+                try:
+                    df = xls.parse(sheet_name)
+                    if not df.empty:
+                        all_sheets_df.append(df)
+                        logger.debug(f"Successfully read sheet '{sheet_name}' with {len(df)} rows.")
+                    else:
+                        logger.debug(f"Sheet '{sheet_name}' is empty.")
+                except Exception as sheet_e:
+                    logger.error(f"Error reading sheet '{sheet_name}' from {file_path}: {sheet_e}")
+                    # 继续处理下一个 Sheet，即使当前 Sheet 读取失败
+
+            if not all_sheets_df:
+                logger.error(f"No data found in any sheets of Excel file: {file_path}")
+                return None
+
+            # 合并所有 DataFrame
+            combined_df = pd.concat(all_sheets_df, ignore_index=True)
+            logger.info(f"Combined data from all sheets into a single DataFrame with {len(combined_df)} rows.")
+
+            # 将合并后的 DataFrame 转换为 CSV 字符串
+            csv_buffer = io.StringIO()
+            combined_df.to_csv(csv_buffer, index=False, encoding='utf-8')
+            csv_content = csv_buffer.getvalue()
+            logger.info(f"成功将所有 Excel 表格内容合并并转换为 CSV 格式字符串: {file_path.name}")
+            return csv_content
+
+        except FileNotFoundError:
+            logger.error(f"Excel file not found: {file_path}")
+            return None
+        except pd.errors.EmptyDataError:
+            logger.error(f"Excel file is empty or contains no valid data: {file_path}")
+            return None
+        except Exception as e:
+            logger.error(f"Error processing Excel file {file_path}: {e}")
+            return None
+
 
     def _fetch_suggestions_for_group_data(self, group_data_for_llm: Dict[str, Any]) -> str:
         """为单个设备组数据中的所有参数预获取向量建议，并格式化为字符串。"""
@@ -219,18 +296,19 @@ class AccurateLLMStandardizer:
         # 替换建议占位符
         prompt_with_suggestions = self.prompt_template.replace(VECTOR_SUGGESTION_PLACEHOLDER, combined_suggestions_text)
 
-        # 插入单组数据 JSON
+        # 插入单组数据 JSON 和完整语义表内容
         prompt_parts = prompt_with_suggestions.split(INPUT_JSON_MARKER)
         if len(prompt_parts) == 2:
             before_json = prompt_parts[0] + INPUT_JSON_MARKER + "\n" + input_data_json_str + "\n\n"
             after_json_part = prompt_parts[1]
             standard_table_start_index = after_json_part.find(STANDARD_TABLE_MARKER)
             if standard_table_start_index != -1:
-                after_json = after_json_part[standard_table_start_index:]
+                # 在 STANDARD_TABLE_MARKER 后面插入完整语义表内容
+                after_json = after_json_part[:standard_table_start_index + len(STANDARD_TABLE_MARKER)] + "\n" + self.full_semantic_table_content + "\n\n" + after_json_part[standard_table_start_index + len(STANDARD_TABLE_MARKER):]
                 prompt = before_json + after_json
             else:
-                # 如果找不到标准表标记，记录警告并直接替换标记
-                logger.warning(f"无法在 Prompt 模板中找到 '{STANDARD_TABLE_MARKER}'，JSON 插入可能不准确。")
+                # 如果找不到标准表标记，记录警告并直接替换输入 JSON 标记
+                logger.warning(f"无法在 Prompt 模板中找到 '{STANDARD_TABLE_MARKER}'，完整语义表内容将不会被插入。")
                 prompt = prompt_with_suggestions.replace(INPUT_JSON_MARKER, INPUT_JSON_MARKER + "\n" + input_data_json_str + "\n\n")
         else:
             # 如果找不到输入 JSON 标记，记录错误并返回原始 Prompt
@@ -242,30 +320,37 @@ class AccurateLLMStandardizer:
     @retry(
         stop=stop_after_attempt(5), # 最多重试 5 次
         wait=wait_fixed(1), # 每次重试等待 1 秒
-        retry_error_callback=log_retry_error # 重试失败时调用日志记录函数
+        # retry_error_callback=log_retry_error # 移除 ZhipuAI 特定的重试日志函数
     )
-    def _call_zhipuai_api(self, prompt: str) -> Optional[Dict[str, Any]]:
-        """调用 ZhipuAI API 并返回解析后的 JSON 响应。"""
-        # 调用 ZhipuAI API 并返回解析后的 JSON 响应
-        logger.info("--- 尝试调用 ZhipuAI API ---")
+    # 修改方法名称并更新日志信息
+    def _call_llm_api(self, prompt: str) -> Optional[Dict[str, Any]]:
+        """调用 LLM API 并返回解析后的 JSON 响应。"""
+        # 调用 LLM API 并返回解析后的 JSON 响应
+        logger.info("--- 尝试调用 LLM API ---")
         logger.debug(f"发送请求到模型: {self.model_name}")
 
         try:
-            # 调用 ZhipuAI API
+            # 调用 OpenAI API (兼容 Gemini)
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
+<<<<<<< HEAD
                 temperature=0.2, # 设置温度参数
                 # 增加最大 token 数以适应更大的输入和输出
+=======
+                temperature=self.temperature, # 使用 settings 中的温度参数 
+                timeout=self.request_timeout,# 使用 settings 中的超时参数
+                reasoning_effort='high', #深度思考
+>>>>>>> 7692c17fdcc2ff946e048853c3cf77c9fadb63f9
             )
 
             # 检查响应是否有效
             if not response.choices or not response.choices[0].message or not response.choices[0].message.content:
-                logger.error("ZhipuAI API response is missing expected content.")
+                logger.error("LLM API response is missing expected content.")
                 return None
 
             response_content = response.choices[0].message.content
-            logger.info("--- ZhipuAI API 响应接收成功 ---")
+            logger.info("--- LLM API 响应接收成功 ---")
             logger.debug(f"Raw Response Content:\n{response_content[:500]}...") # 截断日志
 
             # 从响应中提取 JSON 字符串
@@ -274,7 +359,11 @@ class AccurateLLMStandardizer:
             if not json_string:
                  # 如果无法提取 JSON 字符串，记录错误并返回 None
                  logger.error("无法从 API 响应中提取 JSON 字符串。")
-                 logger.error(f"原始响应 (部分): {response_content[:500]}...")
+                 # 记录完整的原始响应，如果不太长的话
+                 if len(response_content) < 2000: # 限制日志长度
+                     logger.error(f"原始响应内容:\n{response_content}")
+                 else:
+                     logger.error(f"原始响应内容 (部分):\n{response_content[:1000]}...")
                  return None
 
             logger.debug(f"提取的 JSON 字符串:\n{json_string}")
@@ -285,14 +374,15 @@ class AccurateLLMStandardizer:
                 return parsed_json
             except json.JSONDecodeError as json_err:
                 # 如果解析 JSON 失败，记录错误并返回 None
-                logger.error(f"无法解析 ZhipuAI API 返回的 JSON (提取后): {json_err}")
+                logger.error(f"无法解析 LLM API 返回的 JSON (提取后): {json_err}")
                 logger.error(f"JSON 解析错误发生在第 {json_err.lineno} 行, 第 {json_err.colno} 列 (char {json_err.pos})")
+                # 记录导致解析错误的 JSON 字符串
                 logger.error(f"尝试解析的内容:\n{json_string}")
                 return None
 
         except Exception as e:
             # 如果处理 API 响应时发生意外错误，记录错误并重新引发异常以供 tenacity 处理
-            logger.error(f"处理 ZhipuAI API 响应时发生意外错误 (可能在重试中): {e}", exc_info=True)
+            logger.error(f"处理 LLM API 响应时发生意外错误 (可能在重试中): {e}", exc_info=True)
             raise # Re-raise for tenacity
 
 
@@ -306,7 +396,7 @@ class AccurateLLMStandardizer:
 
         Returns:
             Optional[Dict[str, Any]]: 包含标准化后设备组列表和原始备注的字典。
-                                      例如: {'设备列表': [...], '备注': {...}}
+                                      例如: {'设备列表': [...], 备注: {...}}
                                       其中每个设备组包含 "位号", "标准化共用参数", "标准化不同参数"。
                                       如果处理失败则返回 None。
         """
@@ -322,7 +412,12 @@ class AccurateLLMStandardizer:
 
         if not original_device_groups:
             logger.warning("没有设备组可供标准化。")
-            return {"设备列表": [], "备注": remarks}
+            return {"设备列表": [], "备注": remarks} # 如果没有设备组，直接返回空结果
+
+        # 检查是否成功加载了完整语义表
+        if self.full_semantic_table_content == "无法加载标准参数表。":
+            logger.critical("完整语义表未成功加载，无法进行参数标准化。请检查文件路径和读取权限。")
+            return None # 如果标准表未加载，则无法进行准确标准化
 
         logger.info(f"准备分批标准化 {len(original_device_groups)} 个设备组...")
 
@@ -361,16 +456,18 @@ class AccurateLLMStandardizer:
             combined_suggestions_text = self._fetch_suggestions_for_group_data(current_group_data_for_llm)
             logger.debug(f"组合后的向量建议:\n{combined_suggestions_text}")
 
-            # 2. 构建 Prompt (只包含当前设备组的数据)
+            # 2. 构建 Prompt (只包含当前设备组的数据和完整语义表内容)
             prompt = self._construct_llm_prompt_for_group_data(current_group_data_for_llm, combined_suggestions_text)
             logger.debug(f"构建的 Prompt (部分):\n{prompt[:500]}...")
 
             # 3. 调用 LLM API 处理当前设备组
             llm_response_json = None
             try:
-                llm_response_json = self._call_zhipuai_api(prompt)
+                # 调用通用的 LLM API 方法
+                llm_response_json = self._call_llm_api(prompt)
             except Exception as e: # Catch final error after tenacity retries
-                logger.error(f"调用 ZhipuAI API 标准化设备组 {', '.join(group_tags)} 最终失败: {e}", exc_info=True)
+                # 更新日志信息
+                logger.error(f"调用 LLM API 标准化设备组 {', '.join(group_tags)} 最终失败: {e}", exc_info=True)
                 # 标准化失败，保留原始组数据并添加处理说明
                 failed_group_entry = device_group.copy()
                 failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "标准化失败。"
@@ -442,11 +539,49 @@ class MockZhipuAI:
                     original_common = original_group.get("共用参数", {})
                     original_diff = original_group.get("不同参数", {})
 
+<<<<<<< HEAD
                     # 生成标准化参数时使用双引号
                     standardized_common = {}
                     for k, v in original_common.items():
                         standardized_common[f"标准_{k}"] = f"标准_{v}"
                     
+=======
+    # 模拟依赖项
+    class MockSearchService:
+        def get_vector_suggestions(self, query_text, n_results):
+             print(f"MockSearchService: 获取 '{query_text}' 的向量建议 ({n_results}条)...")
+             # 返回假的建议结果列表
+             return [
+                 {'metadata': {settings.META_FIELD_PARAM_TYPE: '标准参数A', settings.META_FIELD_STANDARD_VALUE: '标准值1'}, 'distance': 0.1},
+                 {'metadata': {settings.META_FIELD_PARAM_TYPE: '标准参数B', settings.META_FIELD_STANDARD_VALUE: '标准值2'}, 'distance': 0.2}
+             ]
+
+    # 修改模拟类以匹配 OpenAI 库的结构
+    class MockOpenAI:
+        class MockChat:
+            class MockCompletions:
+                def create(self, model, messages, temperature, max_tokens, timeout):
+                    print(f"MockOpenAI: 接收到 Prompt (部分): {messages[0]['content'][:100]}...")
+                    # 返回一个假的、符合预期的 JSON 响应字符串
+                    # 模拟 LLM 返回标准化后的完整结构
+                    # 注意：这里模拟 LLM 只返回当前处理的设备组
+                    # 从 Prompt 中提取输入数据
+                    input_data_match = re.search(r'1\.  \*\*实际设备列表 \(JSON\):\*\*\s*(\{.*?\})\s*2\.  \*\*标准参数表 \(参考资料\):\*\*', messages[0]['content'], re.DOTALL)
+                    input_data = {}
+                    if input_data_match:
+                         try:
+                              input_data = json.loads(input_data_match.group(1))
+                         except json.JSONDecodeError:
+                              print("MockOpenAI: 无法解析 Prompt 中的输入 JSON。")
+                              input_data = {"设备列表": []} # Fallback
+
+                    original_group = input_data.get('设备列表', [{}])[0] # 获取第一个设备组，如果列表为空则使用空字典
+                    original_tags = original_group.get('位号', [])
+                    original_common = original_group.get('共用参数', {})
+                    original_diff = original_group.get('不同参数', {})
+
+                    standardized_common = {f"标准_{k}": f"标准_{v}" for k, v in original_common.items()}
+>>>>>>> 7692c17fdcc2ff946e048853c3cf77c9fadb63f9
                     standardized_diff = {}
                     if isinstance(original_diff, dict):
                         for param_name, tag_value_map in original_diff.items():
@@ -490,6 +625,7 @@ class MockZhipuAI:
                     logger.error(f"处理过程中发生错误: {e}")
                     raise
 
+<<<<<<< HEAD
 # --- 新增的测试代码 ---
 
 class MockSearchService:
@@ -505,6 +641,76 @@ class MockSearchService:
             logger.warning("MockSearchService: settings 中缺少 META_FIELD_PARAM_TYPE 或 META_FIELD_STANDARD_VALUE，使用默认字段名。")
             param_type_field = "param_type" # 默认值
             standard_value_field = "standard_value" # 默认值
+=======
+    # 模拟 settings (如果需要)
+    class MockSettings:
+        # 更新为通用的 LLM 配置
+        LLM_API_KEY = "sk-jc2KLZ4mqMJp5nwcb40IpnoHnswVusdrqpnUnMnOSJuSALr4"
+        LLM_MODEL_NAME = "gemini-2.5-flash-preview-04-17" # 模拟 Gemini 模型名称
+        LLM_API_URL = "https://api.skyi.cc/v1"
+        LLM_TEMPERATURE = 0.3 # 使用 settings 中的温度
+        LLM_REQUEST_TIMEOUT = 300 # 使用 settings 中的超时
+        META_FIELD_PARAM_TYPE = "std_name"
+        META_FIELD_STANDARD_VALUE = "std_value"
+    settings = MockSettings() # 覆盖导入的 settings
+
+    # 创建实例，使用 MockOpenAI
+    mock_search = MockSearchService()
+    mock_llm_client = MockOpenAI()
+    standardizer = AccurateLLMStandardizer(search_service=mock_search, client=mock_llm_client)
+
+    # 准备测试数据 (模拟提取器输出，包含多个设备组)
+    test_extracted_data = {
+        "设备列表": [
+            {
+                "位号": ["TEST001", "TEST002"],
+                "共用参数": {
+                    "实际共参1": "实际值X",
+                    "实际共参2": "实际值Y"
+                },
+                "不同参数": {
+                    "实际异参3": {
+                        "TEST001": "实际值Z1",
+                        "TEST002": "实际值Z2"
+                    }
+                }
+            },
+            {
+                "位号": ["TEST003"],
+                "共用参数": {
+                    "实际共参A": "实际值A"
+                },
+                "不同参数": {}
+            }
+        ],
+        "备注": {
+            "原始备注": "一些备注信息"
+        }
+    }
+
+    # 调用标准化方法
+    result = standardizer.standardize(test_extracted_data)
+
+    # 打印结果
+    print("\n--- 标准化测试结果 ---")
+    if result is not None:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    class MockSettings:
+        # 更新为通用的 LLM 配置
+        LLM_API_KEY = "mock_api_key"
+        LLM_MODEL_NAME = "mock_gemini_model" # 模拟 Gemini 模型名称
+        LLM_API_URL = "mock_api_url"
+        LLM_TEMPERATURE = 0.4 # 使用 settings 中的温度
+        LLM_REQUEST_TIMEOUT = 300 # 使用 settings 中的超时
+        META_FIELD_PARAM_TYPE = "std_name"
+        META_FIELD_STANDARD_VALUE = "std_value"
+    settings = MockSettings() # 覆盖导入的 settings
+
+    # 创建实例，使用 MockOpenAI
+    mock_search = MockSearchService()
+    mock_llm_client = MockOpenAI()
+    standardizer = AccurateLLMStandardizer(search_service=mock_search, client=mock_llm_client)
+>>>>>>> 7692c17fdcc2ff946e048853c3cf77c9fadb63f9
 
         return [
             {
@@ -742,6 +948,10 @@ if __name__ == "__main__":
         # 使用 print 直接输出 JSON，避免日志格式干扰
         print(json.dumps(standardized_result, ensure_ascii=False, indent=4))
     else:
+<<<<<<< HEAD
         logger.error("标准化处理失败，未返回有效结果。")
 
     logger.info("========== accurate_llm_standardizer.py 主测试程序运行结束 ==========")
+=======
+        print("标准化失败。")
+>>>>>>> 7692c17fdcc2ff946e048853c3cf77c9fadb63f9
