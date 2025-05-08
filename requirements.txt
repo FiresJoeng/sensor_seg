@@ -22,3 +22,7 @@ python-Levenshtein
 # Added for ZhipuAI and retry logic
 zhipuai>=2.0.0
 tenacity>=8.0.0
+
+# Added for PDF processing
+pdfplumber>=0.7.0
+camelot-py[cv]>=0.10.1 # For PDF table extraction (needs opencv)

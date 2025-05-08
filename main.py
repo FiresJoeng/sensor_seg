@@ -30,7 +30,8 @@ try:
     from src.parameter_standardizer.vector_store_manager import VectorStoreManager # 用于检查 KB
     from src.parameter_standardizer.accurate_llm_standardizer import AccurateLLMStandardizer
     from src.standard_matcher.standard_matcher import ModelMatcher, FetchCsvlist, CodeSelector, CodeGenerator # <--- 添加 CodeSelector, CodeGenerator
-    from zhipuai import ZhipuAI
+    # from zhipuai import ZhipuAI # 改用 OpenAI
+    from openai import OpenAI # <--- 添加 OpenAI 导入
 
     # 配置完整的日志记录
     logging_config.setup_logging()
@@ -47,21 +48,25 @@ except Exception as e:
     sys.exit(1)
 
 
-# --- 辅助函数：人工核对 ---
+# --- 辅助函数：人工核对 (来自 main_pipeline.py，功能更全) ---
 def prompt_for_manual_check(prompt_message: str) -> bool:
     """通用的人工确认提示函数"""
     while True:
+        # 使用 print 直接输出到控制台，绕过日志级别限制
         print(f"\n--- 人工核对 ---")
         print(prompt_message)
-        response = input("完成后请按 Enter 继续，或输入 'abort' 中止整个流程: ").lower().strip()
+        response = input("完成后请按 Enter 继续，或输入 'skip' 跳过当前项，输入 'abort' 中止整个流程: ").lower().strip()
         if response == '':
             logger.info("人工确认：继续处理。")
             return True # 继续
+        elif response == 'skip':
+            logger.warning("人工确认：跳过当前项。")
+            return False # 跳过当前项（例如设备）
         elif response == 'abort':
             logger.error("人工确认：中止流程。")
             raise KeyboardInterrupt("用户中止流程") # 使用异常中断流程
         else:
-            print("无效输入。请按 Enter 或输入 'abort'。")
+            print("无效输入。请按 Enter, 输入 'skip', 或 'abort'。")
 
 def save_and_verify_json(data: Dict[str, Any], file_path: Path, prompt_prefix: str) -> Optional[Dict[str, Any]]:
     """保存 JSON 数据，提示用户核对/修改，然后重新加载"""
@@ -73,13 +78,14 @@ def save_and_verify_json(data: Dict[str, Any], file_path: Path, prompt_prefix: s
     except Exception as e:
         logger.error(f"保存 {prompt_prefix} JSON 数据到 {file_path} 时出错: {e}", exc_info=True)
         print(f"错误：无法保存 {prompt_prefix} JSON 文件。")
-        return None # 保存失败
+        return None # 保存失败，无法继续
 
     prompt = f"{prompt_prefix} 数据已保存至文件，请检查或修改:\n{file_path}"
+    # 注意：这里的 prompt_for_manual_check 返回 False 代表 skip
+    # 对于整个 JSON 文件的核对，skip 通常意味着不想继续使用这个文件，可以视为一种中止
     if not prompt_for_manual_check(prompt):
-        # 如果用户选择 abort (abort 会抛异常)
-        logger.error(f"{prompt_prefix} 数据核对被中止。")
-        return None # 理论上不会执行到这里，因为 abort 会抛异常
+        logger.error(f"{prompt_prefix} 数据核对未通过或被跳过/中止。")
+        return None # 返回 None 表示核对失败或跳过/中止
 
     # 重新加载可能被修改的文件
     try:
@@ -149,189 +155,246 @@ def check_and_build_kb():
         logger.error(f"检查或构建知识库时发生错误: {e}", exc_info=True)
         return False
 
+# --- 新的核心提取与标准化函数 (源自 main_pipeline.py) ---
+def run_extraction_and_standardization(
+    input_file_path: Path,
+    info_extractor: InfoExtractor,
+    standardizer: AccurateLLMStandardizer
+) -> Tuple[Optional[Dict[str, Any]], Optional[Path]]:
+    """
+    执行信息提取、人工核对、参数标准化和参数合并。
+
+    Args:
+        input_file_path: 输入文档的路径。
+        info_extractor: InfoExtractor 的实例。
+        standardizer: AccurateLLMStandardizer 的实例。
+
+    Returns:
+        一个元组，包含最终合并后的数据字典 (如果成功) 和提取参数核对后的文件路径，
+        或者 (None, None) 如果过程中发生错误或中止。
+    """
+    logger.info(f"--- 开始对文件 {input_file_path.name} 进行提取与标准化 ---")
+    
+    verified_extracted_data: Optional[Dict[str, Any]] = None
+    path_to_verified_extracted_data: Optional[Path] = None
+
+    # 1. 信息提取
+    try:
+        logger.info("开始信息提取...")
+        extracted_data_raw = info_extractor.extract_parameters_from_pdf(input_file_path)
+        if extracted_data_raw is None:
+            logger.error("从PDF提取参数失败。")
+            return None, None
+        logger.info("信息提取成功。")
+
+        # 备注提取逻辑 (如果需要，可以从 main_pipeline.py 移植过来，但当前 InfoExtractor 可能已包含)
+        # remarks = info_extractor.json_proc.extract_remarks(extracted_data_raw)
+        # if remarks:
+        #     logger.info(f"提取到的备注信息: {remarks}")
+
+        # 提取后的人工核对
+        # 文件名可以自定义，例如 _extracted_verified.json
+        extracted_checkpoint_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_extracted_verified.json"
+        verified_extracted_data = save_and_verify_json(extracted_data_raw, extracted_checkpoint_path, "提取的参数（待核对）")
+        
+        if verified_extracted_data is None:
+            logger.error("提取的参数核对失败或被中止。")
+            return None, None
+        logger.info("提取的参数核对完成。")
+        path_to_verified_extracted_data = extracted_checkpoint_path
+
+    except KeyboardInterrupt:
+        logger.warning("流程在提取或核对阶段被用户中止。")
+        return None, None
+    except Exception as e:
+        logger.exception(f"信息提取或核对过程中发生意外错误: {e}")
+        return None, None
+
+    # 2. 参数标准化 (使用核对后的 verified_extracted_data)
+    logger.info("开始使用 AccurateLLMStandardizer 标准化提取并核对后的完整分组数据...")
+    standardized_grouped_data = standardizer.standardize(verified_extracted_data)
+
+    if standardized_grouped_data is None:
+        logger.error("完整分组数据标准化失败。")
+        return None, path_to_verified_extracted_data # 即使标准化失败，也返回已核对的提取文件路径
+    logger.info("完整分组数据标准化完成。")
+
+    # (可选) 标准化后的人工核对 - main_pipeline.py 中没有这一步，但如果需要可以添加
+    # standardized_checkpoint_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_standardized_verified.json"
+    # verified_standardized_data = save_and_verify_json(standardized_grouped_data, standardized_checkpoint_path, "标准化后的参数（待核对）")
+    # if verified_standardized_data is None:
+    #     logger.error("标准化参数核对失败或被中止。")
+    #     return None, path_to_verified_extracted_data
+    # logger.info("标准化参数核对完成.")
+    # final_data_for_merging = verified_standardized_data
+    final_data_for_merging = standardized_grouped_data # 如果没有标准化后核对
+
+    # 3. 参数合并
+    logger.info("开始合并标准化后的设备组参数...")
+    final_merged_data = info_extractor.json_proc.merge_parameters(final_data_for_merging)
+
+    if final_merged_data is None or "设备列表" not in final_merged_data:
+        # 尝试处理单个设备的情况，如果顶层就是参数字典
+        if isinstance(final_data_for_merging, dict) and not any(key.startswith("设备") for key in final_data_for_merging.keys()):
+            logger.warning("合并结果似乎是单个设备，尝试包装成设备列表。")
+            final_merged_data = {"设备列表": [final_data_for_merging]}
+        else:
+            logger.error("合并标准化后的参数失败或结果格式不正确。")
+            return None, path_to_verified_extracted_data
+            
+    logger.info(f"标准化参数合并完成，得到 {len(final_merged_data.get('设备列表', []))} 个独立设备。")
+    
+    # 此函数不负责保存最终的 _standardized_all.json，这由调用者决定
+    # 或者，如果需要，可以在这里保存一个类似 _merged_for_matching.json 的文件
+    logger.info(f"--- 文件 {input_file_path.name} 的提取与标准化完成 ---")
+    return final_merged_data, path_to_verified_extracted_data
+
 
 # --- 主处理流程 ---
 def process_order_file(input_file_path: Path, output_file_path: Path):
     """处理单个订单文件，执行完整的提取、标准化和匹配流程。"""
     logger.info(f"===== 开始处理订单文件: {input_file_path.name} =====")
 
-    # --- 1. 初始化服务 ---
+    # --- 1. 初始化服务 (已更新，使用 OpenAI 客户端) ---
+    info_extractor_service: Optional[InfoExtractor] = None
+    standardizer_service: Optional[AccurateLLMStandardizer] = None
     try:
-        logger.info("初始化服务...")
-        info_extractor = InfoExtractor()
-        search_service = SearchService() # Standardizer 会用到
-        if not search_service.is_ready():
-            logger.error("SearchService (用于标准化) 未就绪，无法继续处理。")
+        logger.info("初始化 InfoExtractor...")
+        info_extractor_service = InfoExtractor()
+        
+        logger.info("初始化 SearchService (供 Standardizer 使用)...")
+        search_service_instance = SearchService()
+        if not search_service_instance.is_ready():
+            logger.error("SearchService 未就绪，无法继续处理。")
             return
 
-        # 初始化 ZhipuAI 客户端
-        api_key = settings.ZHIPUAI_API_KEY # 直接访问模块变量
+        logger.info("初始化 LLM 客户端 (OpenAI 兼容)...")
+        api_key = settings.LLM_API_KEY
+        base_url = settings.LLM_API_URL
+        timeout = settings.LLM_REQUEST_TIMEOUT
+
         if not api_key:
-            logger.error("配置错误：未能从 settings.py 或 .env 文件加载 ZHIPUAI_API_KEY。")
-            raise ValueError("缺少 ZHIPUAI_API_KEY 配置")
-        zhipuai_client = ZhipuAI(api_key=api_key)
+            logger.error("配置错误：在 settings.py 中未找到 LLM_API_KEY。")
+            raise ValueError("缺少 LLM_API_KEY 配置")
+        if not base_url:
+            logger.warning("配置警告：在 settings.py 中未找到 LLM_API_URL，将使用 OpenAI 默认 API 地址。")
 
-        # 初始化 AccurateLLMStandardizer
-        standardizer = AccurateLLMStandardizer(search_service=search_service, client=zhipuai_client)
+        llm_client_instance = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
+        
+        logger.info("初始化 AccurateLLMStandardizer (使用 OpenAI 客户端)...")
+        standardizer_service = AccurateLLMStandardizer(search_service=search_service_instance, client=llm_client_instance)
+        logger.info("核心服务初始化完成。")
 
-        # FetchCsvlist 实例化移到获取 extracted_data 之后
-        # index_json_path 定义移到 FetchCsvlist 使用处
-
-        logger.info("核心服务初始化完成 (CSV列表映射将在数据提取后获取)。")
-
-    except ValueError as ve:
-        logger.error(ve)
+    except ValueError as ve: 
+        logger.error(f"服务初始化配置错误: {ve}")
         return
     except Exception as e:
-        logger.exception(f"初始化服务时出错: {e}")
+        logger.exception(f"初始化服务时发生意外错误: {e}")
         return
 
-    # --- 2. 信息提取 ---
-    extracted_data: Optional[Dict[str, Any]] = None
-    try:
-        logger.info(f"开始从 {input_file_path} 提取信息...")
-        # 假设 extract_parameters_from_pdf 返回包含设备列表和备注的字典
-        extracted_data_raw = info_extractor.extract_parameters_from_pdf(input_file_path)
-        if not extracted_data_raw:
-            logger.error("信息提取失败或未返回任何数据。")
-            return
-        logger.info("信息提取成功。")
-
-        # --- 检查点 1: 提取后核对 ---
-        extracted_checkpoint_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_1_extracted_raw.json"
-        extracted_data = save_and_verify_json(extracted_data_raw, extracted_checkpoint_path, "提取的原始参数")
-        if extracted_data is None:
-            logger.error("提取的参数核对失败或被中止。")
-            return # 如果核对失败或中止
-        logger.info("提取参数核对完成。")
-
-        # --- 获取 CSV 文件列表映射 (使用 FetchCsvlist) ---
-        csv_list_map: Optional[Dict[str, List[str]]] = None
-        try:
-            logger.info("开始通过 FetchCsvlist 获取 CSV 文件列表映射...")
-            fetcher = FetchCsvlist()
-            index_json_path = project_root / "libs" / "standard" / "index.json"
-
-            # FetchCsvlist 需要一个输入 JSON 文件路径，该文件内容应类似于 test.json
-            # 我们使用核对后的 extracted_data，其路径是 extracted_checkpoint_path
-            logger.info(f"FetchCsvlist 将使用输入文件: {extracted_checkpoint_path}")
-
-            csv_list_map = fetcher.fetch_csv_lists(
-                input_json_path=extracted_checkpoint_path, # 直接使用第一次核对后的文件
-                index_json_path=index_json_path
-            )
-            
-            if not csv_list_map:
-                logger.error(f"未能通过 FetchCsvlist 获取标准库 CSV 文件列表映射，无法进行后续匹配。")
-                return # 流程中止
-            logger.info(f"通过 FetchCsvlist 成功获取 CSV 列表映射: {len(csv_list_map)} 个产品类型。")
-
-        except Exception as e_fetch_csv:
-            logger.exception(f"通过 FetchCsvlist 获取 CSV 列表映射时发生错误: {e_fetch_csv}")
-            return # 流程中止
-
-
-    except KeyboardInterrupt:
-        logger.warning("流程在信息提取或CSV列表获取阶段被用户中止。")
-        return
-    except Exception as e:
-        logger.exception(f"信息提取或CSV列表获取过程中发生意外错误: {e}")
-        return
-
-    # --- 3. 参数标准化 ---
+    # --- 2. 信息提取、标准化和合并 (调用新核心函数) ---
     standardized_data: Optional[Dict[str, Any]] = None
+    path_to_verified_extracted_data_for_csv: Optional[Path] = None
+    
     try:
-        logger.info("开始参数标准化...")
-        # 使用 AccurateLLMStandardizer 对 *核对后* 的提取数据进行标准化
-        standardized_data_raw = standardizer.standardize(extracted_data) 
-        if not standardized_data_raw:
-            logger.error("参数标准化失败或未返回任何数据。")
-            return
-        logger.info("参数标准化成功。")
+        logger.info(f"开始对文件 {input_file_path.name} 执行提取、标准化和合并流程...")
+        standardized_data, path_to_verified_extracted_data_for_csv = run_extraction_and_standardization(
+            input_file_path,
+            info_extractor_service,
+            standardizer_service
+        )
 
-        # --- 检查点 2: 标准化后核对 ---
-        standardized_checkpoint_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_2_standardized.json"
-        standardized_data = save_and_verify_json(standardized_data_raw, standardized_checkpoint_path, "标准化后的参数")
         if standardized_data is None:
-            logger.error("标准化参数核对失败或被中止。")
-            return 
-        logger.info("标准化参数核对完成。")
+            logger.error(f"未能为文件 {input_file_path.name} 生成最终的标准化和合并数据。处理中止。")
+            return
+        if path_to_verified_extracted_data_for_csv is None:
+             logger.error(f"未能获取提取并核对后的数据文件路径 ({input_file_path.name})，无法进行后续的 CSV 列表获取。处理中止。")
+             return
+        logger.info(f"文件 {input_file_path.name} 的参数提取、标准化和合并完成。")
 
     except KeyboardInterrupt:
-        logger.warning("流程在参数标准化或核对阶段被用户中止。")
+        logger.warning(f"流程在提取、标准化或合并阶段被用户中止 ({input_file_path.name})。")
         return
     except Exception as e:
-        logger.exception(f"参数标准化或核对过程中发生意外错误: {e}")
+        logger.exception(f"提取、标准化或合并过程中发生意外错误 ({input_file_path.name}): {e}")
+        return
+
+    # --- 3. 获取 CSV 文件列表映射 (使用 FetchCsvlist) ---
+    csv_list_map: Optional[Dict[str, List[str]]] = None
+    try:
+        logger.info("开始通过 FetchCsvlist 获取 CSV 文件列表映射...")
+        fetcher = FetchCsvlist()
+        index_json_path = project_root / "libs" / "standard" / "index.json"
+
+        logger.info(f"FetchCsvlist 将使用输入文件: {path_to_verified_extracted_data_for_csv}")
+        csv_list_map = fetcher.fetch_csv_lists(
+            input_json_path=path_to_verified_extracted_data_for_csv,
+            index_json_path=index_json_path
+        )
+        
+        if not csv_list_map:
+            logger.error(f"未能通过 FetchCsvlist 获取标准库 CSV 文件列表映射 ({input_file_path.name})，无法进行后续匹配。")
+            return 
+        logger.info(f"通过 FetchCsvlist 成功为 {input_file_path.name} 获取 CSV 列表映射: {len(csv_list_map)} 个产品类型。")
+
+    except Exception as e_fetch_csv:
+        logger.exception(f"通过 FetchCsvlist 获取 CSV 列表映射时发生错误 ({input_file_path.name}): {e_fetch_csv}")
         return
 
     # --- 4. 数据准备与选型匹配 ---
-    final_matching_results = {}
+    # final_matching_results = {} # 这个变量似乎没有在后续被有效使用来保存整体结果到文件
     try:
         logger.info("开始准备数据并进行选型匹配...")
         
-        # standardized_data 和 csv_list_map 都应该已经准备好
         if standardized_data is None or csv_list_map is None:
-            logger.error("标准化数据或CSV列表映射为空，无法进行匹配。")
+            logger.error(f"标准化数据或CSV列表映射为空 ({input_file_path.name})，无法进行匹配。")
             return
 
         device_list = standardized_data.get("设备列表")
         if not isinstance(device_list, list):
-            logger.error("标准化数据格式错误：未找到'设备列表'或其不是列表。")
-            if isinstance(standardized_data, dict) and "设备列表" not in standardized_data:
-                 logger.warning("标准化数据顶层似乎是单个设备参数，尝试按单个设备处理。")
-                 device_list = [standardized_data] 
+            logger.error(f"标准化数据格式错误 ({input_file_path.name})：未找到'设备列表'或其不是列表。")
+            if isinstance(standardized_data, dict) and "设备列表" not in standardized_data: # 已在 run_extraction_and_standardization 中处理
+                 logger.warning(f"标准化数据顶层 ({input_file_path.name}) 似乎是单个设备参数，尝试按单个设备处理。")
+                 device_list = standardized_data.get("设备列表") 
+                 if not isinstance(device_list, list): 
+                    logger.error(f"无法将单个设备数据 ({input_file_path.name}) 转换为列表进行匹配。")
+                    return
             else:
-                 logger.error("无法解析标准化数据以进行匹配。")
+                 logger.error(f"无法解析标准化数据 ({input_file_path.name}) 以进行匹配。")
                  return
 
-        logger.info(f"准备为 {len(device_list)} 个设备/参数组进行匹配...")
-        all_devices_matches = [] 
+        logger.info(f"准备为 {input_file_path.name} 中的 {len(device_list)} 个设备/参数组进行匹配...")
+        # all_devices_matches = [] # 这个变量似乎未被有效使用
+        all_device_final_codes = [] # 用于收集每个设备的最终代码结果
 
         for i, device_params_raw in enumerate(device_list):
-            device_name = device_params_raw.get("设备名称", f"设备_{i+1}") 
+            device_name = device_params_raw.get("设备名称", f"设备_{input_file_path.stem}_{i+1}") 
             logger.info(f"--- 开始匹配 {device_name} ---")
+            current_device_result = {"设备名称": device_name, "产品型号": "处理失败或无有效代码"}
+
 
             if not isinstance(device_params_raw, dict):
                 logger.error(f"{device_name} 的参数格式不是字典，跳过匹配。数据: {device_params_raw}")
-                all_devices_matches.append({"设备名称": device_name, "匹配结果": None, "错误": "参数格式错误"})
                 continue
-
-            params_to_match = {k: v for k, v in device_params_raw.items() if isinstance(v, (str, int, float))}
-            if not params_to_match:
-                 logger.warning(f"{device_name} 没有找到可用于匹配的参数，跳过。")
-                 all_devices_matches.append({"设备名称": device_name, "匹配结果": None, "错误": "无有效参数"})
-                 continue
-
-            logger.debug(f"为 {device_name} 准备的匹配参数: {params_to_match}")
-            # ModelMatcher 将直接使用第二次核对后的文件 standardized_checkpoint_path
-            # 前提是 standardized_data (即 standardized_checkpoint_path 的内容)
-            # 在被包装成 device_list = [standardized_data] 后，
-            # device_params_raw 就是 ModelMatcher 期望的单个设备的参数字典。
-            # 并且 params_to_match 应该与 standardized_checkpoint_path 的内容一致（或其核心部分）。
-            # 为了确保 ModelMatcher 读取的是完整的、未经 params_to_match 过滤的文件内容，
-            # 我们直接将 standardized_checkpoint_path 传递给 ModelMatcher。
             
-            # 检查 device_params_raw 是否就是 standardized_data (当只有一个设备时)
-            # 如果是，并且 params_to_match 是从 device_params_raw 过滤的，
-            # 那么直接用 standardized_checkpoint_path 是合理的，因为它包含了完整的未过滤数据。
-            
-            input_for_matcher_path = standardized_checkpoint_path
-            logger.info(f"ModelMatcher 将使用输入文件: {input_for_matcher_path} (对应设备 {device_name})")
+            temp_device_param_file_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_device_{i+1}_for_match.json"
+            input_for_matcher_path: Optional[Path] = None
+            try:
+                with open(temp_device_param_file_path, 'w', encoding='utf-8') as temp_f:
+                    json.dump(device_params_raw, temp_f, ensure_ascii=False, indent=4)
+                logger.info(f"为设备 {device_name} 创建了临时匹配输入文件: {temp_device_param_file_path}")
+                input_for_matcher_path = temp_device_param_file_path
+            except Exception as e_temp_save:
+                logger.error(f"为设备 {device_name} 创建临时匹配输入文件失败: {e_temp_save}", exc_info=True)
+                continue 
 
             try:
-                # 实例化并执行匹配 (使用从 FetchCsvlist 获取的 csv_list_map)
-                # 并且 ModelMatcher 直接读取 standardized_checkpoint_path
+                logger.info(f"ModelMatcher 将使用输入文件: {input_for_matcher_path} (对应设备 {device_name})")
                 matcher = ModelMatcher(csv_list_map=csv_list_map, input_json_path=str(input_for_matcher_path))
                 device_matches = matcher.match() 
                 logger.info(f"{device_name} 匹配完成。匹配到 {len(device_matches)} 项。")
                 if matcher.unmatched_inputs:
                      logger.warning(f"{device_name} 有 {len(matcher.unmatched_inputs)} 个参数未匹配。")
-
-                all_devices_matches.append({ # 这个列表可能不再直接用于最终输出了
-                    "设备名称": device_name,
-                    # "匹配结果": device_matches, # 可能不需要存储这个了
-                    # "未匹配输入": matcher.unmatched_inputs
-                })
 
                 # --- 步骤 4.1: 代码选择 ---
                 logger.info(f"开始为 {device_name} 进行代码选择...")
@@ -346,7 +409,7 @@ def process_order_file(input_file_path: Path, output_file_path: Path):
                         logger.info(f"{device_name}: 代码选择完成。选择了 {len(selected_codes_for_device)} 个代码。")
                     except Exception as cs_err:
                         logger.error(f"{device_name}: 代码选择过程中发生错误: {cs_err}", exc_info=True)
-                        selected_codes_for_device = {} # 出错则为空
+                        selected_codes_for_device = {} 
 
                 # --- 步骤 4.2: 代码生成 ---
                 logger.info(f"开始为 {device_name} 生成最终代码...")
@@ -356,10 +419,9 @@ def process_order_file(input_file_path: Path, output_file_path: Path):
                 else:
                     try:
                         code_generator = CodeGenerator()
-                        # CodeGenerator 可能需要用户输入，确保日志或提示能显示
                         logger.info(f"为 {device_name} 调用 CodeGenerator，可能需要用户输入...")
                         final_code_str = code_generator.generate_final_code(
-                            csv_list_map=csv_list_map, # 这个是从 FetchCsvlist 获取的
+                            csv_list_map=csv_list_map, 
                             selected_codes_data=selected_codes_for_device
                         )
                         logger.info(f"{device_name}: 最终代码生成成功。")
@@ -367,47 +429,73 @@ def process_order_file(input_file_path: Path, output_file_path: Path):
                         logger.error(f"{device_name}: 代码生成过程中发生错误: {cg_err}", exc_info=True)
                         final_code_str = f"产品型号生成失败（{device_name}）：{cg_err}"
                 
-                # --- 打印最终结果 (针对当前设备) ---
                 print(f"\n--- {device_name} 的最终结果 ---")
                 print(f"产品型号生成：{final_code_str}")
                 print("=" * 70)
+                current_device_result["产品型号"] = final_code_str
 
-
-            except Exception as match_err: # ModelMatcher 或后续步骤的错误
+            except Exception as match_err: 
                 logger.error(f"为 {device_name} 执行匹配、选择或生成代码时出错: {match_err}", exc_info=True)
                 print(f"\n--- {device_name} 的处理失败 ---")
                 print(f"错误信息：{match_err}")
                 print("=" * 70)
-                # all_devices_matches.append({"设备名称": device_name, "匹配结果": None, "错误": str(match_err)}) # 如果还需要记录错误
+                current_device_result["产品型号"] = f"处理失败: {match_err}"
+            finally:
+                # 清理为当前设备创建的临时文件
+                if input_for_matcher_path and input_for_matcher_path.exists():
+                    try:
+                        input_for_matcher_path.unlink()
+                        logger.info(f"已删除临时匹配文件: {input_for_matcher_path}")
+                    except OSError as e_del_temp:
+                        logger.warning(f"删除临时匹配文件 {input_for_matcher_path} 失败: {e_del_temp}")
+            all_device_final_codes.append(current_device_result)
+        
+        logger.info(f"所有设备的选型、代码选择和生成流程完成 ({input_file_path.name})。")
 
-        # final_matching_results = {"匹配详情": all_devices_matches} # 不再需要这个结构来保存文件
-        logger.info("所有设备的选型、代码选择和生成流程完成。") # 针对当前输入文件的所有设备
+        # --- 保存最终选型结果到文件 ---
+        if all_device_final_codes:
+            # output_file_path 是在 main 函数中基于 settings.OUTPUT_DIR 和输入文件名构造的
+            # 例如: data/output/温变规格书_output.json
+            final_output_data_to_save = {
+                "输入文件": str(input_file_path.name),
+                "选型结果": all_device_final_codes
+            }
+            try:
+                # 确保 output_file_path 的父目录存在 (虽然 main 函数中已创建 settings.OUTPUT_DIR)
+                output_file_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(output_file_path, 'w', encoding='utf-8') as f_out:
+                    json.dump(final_output_data_to_save, f_out, ensure_ascii=False, indent=4)
+                logger.info(f"最终选型结果已保存至: {output_file_path}")
+                print(f"\n最终选型结果已保存至: {output_file_path}")
+            except Exception as e_save_final:
+                logger.error(f"保存最终选型结果到 {output_file_path} 失败: {e_save_final}", exc_info=True)
+                print(f"\n错误：无法保存最终选型结果文件到 {output_file_path}")
+
 
     except KeyboardInterrupt:
-        logger.warning("流程在选型匹配、代码选择或生成阶段被用户中止。")
-        return # 中止当前文件的处理
+        logger.warning(f"流程在选型匹配、代码选择或生成阶段被用户中止 ({input_file_path.name})。")
+        return 
     except Exception as e:
-        logger.exception(f"选型匹配、代码选择或生成过程中发生意外错误: {e}")
-        return # 中止当前文件的处理
+        logger.exception(f"选型匹配、代码选择或生成过程中发生意外错误 ({input_file_path.name}): {e}")
+        return 
 
-    # --- 5. (原步骤6) 删除中间文件 ---
-    # 这部分逻辑在单个文件处理成功后执行
+    # --- 5. 删除中间文件 ---
     logger.info(f"处理完 {input_file_path.name}，开始删除其相关的中间 JSON 文件...")
-    files_to_delete = [
-        settings.OUTPUT_DIR / f"{input_file_path.stem}_1_extracted_raw.json",
-        settings.OUTPUT_DIR / f"{input_file_path.stem}_2_standardized.json"
-    ]
-    for file_to_del_path in files_to_delete:
-        if file_to_del_path.exists():
+    files_to_delete_main = []
+    if path_to_verified_extracted_data_for_csv: # 这是 _extracted_verified.json
+        files_to_delete_main.append(path_to_verified_extracted_data_for_csv)
+
+    for file_to_del_path in files_to_delete_main:
+        if file_to_del_path and file_to_del_path.exists(): # Added check for file_to_del_path not being None
             try:
                 file_to_del_path.unlink()
                 logger.info(f"已删除中间文件: {file_to_del_path}")
             except OSError as e_del:
                 logger.warning(f"删除中间文件 {file_to_del_path} 失败: {e_del}")
-        else:
+        elif file_to_del_path: # If path was provided but file doesn't exist
             logger.info(f"中间文件未找到，无需删除: {file_to_del_path}")
-    logger.info("中间文件删除操作完成。")
-
+            
+    logger.info(f"中间文件删除操作完成 ({input_file_path.name})。")
     logger.info(f"===== 订单文件处理完成: {input_file_path.name} =====")
 
 
@@ -415,26 +503,21 @@ def process_order_file(input_file_path: Path, output_file_path: Path):
 def main():
     """主程序入口"""
     parser = argparse.ArgumentParser(description="传感器智能选型系统")
-    parser.add_argument("input_dir", type=str, help="包含订单文件的输入目录路径")
-    parser.add_argument("output_dir", type=str, help="存放最终选型结果 JSON 文件的输出目录路径")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--input-file", type=str, help="要处理的单个输入文件路径。")
+    group.add_argument("--input-dir", type=str, help="包含订单文件的输入目录路径。")
+    # output_dir 参数被移除，将使用 settings.OUTPUT_DIR
+    # parser.add_argument("output_dir", type=str, help="存放最终选型结果 JSON 文件的输出目录路径") 
     args = parser.parse_args()
 
-    input_directory = Path(args.input_dir)
-    output_directory = Path(args.output_dir)
-
-    # 检查输入目录是否存在
-    if not input_directory.is_dir():
-        logger.critical(f"输入目录未找到或不是一个目录: {input_directory}")
-        print(f"错误: 输入目录未找到或不是一个目录: {input_directory}")
-        sys.exit(1)
-
-    # 确保输出目录存在
+    # 输出目录固定为 settings.OUTPUT_DIR
+    output_directory = settings.OUTPUT_DIR
     try:
         output_directory.mkdir(parents=True, exist_ok=True)
         logger.info(f"输出目录已确认/创建: {output_directory}")
     except Exception as e:
-        logger.critical(f"无法创建输出目录: {output_directory} - {e}")
-        print(f"错误: 无法创建输出目录: {output_directory} - {e}")
+        logger.critical(f"无法创建或访问固定输出目录: {output_directory} - {e}")
+        print(f"错误: 无法创建或访问固定输出目录: {output_directory} - {e}")
         sys.exit(1)
 
     # 检查并构建知识库
@@ -447,42 +530,64 @@ def main():
 
     input_files_processed = 0
     input_files_failed = 0
+    files_to_process: List[Path] = []
 
-    logger.info(f"开始扫描输入目录: {input_directory} 中的所有文件...")
-    # 使用 iterdir() 并过滤出文件
-    all_files_in_dir = [f for f in input_directory.iterdir() if f.is_file()]
+    if args.input_file:
+        logger.info(f"指定了单个输入文件: {args.input_file}")
+        single_input_file = Path(args.input_file)
+        if not single_input_file.is_file():
+            logger.critical(f"指定的输入文件未找到或不是一个文件: {single_input_file}")
+            print(f"错误: 指定的输入文件未找到或不是一个文件: {single_input_file}")
+            sys.exit(1)
+        files_to_process.append(single_input_file)
+    elif args.input_dir:
+        logger.info(f"指定了输入目录: {args.input_dir}")
+        input_directory = Path(args.input_dir)
+        if not input_directory.is_dir():
+            logger.critical(f"输入目录未找到或不是一个目录: {input_directory}")
+            print(f"错误: 输入目录未找到或不是一个目录: {input_directory}")
+            sys.exit(1)
+        
+        logger.info(f"开始扫描输入目录: {input_directory} 中的所有文件...")
+        files_to_process = [f for f in input_directory.iterdir() if f.is_file()]
+        if not files_to_process:
+            logger.warning(f"在目录 {input_directory} 中没有找到任何文件。")
+            print(f"提示: 在目录 {input_directory} 中没有找到任何文件。")
+            sys.exit(0)
+        logger.info(f"找到 {len(files_to_process)} 个文件，准备处理...")
 
-    if not all_files_in_dir:
-        logger.warning(f"在目录 {input_directory} 中没有找到任何文件。")
-        print(f"提示: 在目录 {input_directory} 中没有找到任何文件。")
-        sys.exit(0)
-
-    logger.info(f"找到 {len(all_files_in_dir)} 个文件，准备处理...")
-
-    for input_file_path in all_files_in_dir:
+    for input_file_path in files_to_process:
         logger.info(f"--- 开始处理输入文件: {input_file_path.name} ---")
-        # 为每个输入文件确定输出文件路径
-        # 保留原始扩展名，并在文件名后添加 _output，然后更改扩展名为 .json
-        output_file_name = f"{input_file_path.stem}_output.json"
-        output_file_path = output_directory / output_file_name
+        # 输出文件名保持不变，但路径使用固定的 output_directory
+        output_file_name = f"{input_file_path.stem}_output.json" # 之前 process_order_file 不使用这个 output_file_path 来写文件
+                                                                # 而是打印最终型号。如果需要保存匹配结果，则需要调整 process_order_file
+                                                                # 当前假设 process_order_file 的第二个参数 output_file_path 仅用于日志或未来扩展
+        # 实际上，process_order_file 并没有使用 output_file_path 参数来写入任何文件。
+        # 它的输出是打印到控制台的最终产品型号。
+        # 中间文件（如 _extracted_verified.json）会保存到 settings.OUTPUT_DIR。
+        # 如果用户期望每个输入文件都有一个最终的 JSON 输出（例如包含型号的结果），
+        # 那么 process_order_file 需要修改以保存这样的文件。
+        # 目前，我将保持 output_file_path 的构造，但提醒 process_order_file 当前不使用它写最终结果。
+        dummy_output_path_for_logging = output_directory / output_file_name
+
 
         try:
-            # 假设 process_order_file 内部的 InfoExtractor 能够处理各种文件类型
-            # 或者它有自己的逻辑来处理不支持的文件类型。
-            # 当前的修改只关注 main.py 的输入和输出文件管理。
-            process_order_file(input_file_path, output_file_path)
+            process_order_file(input_file_path, dummy_output_path_for_logging) # 第二个参数当前主要用于日志或结构占位
             input_files_processed += 1
         except KeyboardInterrupt:
             logger.warning(f"用户中止了文件 {input_file_path.name} 的处理流程。")
             print(f"\n文件 {input_file_path.name} 的处理流程已中止。")
             input_files_failed +=1
-            user_choice = input("是否中止处理所有剩余文件? (yes/no): ").strip().lower()
-            if user_choice == 'yes':
-                logger.warning("用户选择中止整个批处理流程。")
-                print("整个批处理流程已中止。")
+            if len(files_to_process) > 1: # 仅当处理多个文件时询问
+                user_choice = input("是否中止处理所有剩余文件? (yes/no): ").strip().lower()
+                if user_choice == 'yes':
+                    logger.warning("用户选择中止整个批处理流程。")
+                    print("整个批处理流程已中止。")
+                    sys.exit(1)
+                else:
+                    logger.info("继续处理下一个文件（如果还有）。")
+            else: # 如果是单个文件，中止就直接退出了
                 sys.exit(1)
-            else:
-                logger.info("继续处理下一个文件（如果还有）。")
         except Exception as e:
             logger.exception(f"处理文件 {input_file_path.name} 过程中发生未捕获的严重错误。")
             print(f"\n处理文件 {input_file_path.name} 过程中发生严重错误，请检查日志。")
@@ -493,8 +598,10 @@ def main():
     logger.info(f"成功处理文件数: {input_files_processed}")
     logger.info(f"处理失败文件数: {input_files_failed}")
 
-    if input_files_processed == 0 and input_files_failed == 0 and not all_files_in_dir:
-        logger.info(f"输入目录 {input_directory} 中没有找到符合条件的文件进行处理。")
+    if input_files_processed == 0 and input_files_failed == 0 and not files_to_process:
+        # 这个条件可能需要调整，因为 files_to_process 在单文件模式下也会有内容
+        if args.input_dir: # 仅当是目录模式且未找到文件时显示此消息
+             logger.info(f"输入目录 {args.input_dir} 中没有找到符合条件的文件进行处理。")
 
 if __name__ == "__main__":
     main()
