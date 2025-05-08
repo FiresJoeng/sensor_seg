@@ -1479,15 +1479,6 @@ class CodeGenerator:
                 logger.info(f"  成功获取 tg_csv_path: {tg_csv_path} (类型: {type(tg_csv_path)})")
             elif intermediate_val is not None and isinstance(intermediate_val, list) and len(intermediate_val) == 0:
                 logger.info("  intermediate_val 是一个空列表，tg_csv_path 将保持为 None (或根据逻辑处理为 IndexError)。")
-                # 如果原始逻辑是直接 [0] 导致 IndexError，这里可以选择模拟或记录
-                # 为了与原始逻辑更接近，如果列表为空，直接访问 [0] 会出错。
-                # 但我们的目标是调试 TypeError，所以先这样。如果后续需要 IndexError，可以调整。
-                # 或者，如果原始代码依赖于此处的 IndexError，那么这里应该让它发生。
-                # 考虑到原始错误是 TypeError，我们先关注它。
-                # 如果原始代码期望空列表时 tg_csv_path 为 None，那么当前逻辑是OK的。
-                # 如果原始代码期望空列表时报错，那么这里应该模拟：
-                # if not intermediate_val: raise IndexError("list index out of range for tg_csv_path from empty list")
-                # 但我们先不主动抛出IndexError，因为原始错误是TypeError
             else: # intermediate_val is None or not a list or an empty list (already handled)
                 logger.info(f"  intermediate_val 不是预期的非空列表 (可能是 [None] 或其他)，tg_csv_path 将为 None。")
                 # 如果 intermediate_val 是 [None]，那么 [None][0] 是 None。
@@ -1628,6 +1619,33 @@ class CodeGenerator:
                                 f"规则 6 触发：'接线盒形式' 缺失，'接线口' code 为 '4'，强制 model '接线盒形式' ({product_type}) code 为 '-3'")
                             handled_by_rule = True
                             source = "rule_6_missing_jxhxs_wp_4"
+
+                elif target_model_str == "铠套材质" or target_model_str == "套管材质":
+                    armored_sheath_code_val = model_to_code_map.get("铠套材质")
+                    thermowell_code_val = model_to_code_map.get("套管材质")
+                    specific_thermowell_codes_for_rule7 = {"PN", "QN", "RN", "GH", "Z"}
+
+                    # 检查 code 是否有效 (非 None 且非空字符串)
+                    armored_sheath_code_is_specified = armored_sheath_code_val is not None and armored_sheath_code_val != ""
+                    thermowell_code_is_specified = thermowell_code_val is not None and thermowell_code_val != ""
+                    
+                    if target_model_str == "铠套材质" and not armored_sheath_code_is_specified: # 铠套材质缺失
+                        if thermowell_code_is_specified and thermowell_code_val in specific_thermowell_codes_for_rule7:
+                            code_to_use = thermowell_code_val
+                            logger.info(
+                                f"规则 7 触发：'铠套材质' ({product_type}) 缺失，'套管材质' code ('{thermowell_code_val}') 在特定集合中，"
+                                f"强制 '铠套材质' code 与 '套管材质' 一致。")
+                            handled_by_rule = True
+                            source = "rule_7_armored_from_thermowell_specific"
+                    
+                    elif target_model_str == "套管材质" and not thermowell_code_is_specified: # 套管材质缺失
+                        if armored_sheath_code_is_specified: # 铠套材质存在且有值
+                            code_to_use = armored_sheath_code_val
+                            logger.info(
+                                f"规则 7 触发：'套管材质' ({product_type}) 缺失，'铠套材质' code 为 '{armored_sheath_code_val}'，"
+                                f"强制 '套管材质' code 与 '铠套材质' 一致。")
+                            handled_by_rule = True
+                            source = "rule_7_thermowell_from_armored"
 
                 # --- 3. 标准代码查找 (仅当未被规则处理时) ---
                 if not handled_by_rule:
