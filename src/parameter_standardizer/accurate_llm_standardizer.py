@@ -256,8 +256,7 @@ class AccurateLLMStandardizer:
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2, # 设置温度参数
-                max_tokens=12000, # 增加最大 token 数以适应更大的输入和输出
-                timeout=300
+                # 增加最大 token 数以适应更大的输入和输出
             )
 
             # 检查响应是否有效
@@ -387,7 +386,7 @@ class AccurateLLMStandardizer:
                     standardized_group_entry = standardized_group_list_from_llm[0]
                     if isinstance(standardized_group_entry, dict):
                         # 检查是否包含标准化参数键，例如 "标准化共用参数", "标准化不同参数"
-                        if "标准化共用参数" in standardized_group_entry或 "标准化不同参数" in standardized_group_entry:
+                        if "标准化共用参数" in standardized_group_entry or "标准化不同参数" in standardized_group_entry:
                              logger.info(f"成功从 LLM 获取设备组 {', '.join(group_tags)} 的标准化结果。")
                              standardized_device_groups.append(standardized_group_entry)
                         else:
@@ -425,44 +424,40 @@ class AccurateLLMStandardizer:
 
 
 # --- 可选的测试代码 ---
-if __name__ == '__main__':
-    # 这是一个简单的测试，实际使用时应在 pipeline 中调用
-    print("运行 AccurateLLMStandardizer 测试...")
-    logging.basicConfig(level=logging.DEBUG) # 设置日志级别以便查看详细信息
+class MockZhipuAI:
+    class MockChat:
+        class MockCompletions:
+            def create(self, model, messages, temperature):
+                print(f"MockZhipuAI: 接收到 Prompt (部分): {messages[0]['content'][:100]}...")
+                try:
+                    # 获取输入数据
+                    json_match = re.search(r'```json\s*(\{.*?\})\s*```', messages[0]['content'], re.DOTALL)
+                    if not json_match:
+                        raise ValueError("无法在输入中找到 JSON 数据")
+                    
+                    # 使用双引号包裹所有属性名
+                    input_data = json.loads(json_match.group(1))
+                    original_group = input_data["设备列表"][0]
+                    original_tags = original_group["位号"]
+                    original_common = original_group.get("共用参数", {})
+                    original_diff = original_group.get("不同参数", {})
 
-    # 模拟依赖项
-    class MockSearchService:
-        def get_vector_suggestions(self, query_text, n_results):
-             print(f"MockSearchService: 获取 '{query_text}' 的向量建议 ({n_results}条)...")
-             # 返回假的建议结果列表
-             return [
-                 {'metadata': {settings.META_FIELD_PARAM_TYPE: '标准参数A', settings.META_FIELD_STANDARD_VALUE: '标准值1'}, 'distance': 0.1},
-                 {'metadata': {settings.META_FIELD_PARAM_TYPE: '标准参数B', settings.META_FIELD_STANDARD_VALUE: '标准值2'}, 'distance': 0.2}
-             ]
-
-    class MockZhipuAI:
-        class MockChat:
-            class MockCompletions:
-                def create(self, model, messages, temperature, max_tokens):
-                    print(f"MockZhipuAI: 接收到 Prompt (部分): {messages[0]['content'][:100]}...")
-                    # 返回一个假的、符合预期的 JSON 响应字符串
-                    # 模拟 LLM 返回标准化后的完整结构
-                    # 注意：这里模拟 LLM 只返回当前处理的设备组
-                    input_data = json.loads(re.search(r'```json\s*(\{.*?\})\s*```', messages[0]['content'], re.DOTALL).group(1))
-                    original_group = input_data['设备列表'][0]
-                    original_tags = original_group['位号']
-                    original_common = original_group.get('共用参数', {})
-                    original_diff = original_group.get('不同参数', {})
-
-                    standardized_common = {f"标准_{k}": f"标准_{v}" for k, v in original_common.items()}
+                    # 生成标准化参数时使用双引号
+                    standardized_common = {}
+                    for k, v in original_common.items():
+                        standardized_common[f"标准_{k}"] = f"标准_{v}"
+                    
                     standardized_diff = {}
                     if isinstance(original_diff, dict):
-                         for param_name, tag_value_map in original_diff.items():
-                              if isinstance(tag_value_map, dict):
-                                   standardized_diff[f"标准_{param_name}"] = {tag: f"标准_{v}" for tag, v in tag_value_map.items()}
+                        for param_name, tag_value_map in original_diff.items():
+                            if isinstance(tag_value_map, dict):
+                                standardized_diff[f"标准_{param_name}"] = {
+                                    tag: f"标准_{v}" 
+                                    for tag, v in tag_value_map.items()
+                                }
 
-
-                    response_json = {
+                    # 构建符合 JSON 规范的响应
+                    response_dict = {
                         "设备列表": [
                             {
                                 "位号": original_tags,
@@ -470,10 +465,15 @@ if __name__ == '__main__':
                                 "标准化不同参数": standardized_diff
                             }
                         ],
-                        "备注": input_data.get('备注', {}) # 模拟 LLM 返回原始备注
+                        "备注": input_data.get("备注", {})
                     }
-                    # 模拟 LLM 可能返回带 ```json 的格式
-                    response_content = f"这是 LLM 的一些说明文字...\n```json\n{json.dumps(response_json, ensure_ascii=False, indent=2)}\n```"
+
+                    # 使用 json.dumps 确保输出正确的 JSON 格式
+                    response_content = (
+                        f"标准化处理完成。\n```json\n"
+                        f"{json.dumps(response_dict, ensure_ascii=False, indent=2)}\n"
+                        f"```"
+                    )
 
                     class MockMessage:
                         content = response_content
@@ -482,59 +482,266 @@ if __name__ == '__main__':
                     class MockResponse:
                         choices = [MockChoice()]
                     return MockResponse()
-            completions = MockCompletions()
-        chat = MockChat()
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON 解析错误: {e}")
+                    raise
+                except Exception as e:
+                    logger.error(f"处理过程中发生错误: {e}")
+                    raise
 
-    # 模拟 settings (如果需要)
-    class MockSettings:
-        ZHIPUAI_API_KEY = "mock_api_key"
-        ZHIPUAI_MODEL_NAME = "mock_model"
-        META_FIELD_PARAM_TYPE = "std_name"
-        META_FIELD_STANDARD_VALUE = "std_value"
-    settings = MockSettings() # 覆盖导入的 settings
+# --- 新增的测试代码 ---
 
-    # 创建实例
-    mock_search = MockSearchService()
-    mock_zhipu = MockZhipuAI()
-    standardizer = AccurateLLMStandardizer(search_service=mock_search, client=mock_zhipu)
+class MockSearchService:
+    """模拟 SearchService 用于测试。"""
+    def get_vector_suggestions(self, query_text: str, n_results: int = 3) -> List[Dict[str, Any]]:
+        logger.info(f"MockSearchService: 为查询 '{query_text}' (n_results={n_results}) 获取模拟向量建议")
+        # 确保 settings 对象及其属性可用，否则这里会出错
+        # 如果 settings.META_FIELD_PARAM_TYPE 等未定义，需要提供默认值或进一步模拟 settings
+        try:
+            param_type_field = settings.META_FIELD_PARAM_TYPE
+            standard_value_field = settings.META_FIELD_STANDARD_VALUE
+        except AttributeError:
+            logger.warning("MockSearchService: settings 中缺少 META_FIELD_PARAM_TYPE 或 META_FIELD_STANDARD_VALUE，使用默认字段名。")
+            param_type_field = "param_type" # 默认值
+            standard_value_field = "standard_value" # 默认值
 
-    # 准备测试数据 (模拟提取器输出，包含多个设备组)
-    test_extracted_data = {
-        "设备列表": [
+        return [
             {
-                "位号": ["TEST001", "TEST002"],
-                "共用参数": {
-                    "实际共参1": "实际值X",
-                    "实际共参2": "实际值Y"
+                "metadata": {
+                    param_type_field: "模拟标准名1",
+                    standard_value_field: "模拟标准值1"
                 },
-                "不同参数": {
-                    "实际异参3": {
-                        "TEST001": "实际值Z1",
-                        "TEST002": "实际值Z2"
-                    }
-                }
+                "distance": 0.1
             },
             {
-                "位号": ["TEST003"],
-                "共用参数": {
-                    "实际共参A": "实际值A"
+                "metadata": {
+                    param_type_field: "模拟标准名2",
+                    standard_value_field: "模拟标准值2"
                 },
-                "不同参数": {}
+                "distance": 0.2
             }
-        ],
-        "备注": {
-            "原始备注": "一些备注信息"
-        }
+        ]
+
+class MockZhipuAIClient:
+    """模拟 ZhipuAI 客户端，用于 AccurateLLMStandardizer 测试。"""
+    def __init__(self):
+        self.chat = self._MockChat()
+
+    class _MockChat:
+        def __init__(self):
+            self.completions = self._MockCompletions()
+
+        class _MockCompletions:
+            def create(self, model: str, messages: List[Dict[str, str]], temperature: float, **kwargs: Any) -> Any:
+                logger.info(f"MockZhipuAIClient: 接收到 Prompt (模型: {model}, 温度: {temperature})")
+                prompt_content = messages[0]['content']
+                logger.debug(f"MockZhipuAIClient: 接收到的 Prompt 内容 (前500字符):\n{prompt_content[:500]}...")
+
+                try:
+                    # 从 Prompt 中提取输入 JSON 数据
+                    # 这里的逻辑需要匹配 _construct_llm_prompt_for_group_data 生成的 Prompt 结构
+                    # INPUT_JSON_MARKER 后是实际的 JSON 数据
+                    # STANDARD_TABLE_MARKER 前是 JSON 数据结束的地方
+                    # 正则表达式尝试捕获位于 INPUT_JSON_MARKER 和两个换行符之间的 JSON 对象
+                    # 这是根据 _construct_llm_prompt_for_group_data 方法中 input_data_json_str 的插入方式设计的
+                    pattern = re.escape(INPUT_JSON_MARKER) + r"\n(\{.*?\})\n\n"
+                    match = re.search(pattern, prompt_content, re.DOTALL)
+
+                    if not match:
+                        logger.error(f"MockZhipuAIClient: 无法使用主要模式从 Prompt 中提取输入 JSON 数据。主要模式: {pattern}")
+                        # 后备方案：尝试查找第一个 '{' 和最后一个 '}' 之间的内容，这比较宽松，但可能在复杂 Prompt 中不准确
+                        # 这种后备通常用于 extract_json_from_response，这里我们期望更精确的匹配
+                        # 但为了模拟的健壮性，可以尝试一个更简单的提取，如果主要模式失败
+                        # 比如，直接查找被 ```json 包围的块，如果 Prompt 模板有这样的结构
+                        json_block_match = re.search(r'```json\s*(\{.*?\})\s*```', prompt_content, re.DOTALL)
+                        if json_block_match:
+                            logger.warning("MockZhipuAIClient: 主要模式提取失败，使用 ```json ... ``` 后备方案提取 JSON。")
+                            input_data_str = json_block_match.group(1)
+                        else:
+                            # 如果连 ```json 也没有，再尝试非常宽松的 {.*?}
+                            # 这需要确保 input_data_json_str 是 Prompt 中唯一的或最主要的 JSON 块
+                            simple_json_match = re.search(r'(\{.*?\})', prompt_content, re.DOTALL)
+                            if simple_json_match:
+                                logger.warning("MockZhipuAIClient: 主要和 ```json``` 模式提取失败，使用非常宽松的 {.*?} 后备方案提取 JSON。")
+                                input_data_str = simple_json_match.group(1) # 这可能捕获到非预期的 JSON
+                            else:
+                                raise ValueError("MockZhipuAIClient: 无法在 Prompt 中找到 JSON 数据，所有提取方案均失败。")
+                    else:
+                        input_data_str = match.group(1)
+
+                    logger.debug(f"MockZhipuAIClient: 提取的输入 JSON 字符串:\n{input_data_str}")
+                    input_data = json.loads(input_data_str) # 这是传递给 LLM 的 group_data_for_llm
+
+                    # 模拟 LLM 的标准化逻辑 (基于文件中的 MockZhipuAI)
+                    original_group = input_data["设备列表"][0] # 假设 LLM 每次处理一个组
+                    original_tags = original_group["位号"]
+                    original_common = original_group.get("共用参数", {})
+                    original_diff = original_group.get("不同参数", {})
+
+                    standardized_common = {f"标准_{k}": f"标准_{v}" for k, v in original_common.items()}
+                    standardized_diff = {}
+                    if isinstance(original_diff, dict):
+                        for param_name, tag_value_map in original_diff.items():
+                            if isinstance(tag_value_map, dict):
+                                standardized_diff[f"标准_{param_name}"] = {
+                                    tag: f"标准_{v}" for tag, v in tag_value_map.items()
+                                }
+
+                    response_dict = {
+                        "设备列表": [
+                            {
+                                "位号": original_tags,
+                                "标准化共用参数": standardized_common,
+                                "标准化不同参数": standardized_diff
+                            }
+                        ],
+                        "备注": input_data.get("备注", {}) # LLM 通常会回传备注或按指示处理
+                    }
+
+                    response_content_str = (
+                        f"Mock LLM 标准化处理完成。\n```json\n"
+                        f"{json.dumps(response_dict, ensure_ascii=False, indent=2)}\n"
+                        f"```"
+                    )
+
+                    class MockMessage:
+                        content = response_content_str
+                    class MockChoice:
+                        message = MockMessage()
+                    # 保存外部 model 参数的值，以便内部类可以访问
+                    outer_model_name = model
+
+                    class MockResponseInstance: # 重命名以避免与外部可能的 MockResponse 冲突
+                        def __init__(self, model_name_to_set: str):
+                            self.choices = [MockChoice()]
+                            self.id = "mock-cmpl-xxxxxxxxxxxxxx"
+                            self.model = model_name_to_set # 使用传入的 model 名称
+                            self.object = "chat.completion"
+                            self.created = int(Path(__file__).stat().st_mtime) # 伪造时间戳
+                            # self.usage = {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150} # 可选
+
+                    return MockResponseInstance(model_name_to_set=outer_model_name)
+
+                except json.JSONDecodeError as e:
+                    logger.error(f"MockZhipuAIClient: JSON 解析错误: {e}。提取的 JSON (部分): {input_data_str[:200] if 'input_data_str' in locals() else 'N/A'}")
+                    raise
+                except Exception as e:
+                    logger.error(f"MockZhipuAIClient: 处理 Prompt 时发生意外错误: {e}", exc_info=True)
+                    raise
+
+if __name__ == "__main__":
+    # 配置基本日志
+    logging.basicConfig(
+        level=logging.DEBUG,  # 设置为 DEBUG 以查看详细日志，包括 Prompt 内容
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        stream=sys.stdout # 将日志输出到标准输出
+    )
+    logger.info("========== 开始运行 accurate_llm_standardizer.py 主测试程序 ==========")
+
+    # 1. 初始化服务
+    # 初始化真实的 SearchService
+    # !!! 重要: 请确保相关的向量数据库配置 (如 VECTOR_STORE_DIR, DEFAULT_COLLECTION_NAME)
+    # !!! 已在 config/settings.py 中正确设置，并且向量数据库服务正在运行且包含数据。
+    try:
+        # SearchService 通常会从 settings 中读取其配置
+        real_search_service = SearchService()
+        logger.info("真实的 SearchService 初始化成功。")
+    except Exception as e:
+        logger.error(f"初始化真实的 SearchService 时发生错误: {e}", exc_info=True)
+        logger.error("请检查 config/settings.py 中的向量数据库配置以及数据库服务的状态。")
+        sys.exit(1)
+
+    # 初始化真实的 ZhipuAI 客户端
+    # !!! 重要: 请确保 settings.ZHIPUAI_API_KEY 已在 config/settings.py 中正确配置 !!!
+    try:
+        if not settings.ZHIPUAI_API_KEY:
+            raise ValueError("ZHIPUAI_API_KEY 未在 settings 中配置。")
+        real_zhipu_client = ZhipuAI(api_key=settings.ZHIPUAI_API_KEY)
+        logger.info("真实的 ZhipuAI 客户端初始化成功。")
+    except AttributeError:
+        logger.error("错误：无法从 settings 中获取 ZHIPUAI_API_KEY。请确保它已在 config/settings.py 中定义。")
+        sys.exit(1)
+    except ValueError as ve:
+        logger.error(f"错误: {ve}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"初始化真实的 ZhipuAI 客户端时发生错误: {e}", exc_info=True)
+        sys.exit(1)
+
+    # 2. 初始化 AccurateLLMStandardizer
+    try:
+        standardizer = AccurateLLMStandardizer(
+            search_service=real_search_service, # 使用真实的 SearchService
+            client=real_zhipu_client           # 使用真实的 ZhipuAI 客户端
+        )
+        logger.info("AccurateLLMStandardizer 初始化成功。")
+    except ValueError as e:
+        logger.error(f"初始化 AccurateLLMStandardizer 失败: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"初始化 AccurateLLMStandardizer 时发生未知错误: {e}", exc_info=True)
+        sys.exit(1)
+
+    # 3. 准备示例输入数据
+    sample_extracted_data = {
+        "设备列表": [
+            {
+                "位号": [
+                    "353-TE-35305"
+                ],
+                "共用参数": {
+                    "仪表名称 Inst. Name": "热电阻",
+                    "类型 Type": "单支",
+                    "温度元件型号 Therm. Element Model": "缺失（文档未提供）",
+                    "分度号 Type": "IEC标准 Pt100",
+                    "允差等级 Tolerance Error Rating": "A级",
+                    "测量端形式 Meas. End Type": "绝缘型",
+                    "铠装材质 Armo. Mat'l": "316",
+                    "铠装直径 Armo. Dia. (mm)": "Φ6",
+                    "接线盒形式 Terminal Box Style": "防水型",
+                    "接线盒材质 Terminal Box Mat'1": "304",
+                    "电气连接 Elec. Conn.": "1/2\" NPT (F)",
+                    "防护等级 Enclosure Protection": "IP65",
+                    "防爆等级 Explosion Proof": "Exd II BT4",
+                    "套管形式 Well Type": "整体钻孔锥形保护管",
+                    "套管材质 Well Mat'l 压力等级 Pressure Rating": "316 Class150",
+                    "套管外径 Well Outside Dia. (mm)": "根部不大于28,套管厚度由供货商根据振动频率和强度计算确定",
+                    "过程连接形式 Process Conn. 连接规格Conn. Size": "固定法兰",
+                    "连接规格Conn. Size": "DN40",
+                    "法兰标准 Flange STD. 等级 Rating": "HG/T20615-2009",
+                    "法兰材质 Flange Mat'l 密封面形式 Facing": "316 RF",
+                    "制造厂 Manufacturer": "缺失（文档未提供）",
+                    "备注": "缺失（文档未提供）",
+                    "用途": "RLA-202 液体石蜡装车温度",
+                    "管道设备号": "100-MO-1002-2B1A",
+                    "介质 Fluid": "液体石蜡",
+                    "操作/设计温度 Oper. Temp. (°C)": "40/",
+                    "操作/设计压力 Oper. Press.": "0.3/",
+                    "最大流速 Max. Velocity": "150",
+                    "管嘴长度 Length": "250",
+                    "插入深度 Well Length": "缺失（文档未提供）",
+                    "测量范围 Meas. Range": "缺失（文档未提供）"
+                }
+            }
+        ]
+        # "备注" 字段在顶层是可选的，如果用户提供的数据中没有顶层 "备注"，则不添加
+        # 如果需要，可以像这样添加一个空的顶层备注：
+        # "备注": {}
     }
+    logger.info(f"准备使用以下示例数据进行标准化:\n{json.dumps(sample_extracted_data, ensure_ascii=False, indent=2)}")
 
-    # 调用标准化方法
-    result = standardizer.standardize(test_extracted_data)
+    # 4. 调用 standardize 方法
+    logger.info("--- 开始调用 standardizer.standardize ---")
+    standardized_result = standardizer.standardize(sample_extracted_data)
+    logger.info("--- standardizer.standardize 调用结束 ---")
 
-    # 打印结果
-    print("\n--- 标准化测试结果 ---")
-    if result is not None:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+    # 5. 打印结果
+    if standardized_result:
+        logger.info("========== 标准化结果 ==========")
+        # 使用 print 直接输出 JSON，避免日志格式干扰
+        print(json.dumps(standardized_result, ensure_ascii=False, indent=4))
     else:
-        print("标准化失败。")
+        logger.error("标准化处理失败，未返回有效结果。")
 
-    print("\nAccurateLLMStandardizer 测试结束。")
+    logger.info("========== accurate_llm_standardizer.py 主测试程序运行结束 ==========")

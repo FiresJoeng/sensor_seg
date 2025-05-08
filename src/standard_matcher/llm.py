@@ -115,3 +115,13 @@ def call_llm_for_match(system_prompt: str, user_prompt: str, expect_json: bool =
     except Exception as e:
         logger.error(f"LLM 调用期间发生意外错误: {e}", exc_info=True)
         return {"error": "意外的 LLM 调用错误", "details": str(e)}
+if __name__ == "__main__":
+    # Test LLM connection
+    test_system_prompt = "You are a helpful assistant."
+    test_user_prompt = "Say 'Hello, connection successful!'"
+    
+    result = call_llm_for_match(test_system_prompt, test_user_prompt, expect_json=False)
+    if result:
+        print("LLM Test Result:", result)
+    else:
+        print("LLM connection failed or not configured.")
