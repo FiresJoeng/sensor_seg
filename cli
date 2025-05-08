@@ -1,0 +1,2 @@
+python src/pipeline/main_pipeline.py /home/kk/pythonProject/ai_seg/sensor_seg/data/input/温变规格书.pdf
+/home/kk/aisen/bin/python /home/kk/pythonProject/ai_seg/sensor_seg/src/standard_matcher/standard_matcher.py --input-file /home/kk/pythonProject/ai_seg/sensor_seg/data/output/test.json

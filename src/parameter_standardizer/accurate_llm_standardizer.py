@@ -35,7 +35,7 @@ VECTOR_SUGGESTION_PLACEHOLDER = "{{vector_db_suggestions}}"
 INPUT_JSON_MARKER = "1.  **实际设备列表 (JSON):**"
 STANDARD_TABLE_MARKER = "2.  **标准参数表 (参考资料):**"
 # 定义完整语义表 Excel 文件的路径
-FULL_SEMANTIC_TABLE_PATH = Path("一体化温度变送器语义库 - 副本(3).xlsx")
+FULL_SEMANTIC_TABLE_PATH = Path("一体化温度变送器语义库.xlsx")
 
 # --- 辅助函数 ---
 def load_prompt_template(file_path: Path) -> Optional[str]:
