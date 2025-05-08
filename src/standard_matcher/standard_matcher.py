@@ -6,13 +6,11 @@
 
 import json
 import logging
-import json
-import logging
 import sys
 import re
 import time
 import argparse
-import os # <-- 添加 os 模块导入
+import os
 from pathlib import Path
 import pandas as pd
 from typing import Dict, List, Any, Tuple, Optional, Set
@@ -23,7 +21,8 @@ try:
     THEFUZZ_AVAILABLE = True
 except ImportError:
     THEFUZZ_AVAILABLE = False
-    print("警告：'thefuzz' 库未安装。模糊匹配功能将不可用。请运行 'pip install thefuzz python-Levenshtein'", file=sys.stderr)
+    # 在模块级别打印警告，而不是在类初始化时，以避免在导入时就因 print 而产生副作用
+    # logger.warning("警告：'thefuzz' 库未安装。模糊匹配功能将不可用。请运行 'pip install thefuzz python-Levenshtein'")
 
 # 确保项目根目录在 sys.path 中以便导入 config, llm 和 json_processor
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -36,17 +35,18 @@ try:
     # 导入 AnalysisJsonProcessor 用于文件拆分
     from src.standard_matcher.json_processor import AnalysisJsonProcessor
 except ImportError as e:
-    print(
-        f"错误：在 standard_matcher.py 中导入模块失败 - {e}。" # noqa
+    # 同样，在导入时记录错误，而不是打印
+    logging.getLogger(__name__).critical(
+        f"错误：在 standard_matcher.py 中导入模块失败 - {e}。"
         f"请检查项目结构和 PYTHONPATH。\n"
-        f"项目根目录尝试设置为: {project_root}", file=sys.stderr)
+        f"项目根目录尝试设置为: {project_root}", exc_info=True)
     raise
 
 # --- 全局配置 ---
 # 配置日志记录器 (建议在项目入口统一配置)
-logging.basicConfig(level=settings.LOG_LEVEL,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=settings.LOG_LEVEL, # settings 可能尚未完全加载
+#                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__) # 获取 logger 实例
 
 # 定义可跳过的 model 名称集合 (来自 code_generator.py)
 SKIPPABLE_MODELS = {
@@ -56,8 +56,6 @@ SKIPPABLE_MODELS = {
 }
 
 # --- 文件路径定义 ---
-
-# DEFAULT_INPUT_JSON_PATH 和 INPUT_JSON_PATH 将在 __main__ 中动态处理
 DEFAULT_INDEX_JSON_PATH = project_root / "libs" / "standard" / "index.json"
 INDEX_JSON_PATH = Path(
     getattr(settings, 'INDEX_JSON_PATH', DEFAULT_INDEX_JSON_PATH))
@@ -1776,33 +1774,32 @@ class CodeGenerator:
 # ==============================================================================
 # Main Execution Logic
 # ==============================================================================
-if __name__ == "__main__":
-    # --- 命令行参数解析 ---
-    parser = argparse.ArgumentParser(description="Standard Matcher: 接收主输入文件，拆分，处理并生成型号代码。")
-    parser.add_argument(
-        "--input-file", # 修改参数名
-        required=True,
-        help="主输入 JSON 文件的完整路径 (例如 'data/output/温变规格书_standardized_all.json')。"
-    )
-    args = parser.parse_args()
-    input_file_path = Path(args.input_file) # 获取输入的 Path 对象
-    logger.info(f"接收到的主输入文件路径: {input_file_path}")
 
-    if not input_file_path.is_file():
-        logger.error(f"错误：指定的主输入文件不存在: {input_file_path}")
-        sys.exit(1)
+def execute_standard_matching(main_input_json_path: Path) -> Optional[Path]:
+    """
+    执行标准的匹配、选择和代码生成流程。
 
-    logger.info("开始执行 Standard Matcher 完整流程...")
+    Args:
+        main_input_json_path: 主输入 JSON 文件的路径 (通常是 _standardized_all.json)。
+
+    Returns:
+        Optional[Path]: 成功时返回最终结果文件的 Path 对象，失败或无结果时返回 None。
+    """
+    if not main_input_json_path.is_file():
+        logger.error(f"错误：指定的主输入文件不存在: {main_input_json_path}")
+        return None
+
+    logger.info(f"开始执行 Standard Matcher 完整流程，输入文件: {main_input_json_path.name}")
 
     # --- 步骤 0: 拆分主输入文件到 temp 目录 ---
-    logger.info(f"\n--- 步骤 0: 拆分主输入文件 '{input_file_path.name}' 到 temp 目录 ---")
+    logger.info(f"\n--- 步骤 0: 拆分主输入文件 '{main_input_json_path.name}' 到 temp 目录 ---")
     try:
-        processor = AnalysisJsonProcessor(analysis_json_path=input_file_path)
+        processor = AnalysisJsonProcessor(analysis_json_path=main_input_json_path)
         extracted_data = processor.extract_tag_and_common_params()
 
         if not extracted_data:
-            logger.error(f"从主输入文件 '{input_file_path.name}' 未提取到任何设备数据，无法继续。")
-            sys.exit(1)
+            logger.error(f"从主输入文件 '{main_input_json_path.name}' 未提取到任何设备数据，无法继续。")
+            return None
 
         # 确保 temp 目录存在
         TEMP_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1848,21 +1845,20 @@ if __name__ == "__main__":
                 split_files_count += 1
             except IOError as e_write:
                 logger.error(f"无法写入临时文件 '{temp_file_path}': {e_write}")
-                # 决定是否继续？这里选择退出
-                sys.exit(1)
+                return None # 写入失败，中止
 
         if split_files_count == 0:
              logger.error("未能成功拆分任何文件到 temp 目录，无法继续。")
-             sys.exit(1)
+             return None
 
         logger.info(f"成功拆分主文件为 {split_files_count} 个文件到 {TEMP_OUTPUT_DIR}")
 
     except FileNotFoundError: # AnalysisJsonProcessor 初始化时可能抛出
-         logger.error(f"初始化 AnalysisJsonProcessor 失败：文件未找到 {input_file_path}")
-         sys.exit(1)
+         logger.error(f"初始化 AnalysisJsonProcessor 失败：文件未找到 {main_input_json_path}")
+         return None
     except Exception as e_split:
         logger.error(f"拆分主输入文件时发生错误: {e_split}", exc_info=True)
-        sys.exit(1)
+        return None
 
 
     # --- 开始处理 temp 目录中的文件 ---
@@ -1871,71 +1867,68 @@ if __name__ == "__main__":
 
     json_files_in_temp = sorted(list(TEMP_OUTPUT_DIR.glob("*.json"))) # 按名称排序
     if not json_files_in_temp:
-        # 理论上如果拆分成功，这里不应该为空，但还是加上检查
         logger.error(f"错误: temp 目录 '{TEMP_OUTPUT_DIR}' 中没有找到拆分后的 JSON 文件。")
-        sys.exit(1)
+        return None
 
     logger.info(f"开始处理 temp 目录中的 {len(json_files_in_temp)} 个 JSON 文件...")
 
     all_results = [] # 用于存储所有文件的处理结果
-    all_successful = True # 跟踪是否有任何文件处理失败
+    any_file_processed_successfully = False # 跟踪是否有任何文件成功处理
 
-    for i, temp_json_file_path in enumerate(json_files_in_temp): # 变量名改为 temp_json_file_path
+    for i, temp_json_file_path in enumerate(json_files_in_temp):
         logger.info(f"\n{'='*20} 开始处理文件 {i+1}/{len(json_files_in_temp)}: {temp_json_file_path.name} {'='*20}")
         current_file_successful = True
 
-        # --- 步骤 1 (原步骤1): 获取 CSV 列表 ---
+        # --- 步骤 1: 获取 CSV 列表 ---
         print(f"\n--- 文件: {temp_json_file_path.name} - 步骤 1: 获取 CSV 列表 ---")
         fetcher = FetchCsvlist()
-        logger.info(f"使用输入文件: {temp_json_file_path}") # 使用 temp 文件
-
-        # 注意：FetchCsvlist 需要读取文件内容来确定产品类型，所以输入路径必须是 temp 文件
+        logger.info(f"使用输入文件: {temp_json_file_path}")
         csv_list_map_result = fetcher.fetch_csv_lists(temp_json_file_path, index_json)
 
         if not csv_list_map_result:
             logger.error(f"文件 {temp_json_file_path.name}: 未能获取 CSV 列表，跳过此文件。")
             current_file_successful = False
-            all_successful = False
-            continue # 处理下一个文件
-        print(
-            f"文件 {temp_json_file_path.name}: 获取到的 CSV 列表映射: {json.dumps(csv_list_map_result, indent=2, ensure_ascii=False)}")
-
-        # --- 步骤 2 (原步骤2): 模型匹配 ---
-        print(f"\n--- 文件: {temp_json_file_path.name} - 步骤 2: 模型匹配 ---")
-        model_matcher = ModelMatcher(
-            csv_list_map=csv_list_map_result, input_json_path=str(temp_json_file_path)) # 使用 temp 文件
-        matched_models_result = model_matcher.match()
-
-        if not matched_models_result:
-            logger.warning(f"文件 {temp_json_file_path.name}: 模型匹配未产生任何结果。")
-        # 打印前几项
-        print(
-            f"文件 {temp_json_file_path.name}: 模型匹配结果 (部分): {json.dumps(dict(list(matched_models_result.items())[:2]), indent=2, ensure_ascii=False)}...")
-
-        # --- 步骤 3 (原步骤3): 代码选择 ---
-        print(f"\n--- 文件: {temp_json_file_path.name} - 步骤 3: 代码选择 ---")
-        selected_codes_result = {} # 初始化
-        if not matched_models_result:
-            logger.warning(f"文件 {temp_json_file_path.name}: 没有模型匹配结果，跳过代码选择。")
+            # 不立即将 all_successful 设为 False，允许其他文件继续处理
+            # continue # 处理下一个文件 # 改为记录错误并继续，最后判断是否有成功项
         else:
+            print(
+                f"文件 {temp_json_file_path.name}: 获取到的 CSV 列表映射: {json.dumps(csv_list_map_result, indent=2, ensure_ascii=False)}")
+
+        # --- 步骤 2: 模型匹配 ---
+        if current_file_successful:
+            print(f"\n--- 文件: {temp_json_file_path.name} - 步骤 2: 模型匹配 ---")
+            model_matcher = ModelMatcher(
+                csv_list_map=csv_list_map_result, input_json_path=str(temp_json_file_path))
+            matched_models_result = model_matcher.match()
+
+            if not matched_models_result:
+                logger.warning(f"文件 {temp_json_file_path.name}: 模型匹配未产生任何结果。")
+            else:
+                print(
+                    f"文件 {temp_json_file_path.name}: 模型匹配结果 (部分): {json.dumps(dict(list(matched_models_result.items())[:2]), indent=2, ensure_ascii=False)}...")
+        else:
+            matched_models_result = {} # 如果上一步失败，则无匹配结果
+
+        # --- 步骤 3: 代码选择 ---
+        selected_codes_result = {}
+        if current_file_successful and matched_models_result:
+            print(f"\n--- 文件: {temp_json_file_path.name} - 步骤 3: 代码选择 ---")
             code_selector = CodeSelector(matched_models_dict=matched_models_result)
             try:
                 selected_codes_result = code_selector.select_codes()
-                # 打印前几项
                 print(
                     f"文件 {temp_json_file_path.name}: 代码选择结果 (部分): {json.dumps(dict(list(selected_codes_result.items())[:2]), indent=2, ensure_ascii=False)}...")
             except (ValueError, RuntimeError) as e:
                 logger.error(f"文件 {temp_json_file_path.name}: 代码选择过程中发生错误: {e}，跳过此文件。")
                 current_file_successful = False
-                all_successful = False
-                continue # 处理下一个文件
+        elif not matched_models_result and current_file_successful:
+             logger.warning(f"文件 {temp_json_file_path.name}: 没有模型匹配结果，跳过代码选择。")
 
-        # --- 步骤 4 (原步骤4): 代码生成 ---
-        print(f"\n--- 文件: {temp_json_file_path.name} - 步骤 4: 代码生成 ---")
-        final_code_result = f"产品型号生成失败（文件: {temp_json_file_path.name}）：无代码可选。" # 默认值
-        if not selected_codes_result:
-            logger.warning(f"文件 {temp_json_file_path.name}: 没有代码选择结果，跳过代码生成。")
-        else:
+
+        # --- 步骤 4: 代码生成 ---
+        final_code_result = f"产品型号生成失败（文件: {temp_json_file_path.name}）：处理链早期步骤失败或无代码可选。"
+        if current_file_successful and selected_codes_result:
+            print(f"\n--- 文件: {temp_json_file_path.name} - 步骤 4: 代码生成 ---")
             code_generator = CodeGenerator()
             print(f"\n文件 {temp_json_file_path.name}: 代码生成过程中可能需要您输入整数值...")
             try:
@@ -1943,11 +1936,13 @@ if __name__ == "__main__":
                     csv_list_map=csv_list_map_result,
                     selected_codes_data=selected_codes_result
                 )
-            except Exception as e_gen: # 捕获代码生成中的任何异常
+            except Exception as e_gen:
                 logger.error(f"文件 {temp_json_file_path.name}: 代码生成过程中发生错误: {e_gen}", exc_info=True)
                 final_code_result = f"产品型号生成失败（文件: {temp_json_file_path.name}）：错误 - {e_gen}"
                 current_file_successful = False
-                all_successful = False
+        elif not selected_codes_result and current_file_successful:
+            logger.warning(f"文件 {temp_json_file_path.name}: 没有代码选择结果，跳过代码生成。")
+            final_code_result = f"产品型号生成失败（文件: {temp_json_file_path.name}）：无代码可选。"
 
 
         # --- 单个文件最终结果 ---
@@ -1957,10 +1952,7 @@ if __name__ == "__main__":
 
         # --- 提取位号并聚合结果 ---
         try:
-            # 从文件名提取位号 (TT-13771_23771.json -> TT-13771/23771)
-            # 替换回下划线为斜杠
             tag_number_str_from_filename = temp_json_file_path.stem.replace("_", "/")
-            # 假设位号总是单个字符串，放入列表
             tag_numbers_list = [tag_number_str_from_filename]
         except Exception as e_tag:
             logger.error(f"从文件名 {temp_json_file_path.name} 提取位号时出错: {e_tag}")
@@ -1968,41 +1960,59 @@ if __name__ == "__main__":
 
         result_entry = {
             "位号": tag_numbers_list,
-            "型号代码": final_code_result # 存储生成的代码或错误信息
+            "型号代码": final_code_result
         }
         all_results.append(result_entry)
 
-        if not current_file_successful:
+        if current_file_successful:
+            any_file_processed_successfully = True
+        else:
             logger.error(f"文件 {temp_json_file_path.name} 处理失败。")
 
-        # 在处理完一个文件后，添加延时
-        if i < len(json_files_in_temp) - 1: # 避免在最后一个文件处理后也等待
+        if i < len(json_files_in_temp) - 1:
             logger.info(f"处理完文件 {temp_json_file_path.name}，等待 10 秒...")
             time.sleep(10)
 
     # --- 所有文件处理完毕，写入最终结果文件 ---
+    if not any_file_processed_successfully and all_results: # 如果有结果但没有一个成功，说明都是错误信息
+        logger.error("所有拆分出的文件均处理失败。最终结果文件将包含错误详情。")
+    elif not all_results: # 如果根本没有结果（例如拆分后temp为空，或所有拆分项都跳过了）
+        logger.error("未能生成任何结果。")
+        return None
+
     logger.info("\n所有文件处理循环结束。准备写入最终结果文件...")
 
-    # 确定输出文件名 (基于 --input-file)
-    input_file_stem = input_file_path.stem
-    # 移除可能存在的 '_analysis' 或 '_standardized_all' 等后缀
+    input_file_stem = main_input_json_path.stem
     base_name_for_output = input_file_stem.replace('_analysis', '').replace('_standardized_all', '')
     output_filename = f"{base_name_for_output}_results.json"
-
     output_file_path = project_root / "data" / "output" / output_filename
 
     try:
-        with open(output_file_path, 'w', encoding='utf-8') as f_out: # noqa
+        with open(output_file_path, 'w', encoding='utf-8') as f_out:
             json.dump(all_results, f_out, indent=4, ensure_ascii=False)
         logger.info(f"所有结果已成功写入到文件: {output_file_path}")
+        return output_file_path
     except Exception as e_write:
         logger.error(f"将最终结果写入文件 {output_file_path} 时出错: {e_write}", exc_info=True)
-        all_successful = False # 标记写入失败
+        return None
 
-    logger.info("\nStandard Matcher 完整流程执行完毕。")
-    if all_successful:
-        logger.info("所有文件处理（和结果写入）均已成功完成。")
+
+if __name__ == "__main__":
+    # --- 命令行参数解析 ---
+    parser = argparse.ArgumentParser(description="Standard Matcher: 接收主输入文件，拆分，处理并生成型号代码。")
+    parser.add_argument(
+        "--input-file",
+        required=True,
+        help="主输入 JSON 文件的完整路径 (例如 'data/output/温变规格书_standardized_all.json')。"
+    )
+    args = parser.parse_args()
+    input_file_path_cli = Path(args.input_file)
+
+    final_output_file = execute_standard_matching(input_file_path_cli)
+
+    if final_output_file:
+        logger.info(f"\nStandard Matcher 完整流程执行完毕。最终输出: {final_output_file}")
         sys.exit(0)
     else:
-        logger.error("处理过程中或结果写入时发生错误。请检查日志。")
+        logger.error("\nStandard Matcher 流程执行失败或未生成输出文件。请检查日志。")
         sys.exit(1)

@@ -1,5 +1,4 @@
-# new_sensor_project/src/pipeline/main_pipeline.py
-import argparse
+# main.py (formerly new_sensor_project/src/pipeline/main_pipeline.py)
 import json
 import logging
 import sys
@@ -14,10 +13,12 @@ logger = logging.getLogger(__name__) # Get logger instance early
 # --- Module Imports ---
 # Use absolute imports by ensuring the project root is in sys.path
 try:
-    project_root = Path(__file__).resolve().parent.parent.parent # Get project root (new_sensor_project)
+    # When main.py is at the project root:
+    project_root = Path(__file__).resolve().parent 
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
-        logger.info(f"Added project root to sys.path: {project_root}")
+        # Logger might not be fully configured here, basic log is fine
+        logging.info(f"Added project root to sys.path: {project_root}")
 
     from config import settings
     # Import necessary modules using absolute paths from project root
@@ -28,17 +29,18 @@ try:
     from src.parameter_standardizer.accurate_llm_standardizer import AccurateLLMStandardizer
     # Import OpenAI for Gemini compatibility
     from openai import OpenAI
-    # standard_matcher is no longer used
-    # from src.standard_matcher.matcher import generate_product_code
+    # Import the refactored standard matching function
+    from src.standard_matcher.standard_matcher import execute_standard_matching
 
     # Now setup the full logging configuration from the utils module
     # Re-get logger after full setup to apply configured handlers/formatters
-    logging_config.setup_logging()
-    logger = logging.getLogger(__name__)
+    logging_config.setup_logging() # This will reconfigure based on settings
+    logger = logging.getLogger(__name__) # Get the fully configured logger
     logger.info("Module imports successful and full logging configured.")
 
 except ImportError as e:
-    logger.exception(f"CRITICAL: Failed to import necessary modules: {e}. Check PYTHONPATH and project structure.")
+    # Use basic logging if full config failed
+    logging.exception(f"CRITICAL: Failed to import necessary modules: {e}. Check PYTHONPATH and project structure.")
     # Print to stderr as well, in case logging to file fails
     print(f"CRITICAL: Failed to import necessary modules: {e}. Check PYTHONPATH and project structure.", file=sys.stderr)
     sys.exit(1)
@@ -109,34 +111,21 @@ def get_dict_hash(data: Dict[str, Any]) -> Hashable:
     # 排序字典项以确保一致性，然后转换为元组
     return tuple(sorted(data.items()))
 
-def process_document(input_file_path: Path, skip_extraction: bool = False) -> Optional[Path]:
+def process_document(input_file_path: Path) -> Optional[Path]: # 移除了 skip_extraction 参数
     """
     处理单个输入文档，生成标准化参数文件。
+    (始终执行提取和标准化流程)
 
     Args:
         input_file_path: 输入文档的路径 (例如 PDF)。
-        skip_extraction: 如果为 True，则尝试跳过提取和标准化，直接加载中间文件。
 
     Returns:
         Optional[Path]: 成功时返回标准化参数文件的 Path 对象，失败时返回 None。
     """
-    logger.info(f"===== 开始处理文档: {input_file_path.name} (跳过提取: {skip_extraction}) =====")
+    logger.info(f"===== 开始处理文档: {input_file_path.name} (始终执行完整提取流程) =====")
     combined_standardized_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_standardized_all.json"
 
-    # --- 尝试跳过提取和标准化 ---
-    if skip_extraction:
-        logger.info(f"尝试跳过提取，检查文件: {combined_standardized_path}")
-        if combined_standardized_path.is_file():
-            try:
-                logger.info(f"找到已存在的标准化文件: {combined_standardized_path}。跳过提取和标准化步骤。")
-                logger.info(f"===== 文档处理完成 (使用已存在文件): {input_file_path.name} =====")
-                return combined_standardized_path
-            except Exception as e:
-                logger.error(f"检查已存在的标准化文件 {combined_standardized_path.name} 时出错: {e}。将继续执行完整流程。", exc_info=True)
-        else:
-            logger.error(f"请求跳过提取，但标准化文件 {combined_standardized_path.name} 未找到。无法继续。")
-            return None
-
+    # --- 跳过提取的逻辑已移除，始终执行完整提取和标准化 ---
     # --- 如果不跳过或跳过失败，则执行完整提取和标准化 ---
     # --- 1. 初始化服务 ---
     try:
@@ -241,7 +230,25 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
         with open(combined_standardized_path, 'w', encoding='utf-8') as f:
             json.dump(final_output_data, f, ensure_ascii=False, indent=4)
         logger.info(f"最终合并标准化参数数据已成功保存至: {combined_standardized_path}")
-        logger.info(f"===== 文档处理完成: {input_file_path.name} =====")
+        
+        # --- 人工检查点：在此处插入，因为文件已保存 ---
+        print(f"\n--- 人工检查点：检查标准化文件 ---")
+        print(f"标准化参数已保存至: {combined_standardized_path}")
+        print(f"请在继续前检查或修改此文件。")
+        input("检查或修改完毕后，请按 Enter键 继续...")
+        logger.info(f"用户已确认或修改了标准化文件: {combined_standardized_path}")
+        # 尝试重新加载文件，以防用户修改了它并引入了JSON错误
+        try:
+            with open(combined_standardized_path, 'r', encoding='utf-8') as f_reload:
+                json.load(f_reload) # 仅用于验证JSON格式
+            logger.info(f"重新加载确认后的文件 {combined_standardized_path} (验证通过)。")
+        except Exception as e_reload:
+            logger.error(f"重新加载文件 {combined_standardized_path} 时出错: {e_reload}。可能JSON格式已损坏。将使用原始保存版本。", exc_info=True)
+            # 考虑是否应该在此处中止或强制用户修复
+            print(f"警告：重新加载文件 {combined_standardized_path} 失败。如果已修改，请确保其为有效的JSON。")
+            # 让流程继续，但用户需注意文件可能未按预期更新
+
+        logger.info(f"===== 文档处理完成 (包含人工检查): {input_file_path.name} =====")
         return combined_standardized_path
     except Exception as e:
         logger.error(f"保存最终合并标准化 JSON 数据到 {combined_standardized_path} 时出错: {e}", exc_info=True)
@@ -250,42 +257,71 @@ def process_document(input_file_path: Path, skip_extraction: bool = False) -> Op
 
 
 def main():
-    """主函数：解析命令行参数并启动处理流程。"""
+    """主函数：提示用户输入文件路径并启动处理流程。""" # Docstring updated
     try:
-        logging_config.setup_logging()
+        # Logging is now fully configured after imports
+        pass # No need to call setup_logging() again here if done after imports
     except Exception as e:
-        print(f"致命错误：无法配置日志系统: {e}")
+        # This basic logger will be used if full config failed
+        logging.critical(f"致命错误：日志系统配置可能存在问题: {e}")
+        # Fallback print if logging itself is broken
+        print(f"致命错误：无法配置日志系统: {e}", file=sys.stderr)
         sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="一体式温度变送器参数提取与标准化系统")
-    parser.add_argument(
-        "input_file",
-        type=str,
-        help="要处理的输入文档路径 (例如 'data/input/温变规格书.pdf')"
-    )
-    parser.add_argument(
-        "--skip-extraction",
-        action="store_true",
-        help="如果指定，则跳过信息提取和参数标准化步骤，尝试加载已存在的标准化文件。"
-    )
+    while True:
+        raw_path = input("请输入要处理的输入文档路径: ").strip()
+        if not raw_path:
+            print("错误：文件路径不能为空。请重新输入。")
+            logger.warning("用户输入了空文件路径。")
+            continue
+        input_file = Path(raw_path)
+        if input_file.is_file():
+            logger.info(f"用户输入文件路径: {input_file}")
+            break
+        else:
+            logger.error(f"用户提供的输入文件未找到: {input_file}")
+            print(f"错误: 输入文件 '{input_file}' 未找到或不是一个文件。请检查路径并重新输入。")
+            retry_choice = input("是否重试输入路径？(y/n，默认为 y): ").lower().strip()
+            if retry_choice == 'n':
+                logger.info("用户选择不重试文件路径输入，程序中止。")
+                sys.exit(1)
+            # 默认为重试 (空输入或其他非 'n' 输入)
+    
+    # 用户要求始终处理，不再询问是否跳过提取，也不再需要 skip_extraction 标志
+    logger.info(f"将始终执行提取和标准化流程。")
 
-    args = parser.parse_args()
-    input_file = Path(args.input_file)
-
-    if not input_file.is_file():
-        logger.critical(f"输入文件未找到: {input_file}")
-        print(f"错误: 输入文件未找到: {input_file}")
-        sys.exit(1)
-
-    standardized_file_path = process_document(input_file, skip_extraction=args.skip_extraction)
+    standardized_file_path = process_document(input_file) # 调用修改后的 process_document (无 skip_extraction)
 
     if standardized_file_path is not None:
-        print("\n--- 处理成功 ---")
-        print(f"标准化参数已保存至文件:")
-        print(standardized_file_path)
-        sys.exit(0)
+        # 人工检查点已在 process_document 内部完成
+        logger.info(f"第一阶段：参数提取与标准化（包含人工检查点）成功完成。")
+        print(f"\n--- 第一阶段成功：参数提取与标准化（包含人工检查点）---")
+        print(f"已处理并确认的标准化文件: {standardized_file_path}")
+
+        # --- 调用标准匹配流程 ---
+        logger.info(f"\n===== 开始第二阶段：标准匹配与型号代码生成 =====")
+        print(f"\n--- 开始第二阶段：标准匹配与型号代码生成 ---")
+        print(f"输入文件进行标准匹配: {standardized_file_path}")
+        
+        # 调用 execute_standard_matching
+        # 注意：execute_standard_matching 内部会处理用户输入 %int% 的情况
+        final_results_path = execute_standard_matching(standardized_file_path)
+
+        if final_results_path:
+            logger.info(f"第二阶段：标准匹配与型号代码生成成功完成。最终型号代码结果文件: {final_results_path}")
+            print(f"\n--- 第二阶段成功：标准匹配与型号代码生成 ---")
+            print(f"最终型号代码结果已保存至: {final_results_path}")
+            print(f"\n===== 完整流程处理成功 =====")
+            sys.exit(0)
+        else:
+            logger.error("第二阶段：标准匹配与型号代码生成失败或未生成结果文件。")
+            print(f"\n--- 第二阶段失败：标准匹配与型号代码生成 ---")
+            print("未能生成最终型号代码结果文件。请检查日志。")
+            sys.exit(1)
     else:
-        print("\n处理过程中发生错误或未生成标准化文件。请检查日志文件获取详细信息。")
+        logger.error("第一阶段：参数提取与标准化失败或未生成文件。")
+        print("\n--- 第一阶段失败：参数提取与标准化 ---")
+        print("未能完成参数提取与标准化。请检查日志文件获取详细信息。")
         sys.exit(1)
 
 if __name__ == "__main__":
