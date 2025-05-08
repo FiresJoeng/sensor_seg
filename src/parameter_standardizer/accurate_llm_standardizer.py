@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import re
+import time # Added time import
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -35,7 +36,7 @@ VECTOR_SUGGESTION_PLACEHOLDER = "{{vector_db_suggestions}}"
 INPUT_JSON_MARKER = "1.  **实际设备列表 (JSON):**"
 STANDARD_TABLE_MARKER = "2.  **标准参数表 (参考资料):**"
 # 定义完整语义表 Excel 文件的路径
-FULL_SEMANTIC_TABLE_PATH = Path("一体化温度变送器语义库.xlsx")
+FULL_SEMANTIC_TABLE_PATH = Path(project_root) / "libs" / "一体化温度变送器语义库.xlsx"
 
 # --- 辅助函数 ---
 def load_prompt_template(file_path: Path) -> Optional[str]:
@@ -466,6 +467,8 @@ class AccurateLLMStandardizer:
             # 3. 调用 LLM API 处理当前设备组
             llm_response_json = None
             try:
+                logger.info(f"设备组 {', '.join(group_tags)}: 等待10秒以避免LLM速率限制...")
+                time.sleep(10) # Add delay before LLM call
                 # 调用通用的 LLM API 方法
                 llm_response_json = self._call_llm_api(prompt)
             except Exception as e: # Catch final error after tenacity retries
