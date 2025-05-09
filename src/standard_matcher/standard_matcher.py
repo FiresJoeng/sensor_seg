@@ -1765,7 +1765,7 @@ class CodeGenerator:
         final_code = " ".join(product_code_strings)
 
         # 6. 格式化输出
-        output_string = f"产品型号生成：{final_code}"
+        output_string = f"{final_code}"
         logger.info(f"最终生成的产品代码字符串: {output_string}")
 
         return output_string

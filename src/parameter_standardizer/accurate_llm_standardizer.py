@@ -20,7 +20,7 @@ try:
     from openai import OpenAI
     # 假设 API Key 和模型名在 settings 中
     from config import settings
-    from src.parameter_standardizer.search_service import SearchService
+    # from src.parameter_standardizer.search_service import SearchService # 已移除
 except ImportError as e:
     # 如果导入失败，打印错误信息并退出
     print(f"ERROR: Failed to import necessary modules in accurate_llm_standardizer.py: {e}. Ensure all dependencies are installed and PYTHONPATH is correct.", file=sys.stderr)
@@ -100,20 +100,19 @@ def extract_json_from_response(response_content: str) -> Optional[str]:
 
 class AccurateLLMStandardizer:
     """
-    使用 LLM 和向量参考进行参数标准化的类。
-    封装了 test_kk/llm_standardizer_with_vector_ref.py 的核心逻辑。
+    使用 LLM 进行参数标准化的类。
+    移除了向量参考功能。
     """
     # 修改 __init__ 方法，接受 OpenAI 客户端
-    def __init__(self, search_service: SearchService, client: OpenAI):
+    def __init__(self, client: OpenAI): # 移除了 search_service 参数
         """
         初始化标准化器。
 
         Args:
-            search_service: 用于获取向量建议的 SearchService 实例。
             client: 已初始化的 OpenAI 客户端实例。
         """
-        # 初始化 SearchService 和 OpenAI 客户端
-        self.search_service = search_service
+        # 初始化 OpenAI 客户端
+        # self.search_service = search_service # 已移除
         self.client = client
         # 加载 Prompt 模板
         self.prompt_template = load_prompt_template(PROMPT_TEMPLATE_PATH)
@@ -286,19 +285,22 @@ class AccurateLLMStandardizer:
 
 
         # 返回组合后的建议字符串
-        return "\n".join(suggestions_list) if suggestions_list else "无参数可查询向量建议。"
+            # return "\n".join(suggestions_list) if suggestions_list else "无参数可查询向量建议。" # 这行是 _fetch_suggestions_for_group_data 的一部分，应随方法移除
 
 
-    def _construct_llm_prompt_for_group_data(self, group_data_for_llm: Dict[str, Any], combined_suggestions_text: str) -> str:
+    # _fetch_suggestions_for_group_data 方法已整体移除
+
+    def _construct_llm_prompt_for_group_data(self, group_data_for_llm: Dict[str, Any]) -> str: # 移除了 combined_suggestions_text 参数
         """为单个设备组数据构建 LLM Prompt。"""
         # 构建输入 JSON 部分，包含单个设备组数据
         input_data_json_str = json.dumps(group_data_for_llm, ensure_ascii=False, indent=2)
 
-        # 替换建议占位符
-        prompt_with_suggestions = self.prompt_template.replace(VECTOR_SUGGESTION_PLACEHOLDER, combined_suggestions_text)
+        # 不再需要替换建议占位符，因为向量建议功能已移除
+        # prompt_with_suggestions = self.prompt_template.replace(VECTOR_SUGGESTION_PLACEHOLDER, combined_suggestions_text)
+        # 直接使用 self.prompt_template
 
         # 插入单组数据 JSON 和完整语义表内容
-        prompt_parts = prompt_with_suggestions.split(INPUT_JSON_MARKER)
+        prompt_parts = self.prompt_template.split(INPUT_JSON_MARKER) # 基于原始模板分割
         if len(prompt_parts) == 2:
             before_json = prompt_parts[0] + INPUT_JSON_MARKER + "\n" + input_data_json_str + "\n\n"
             after_json_part = prompt_parts[1]
@@ -310,11 +312,12 @@ class AccurateLLMStandardizer:
             else:
                 # 如果找不到标准表标记，记录警告并直接替换输入 JSON 标记
                 logger.warning(f"无法在 Prompt 模板中找到 '{STANDARD_TABLE_MARKER}'，完整语义表内容将不会被插入。")
-                prompt = prompt_with_suggestions.replace(INPUT_JSON_MARKER, INPUT_JSON_MARKER + "\n" + input_data_json_str + "\n\n")
+                # 此处应基于 self.prompt_template 进行替换，而不是 prompt_with_suggestions
+                prompt = self.prompt_template.replace(INPUT_JSON_MARKER, INPUT_JSON_MARKER + "\n" + input_data_json_str + "\n\n")
         else:
             # 如果找不到输入 JSON 标记，记录错误并返回原始 Prompt
             logger.error(f"无法在 Prompt 模板中准确找到 '{INPUT_JSON_MARKER}' 进行 JSON 插入。")
-            prompt = prompt_with_suggestions # Fallback
+            prompt = self.prompt_template # Fallback
 
         return prompt
 
@@ -456,12 +459,12 @@ class AccurateLLMStandardizer:
                 "备注": remarks # 将原始备注信息也包含在每个批次的输入中，提供完整上下文
             }
 
-            # 1. 获取向量建议 (只为当前设备组的参数)
-            combined_suggestions_text = self._fetch_suggestions_for_group_data(current_group_data_for_llm)
-            logger.debug(f"组合后的向量建议:\n{combined_suggestions_text}")
+            # 1. 获取向量建议 (只为当前设备组的参数) - 此步骤已移除
+            # combined_suggestions_text = self._fetch_suggestions_for_group_data(current_group_data_for_llm)
+            # logger.debug(f"组合后的向量建议:\n{combined_suggestions_text}")
 
             # 2. 构建 Prompt (只包含当前设备组的数据和完整语义表内容)
-            prompt = self._construct_llm_prompt_for_group_data(current_group_data_for_llm, combined_suggestions_text)
+            prompt = self._construct_llm_prompt_for_group_data(current_group_data_for_llm) # 不再传递 combined_suggestions_text
             logger.debug(f"构建的 Prompt (部分):\n{prompt[:500]}...")
 
             # 3. 调用 LLM API 处理当前设备组
@@ -528,24 +531,24 @@ class AccurateLLMStandardizer:
 
 # --- 可选的测试代码 ---
 
-# 模拟依赖项
-class MockSearchService:
-    def get_vector_suggestions(self, query_text, n_results):
-            print(f"MockSearchService: 获取 '{query_text}' 的向量建议 ({n_results}条)...")
-            # 返回假的建议结果列表
-            # 确保 settings 对象及其属性可用，否则这里会出错
-            try:
-                param_type_field = settings.META_FIELD_PARAM_TYPE
-                standard_value_field = settings.META_FIELD_STANDARD_VALUE
-            except AttributeError:
-                logger.warning("MockSearchService: settings 中缺少 META_FIELD_PARAM_TYPE 或 META_FIELD_STANDARD_VALUE，使用默认字段名。")
-                param_type_field = "param_type" # 默认值
-                standard_value_field = "standard_value" # 默认值
-
-            return [
-                {'metadata': {param_type_field: '标准参数A', standard_value_field: '标准值1'}, 'distance': 0.1},
-                {'metadata': {param_type_field: '标准参数B', standard_value_field: '标准值2'}, 'distance': 0.2}
-            ]
+# 模拟依赖项 - MockSearchService 已不再需要，可以删除
+# class MockSearchService:
+#     def get_vector_suggestions(self, query_text, n_results):
+#             print(f"MockSearchService: 获取 '{query_text}' 的向量建议 ({n_results}条)...")
+#             # 返回假的建议结果列表
+#             # 确保 settings 对象及其属性可用，否则这里会出错
+#             try:
+#                 param_type_field = settings.META_FIELD_PARAM_TYPE
+#                 standard_value_field = settings.META_FIELD_STANDARD_VALUE
+#             except AttributeError:
+#                 logger.warning("MockSearchService: settings 中缺少 META_FIELD_PARAM_TYPE 或 META_FIELD_STANDARD_VALUE，使用默认字段名。")
+#                 param_type_field = "param_type" # 默认值
+#                 standard_value_field = "standard_value" # 默认值
+#
+#             return [
+#                 {'metadata': {param_type_field: '标准参数A', standard_value_field: '标准值1'}, 'distance': 0.1},
+#                 {'metadata': {param_type_field: '标准参数B', standard_value_field: '标准值2'}, 'distance': 0.2}
+#             ]
 
 # 修改模拟类以匹配 OpenAI 库的结构
 class MockOpenAI:
@@ -641,15 +644,15 @@ if __name__ == "__main__":
         # LLM_TOP_P = 0.9 # 示例
         # LLM_PRESENCE_PENALTY = 0.0 # 示例
         # LLM_FREQUENCY_PENALTY = 0.0 # 示例
-        META_FIELD_PARAM_TYPE = "std_name"
-        META_FIELD_STANDARD_VALUE = "std_value"
+        # META_FIELD_PARAM_TYPE = "std_name" # 不再需要，因为 MockSearchService 被移除
+        # META_FIELD_STANDARD_VALUE = "std_value" # 不再需要
         # VECTOR_STORE_DIR = "data/vector_store" # 示例
         # DEFAULT_COLLECTION_NAME = "sensor_params" # 示例
     settings = MockSettings() # 覆盖导入的 settings
 
     # 1. 初始化服务 (使用模拟服务)
-    mock_search_service = MockSearchService()
-    logger.info("模拟 SearchService 初始化成功。")
+    # mock_search_service = MockSearchService() # 已移除
+    # logger.info("模拟 SearchService 初始化成功。")
 
     # 使用 MockOpenAI 客户端
     mock_llm_client = MockOpenAI()
@@ -658,8 +661,7 @@ if __name__ == "__main__":
 
     # 2. 初始化 AccurateLLMStandardizer
     try:
-        standardizer = AccurateLLMStandardizer(
-            search_service=mock_search_service,
+        standardizer = AccurateLLMStandardizer( # 不再传递 mock_search_service
             client=mock_llm_client
         )
         logger.info("AccurateLLMStandardizer 初始化成功 (使用模拟服务)。")

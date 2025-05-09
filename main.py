@@ -24,7 +24,7 @@ try:
     # Import necessary modules using absolute paths from project root
     from src.utils import logging_config
     from src.info_extractor.extractor import InfoExtractor
-    from src.parameter_standardizer.search_service import SearchService
+    # from src.parameter_standardizer.search_service import SearchService # 已移除
     # --- Import the new standardizer ---
     from src.parameter_standardizer.accurate_llm_standardizer import AccurateLLMStandardizer
     # Import OpenAI for Gemini compatibility
@@ -131,12 +131,12 @@ def process_document(input_file_path: Path) -> Optional[Path]: # 移除了 skip_
     try:
         logger.info("初始化 InfoExtractor...")
         info_extractor = InfoExtractor()
-        logger.info("初始化 SearchService...")
-        search_service = SearchService()
+        # logger.info("初始化 SearchService...") # 已移除
+        # search_service = SearchService() # 已移除
 
-        if not search_service.is_ready():
-             logger.error("SearchService 未就绪，无法继续处理。")
-             return None
+        # if not search_service.is_ready(): # 已移除
+        #      logger.error("SearchService 未就绪，无法继续处理。") # 已移除
+        #      return None # 已移除
 
         # --- Initialize LLM client (using OpenAI for Gemini compatibility) ---
         try:
@@ -164,7 +164,7 @@ def process_document(input_file_path: Path) -> Optional[Path]: # 移除了 skip_
 
         # --- Initialize the AccurateLLMStandardizer with the new client ---
         logger.info("初始化 AccurateLLMStandardizer...")
-        standardizer = AccurateLLMStandardizer(search_service=search_service, client=llm_client)
+        standardizer = AccurateLLMStandardizer(client=llm_client) # 不再传递 search_service
 
     except Exception as e:
         logger.exception(f"初始化服务时出错: {e}")
@@ -189,10 +189,13 @@ def process_document(input_file_path: Path) -> Optional[Path]: # 移除了 skip_
         extracted_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_extracted_parameters_with_remarks.json"
         verified_extracted_data = save_and_verify_json(extracted_data, extracted_path, "提取的参数和备注")
         if verified_extracted_data is None:
-            logger.error("提取的参数和备注核对失败或被中止。")
+            logger.error("提取的参数和备注核de失败或被中止。")
             return None # 如果核对失败或中止，返回 None
         # 移除此处错误的 return None
         logger.info("提取的参数和备注核对完成。")
+        # 添加阶段一完成打印
+        print(f"\n--- 阶段一：信息提取与人工核对 完成 ---")
+        print(f"已提取并核对的文件: {extracted_path}")
 
     except KeyboardInterrupt:
         logger.warning("流程在提取或核对阶段被用户中止。")
@@ -247,6 +250,10 @@ def process_document(input_file_path: Path) -> Optional[Path]: # 移除了 skip_
             # 考虑是否应该在此处中止或强制用户修复
             print(f"警告：重新加载文件 {combined_standardized_path} 失败。如果已修改，请确保其为有效的JSON。")
             # 让流程继续，但用户需注意文件可能未按预期更新
+        
+        # 添加阶段二完成打印
+        print(f"\n--- 阶段二：参数标准化与人工核对 完成 ---")
+        print(f"已标准化并核对的文件: {combined_standardized_path}")
 
         logger.info(f"===== 文档处理完成 (包含人工检查): {input_file_path.name} =====")
         return combined_standardized_path
@@ -293,14 +300,14 @@ def main():
     standardized_file_path = process_document(input_file) # 调用修改后的 process_document (无 skip_extraction)
 
     if standardized_file_path is not None:
-        # 人工检查点已在 process_document 内部完成
-        logger.info(f"第一阶段：参数提取与标准化（包含人工检查点）成功完成。")
-        print(f"\n--- 第一阶段成功：参数提取与标准化（包含人工检查点）---")
-        print(f"已处理并确认的标准化文件: {standardized_file_path}")
+        # 阶段一和阶段二的完成信息已在 process_document 内部打印
+        # logger.info(f"第一阶段：参数提取与标准化（包含人工检查点）成功完成。") # 已由 process_document 内部打印替代
+        # print(f"\n--- 第一阶段成功：参数提取与标准化（包含人工检查点）---") # 已由 process_document 内部打印替代
+        # print(f"已处理并确认的标准化文件: {standardized_file_path}") # 已由 process_document 内部打印替代
 
         # --- 调用标准匹配流程 ---
-        logger.info(f"\n===== 开始第二阶段：标准匹配与型号代码生成 =====")
-        print(f"\n--- 开始第二阶段：标准匹配与型号代码生成 ---")
+        logger.info(f"\n===== 开始阶段三：标准匹配与型号代码生成 =====") # 修改日志
+        print(f"\n--- 开始阶段三：标准匹配与型号代码生成 ---") # 修改打印
         print(f"输入文件进行标准匹配: {standardized_file_path}")
         
         # 调用 execute_standard_matching
@@ -308,20 +315,21 @@ def main():
         final_results_path = execute_standard_matching(standardized_file_path)
 
         if final_results_path:
-            logger.info(f"第二阶段：标准匹配与型号代码生成成功完成。最终型号代码结果文件: {final_results_path}")
-            print(f"\n--- 第二阶段成功：标准匹配与型号代码生成 ---")
+            logger.info(f"阶段三：标准匹配与型号代码生成成功完成。最终型号代码结果文件: {final_results_path}") # 修改日志
+            print(f"\n--- 阶段三：标准匹配与型号代码生成 完成 ---") # 修改打印
             print(f"最终型号代码结果已保存至: {final_results_path}")
             print(f"\n===== 完整流程处理成功 =====")
             sys.exit(0)
         else:
-            logger.error("第二阶段：标准匹配与型号代码生成失败或未生成结果文件。")
-            print(f"\n--- 第二阶段失败：标准匹配与型号代码生成 ---")
+            logger.error("阶段三：标准匹配与型号代码生成失败或未生成结果文件。") # 修改日志
+            print(f"\n--- 阶段三：标准匹配与型号代码生成 失败 ---") # 修改打印
             print("未能生成最终型号代码结果文件。请检查日志。")
             sys.exit(1)
     else:
-        logger.error("第一阶段：参数提取与标准化失败或未生成文件。")
-        print("\n--- 第一阶段失败：参数提取与标准化 ---")
-        print("未能完成参数提取与标准化。请检查日志文件获取详细信息。")
+        # 如果 process_document 返回 None，意味着阶段一或阶段二失败
+        logger.error("参数提取或标准化阶段失败，未能生成后续处理所需的文件。")
+        print("\n--- 参数提取或标准化阶段失败 ---")
+        print("未能完成参数提取或标准化。请检查日志文件获取详细信息。")
         sys.exit(1)
 
 if __name__ == "__main__":

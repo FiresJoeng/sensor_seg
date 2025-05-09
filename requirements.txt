@@ -3,8 +3,6 @@ pandas>=1.0.0
 numpy>=1.18.0
 openai         # For InfoExtractor LLM calls
 python-dotenv  # For loading .env file
-chromadb>=0.4.0 # For VectorStoreManager (use the version you have installed)
-sentence-transformers>=2.0.0 # For EmbeddingGenerator
 
 # Optional but recommended
 openpyxl>=3.0.0 # For reading .xlsx files with pandas (DataProcessor)
