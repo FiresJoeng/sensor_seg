@@ -299,6 +299,12 @@ def main():
 
     standardized_file_path = process_document(input_file) # 调用修改后的 process_document (无 skip_extraction)
 
+    # Get the base name from the initial input file for cleanup later
+    input_file_stem = input_file.stem
+    base_name_for_cleanup = input_file_stem.replace('_analysis', '').replace('_standardized_all', '')
+    extracted_file_to_clean = settings.OUTPUT_DIR / f"{base_name_for_cleanup}_extracted_parameters_with_remarks.json"
+    standardized_file_to_clean = settings.OUTPUT_DIR / f"{base_name_for_cleanup}_standardized_all.json"
+
     if standardized_file_path is not None:
         # 阶段一和阶段二的完成信息已在 process_document 内部打印
         # logger.info(f"第一阶段：参数提取与标准化（包含人工检查点）成功完成。") # 已由 process_document 内部打印替代
@@ -331,6 +337,21 @@ def main():
         print("\n--- 参数提取或标准化阶段失败 ---")
         print("未能完成参数提取或标准化。请检查日志文件获取详细信息。")
         sys.exit(1)
+
+    # --- 清理阶段一和阶段二的临时文件 ---
+    logger.info("开始清理阶段一和阶段二的临时文件...")
+    files_to_clean = [extracted_file_to_clean, standardized_file_to_clean]
+    for file_path in files_to_clean:
+        try:
+            if file_path.is_file():
+                file_path.unlink()
+                logger.info(f"成功删除临时文件: {file_path}")
+            else:
+                logger.debug(f"临时文件不存在，无需删除: {file_path}")
+        except OSError as e:
+            logger.error(f"删除临时文件 '{file_path}' 时出错: {e}", exc_info=True)
+    logger.info("阶段一和阶段二临时文件清理完成。")
+
 
 if __name__ == "__main__":
     main()

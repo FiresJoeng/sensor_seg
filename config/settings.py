@@ -16,11 +16,7 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 # --- API Configuration ---
 # 从环境变量获取 API 密钥
-# 明确尝试加载 OPENAI_API_KEY，如果不存在则回退到 LLM_API_KEY
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ZHIPUAI_API_KEY = os.getenv("ZHIPUAI_API_KEY")
-ZHIPUAI_MODEL_NAME = os.getenv("ZHIPUAI_MODEL_NAME") # 默认模型名称
-LLM_API_KEY = OPENAI_API_KEY if OPENAI_API_KEY else os.getenv("LLM_API_KEY") # Use DeepSeek key if available, else fallback
+LLM_API_KEY = os.getenv("LLM_API_KEY") # Use DeepSeek key if available, else fallback
 
 # 如果未设置环境变量，发出警告
 if not LLM_API_KEY:
@@ -55,11 +51,6 @@ KNOWLEDGE_BASE_DIR = BASE_DIR / "knowledge_base"
 KB_SOURCE_DIR = KNOWLEDGE_BASE_DIR / "source"
 KB_VECTOR_STORE_DIR = KNOWLEDGE_BASE_DIR / "vector_store"
 VECTOR_STORE_PATH = KB_VECTOR_STORE_DIR # 添加这一行，供 main.py 使用
-# 知识库源文件 (Excel) - 需要确认实际文件名
-# 假设与原项目一致
-KB_SOURCE_FILE = KB_SOURCE_DIR / "semantic_source.xlsx"
-# ChromaDB 集合名称 (与原项目 semantic_parameter_project/src/config.py 对应)
-VECTOR_DB_COLLECTION_NAME = "sensor_params_v4" # 或者根据需要更新
 
 # 标准库目录 (需要将 sensor_seg/libs/standard 复制过来)
 LIBS_DIR = BASE_DIR / "libs"
@@ -78,36 +69,6 @@ LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_TO_FILE = True # 是否将日志写入文件
 LOG_FILE = OUTPUT_DIR / "pipeline.log" # 日志文件路径
 
-# --- Semantic Search Configuration ---
-# 嵌入模型名称 (与原项目 semantic_parameter_project/src/config.py 对应)
-EMBEDDING_MODEL_NAME = 'shibing624/text2vec-base-chinese' # Switched to smaller model due to OOM error
-# 向量数据库查询参数
-DEFAULT_N_RESULTS = 5 # 默认返回结果数量
-INITIAL_QUERY_MULTIPLIER = 10 # 向量数据库初始查询数量倍数 (用于后续重排)
-# 元数据字段名 (与原项目 semantic_parameter_project/src/config.py 对应)
-META_FIELD_COMPONENT = "component"
-META_FIELD_PARAM_TYPE = "parameter_type"
-META_FIELD_ACTUAL_PARAM_DESC = "actual_parameter_description"
-META_FIELD_STANDARD_VALUE = "standard_value"
-META_FIELD_ACTUAL_VALUE = "actual_value"
-META_FIELD_DEFAULT = "default"
-META_FIELD_CODE = "code"
-META_FIELD_FIELD_DESC = "field_description"
-META_FIELD_REMARK = "remark"
-META_FIELD_SOURCE = "source_excel" # 假设添加了来源信息
-
-# --- Knowledge Base Build Configuration ---
-# 这些是知识库源 Excel 文件中的列名，用于数据处理和嵌入生成
-# !! 重要 !!: 确保这些名称与你的 semantic_source.xlsx 文件中的列名完全一致
-SOURCE_COL_COMPONENT_PART = '元器件部位'
-SOURCE_COL_STANDARD_PARAM = '标准参数'
-SOURCE_COL_ACTUAL_PARAM_DESC = '实际参数' # 用于嵌入
-SOURCE_COL_STANDARD_VALUE_DESC = '规格书代码的说明（多个值用|隔开）'
-SOURCE_COL_ACTUAL_VALUE_VARIATIONS = '实际参数值（多个值用|隔开）一体化' # 用于嵌入
-SOURCE_COL_DEFAULT_VALUE = '缺省默认值'
-SOURCE_COL_STANDARD_CODE = '对应代码'
-SOURCE_COL_FIELD_DESC = '字段说明'
-SOURCE_COL_REMARK = '备注'
 
 # --- Standard Matching Configuration ---
 # 模糊匹配阈值

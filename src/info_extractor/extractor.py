@@ -1,10 +1,17 @@
 
+import sys
+from pathlib import Path
+
+# Ensure project root is in sys.path for absolute imports
+project_root = Path(__file__).resolve().parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 import os
 import json
 import re
 import logging
 import pandas as pd
-from pathlib import Path
 from openai import OpenAI
 from base64 import b64encode
 from typing import Dict, List, Any, Optional, Union, Tuple
@@ -12,10 +19,7 @@ import io  # Added for in-memory file operations
 import pdfplumber # 导入 pdfplumber 库
 import camelot # 导入 camelot 库用于表格提取
 
-try:
-    from config import settings, prompts
-except ImportError:
-    from config import settings, prompts
+from config import settings, prompts
 
 logger = logging.getLogger(__name__)
 

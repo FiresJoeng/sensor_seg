@@ -11,6 +11,7 @@ import re
 import time
 import argparse
 import os
+import shutil # Added for temporary file cleanup
 from pathlib import Path
 import pandas as pd
 from typing import Dict, List, Any, Tuple, Optional, Set
@@ -2007,9 +2008,41 @@ def execute_standard_matching(main_input_json_path: Path) -> Optional[Path]:
         with open(output_file_path, 'w', encoding='utf-8') as f_out:
             json.dump(all_results, f_out, indent=4, ensure_ascii=False)
         logger.info(f"所有结果已成功写入到文件: {output_file_path}")
+        # --- 清理临时文件 ---
+        logger.info(f"正在清理临时目录: {TEMP_OUTPUT_DIR}")
+        try:
+            if TEMP_OUTPUT_DIR.is_dir():
+                # 删除目录下的所有文件和子目录
+                for item in TEMP_OUTPUT_DIR.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        shutil.rmtree(item)
+                logger.info(f"临时目录 '{TEMP_OUTPUT_DIR}' 清理完成。")
+            else:
+                logger.warning(f"临时目录 '{TEMP_OUTPUT_DIR}' 不存在，无需清理。")
+        except Exception as e_cleanup:
+            logger.error(f"清理临时目录 '{TEMP_OUTPUT_DIR}' 时出错: {e_cleanup}", exc_info=True)
+        # --- 清理临时文件结束 ---
         return output_file_path
     except Exception as e_write:
         logger.error(f"将最终结果写入文件 {output_file_path} 时出错: {e_write}", exc_info=True)
+        # --- 清理临时文件 (即使文件写入失败) ---
+        logger.info(f"正在清理临时目录 (文件写入失败后): {TEMP_OUTPUT_DIR}")
+        try:
+            if TEMP_OUTPUT_DIR.is_dir():
+                # 删除目录下的所有文件和子目录
+                for item in TEMP_OUTPUT_DIR.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        shutil.rmtree(item)
+                logger.info(f"临时目录 '{TEMP_OUTPUT_DIR}' 清理完成 (文件写入失败后)。")
+            else:
+                logger.warning(f"临时目录 '{TEMP_OUTPUT_DIR}' 不存在，无需清理 (文件写入失败后)。")
+        except Exception as e_cleanup:
+            logger.error(f"清理临时目录 '{TEMP_OUTPUT_DIR}' 时出错 (文件写入失败后): {e_cleanup}", exc_info=True)
+        # --- 清理临时文件结束 ---
         return None
 
 
