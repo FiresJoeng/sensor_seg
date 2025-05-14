@@ -1648,6 +1648,22 @@ class CodeGenerator:
                             handled_by_rule = True
                             source = "rule_7_thermowell_from_armored"
 
+
+                elif target_model_str == "传感器附加规格":
+                    transmitter_additional_spec_code = model_to_code_map.get("变送器附加规格")
+                    if transmitter_additional_spec_code == "/NF2":
+                        code_to_use = "/N1"
+                        logger.info(
+                            f"规则 新增1 触发：变送器附加规格 code 为 /NF2，强制传感器附加规格 code 为 /N1")
+                        handled_by_rule = True
+                        source = "rule_new_1_override"
+                    elif transmitter_additional_spec_code in ["/NS2", "/NS25"]:
+                        code_to_use = "/N2"
+                        logger.info(
+                            f"规则 新增2 触发：变送器附加规格 code 为 /NS2 或 /NS25，强制传感器附加规格 code 为 /N2")
+                        handled_by_rule = True
+                        source = "rule_new_2_override"
+
                 # --- 3. 标准代码查找 (仅当未被规则处理时) ---
                 if not handled_by_rule:
                     if target_model_str in model_to_code_map:
