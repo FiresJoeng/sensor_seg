@@ -470,7 +470,7 @@ class AccurateLLMStandardizer:
             # 3. 调用 LLM API 处理当前设备组
             llm_response_json = None
             try:
-                logger.info(f"设备组 {', '.join(group_tags)}: 等待10秒以避免LLM速率限制...")
+                logger.info(f"设备组 {', '.join(group_tags)}: 等待5秒以避免LLM速率限制...")
                 time.sleep(5) # Add delay before LLM call
                 # 调用通用的 LLM API 方法
                 llm_response_json = self._call_llm_api(prompt)
