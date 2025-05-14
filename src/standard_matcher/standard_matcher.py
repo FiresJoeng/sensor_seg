@@ -1655,13 +1655,13 @@ class CodeGenerator:
                     if transmitter_additional_spec_code == "/NF2":
                         code_to_use = "/N1"
                         logger.info(
-                            f"规则 新增1 触发：变送器附加规格 code 为 /NF2，强制传感器附加规格 code 为 /N1")
+                            f"规则 8 触发：变送器附加规格 code 为 /NF2，强制传感器附加规格 code 为 /N1")
                         handled_by_rule = True
                         source = "rule_new_1_override"
                     elif transmitter_additional_spec_code in ["/NS2", "/NS25"]:
                         code_to_use = "/N2"
                         logger.info(
-                            f"规则 新增2 触发：变送器附加规格 code 为 /NS2 或 /NS25，强制传感器附加规格 code 为 /N2")
+                            f"规则 8 触发：变送器附加规格 code 为 /NS2 或 /NS25，强制传感器附加规格 code 为 /N2")
                         handled_by_rule = True
                         source = "rule_new_2_override"
 
