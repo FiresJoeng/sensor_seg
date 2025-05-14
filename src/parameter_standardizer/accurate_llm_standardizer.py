@@ -471,7 +471,7 @@ class AccurateLLMStandardizer:
             llm_response_json = None
             try:
                 logger.info(f"设备组 {', '.join(group_tags)}: 等待10秒以避免LLM速率限制...")
-                time.sleep(10) # Add delay before LLM call
+                time.sleep(5) # Add delay before LLM call
                 # 调用通用的 LLM API 方法
                 llm_response_json = self._call_llm_api(prompt)
             except Exception as e: # Catch final error after tenacity retries

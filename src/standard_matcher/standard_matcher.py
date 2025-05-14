@@ -608,7 +608,7 @@ class ModelMatcher:
 
         # 调用 LLM 前添加延时
         logger.info("模型匹配：等待 10 秒以避免 LLM 速率限制...")
-        time.sleep(10)
+        time.sleep(5)
         llm_response = call_llm_for_match(
             system_prompt_formatted, user_prompt_formatted, expect_json=True)
 
@@ -974,7 +974,7 @@ class CodeSelector:
 
             # 调用 LLM 处理当前批次前添加延时
             logger.info(f"代码选择 (批次 {batch_number}/{total_batches})：等待 10 秒以避免 LLM 速率限制...")
-            time.sleep(10)
+            time.sleep(5)
             llm_response = call_llm_for_match(
                 self.SELECTOR_SYSTEM_PROMPT, user_prompt, expect_json=True)
 
@@ -1988,7 +1988,7 @@ def execute_standard_matching(main_input_json_path: Path) -> Optional[Path]:
 
         if i < len(json_files_in_temp) - 1:
             logger.info(f"处理完文件 {temp_json_file_path.name}，等待 10 秒...")
-            time.sleep(10)
+            time.sleep(5)
 
     # --- 所有文件处理完毕，写入最终结果文件 ---
     if not any_file_processed_successfully and all_results: # 如果有结果但没有一个成功，说明都是错误信息
