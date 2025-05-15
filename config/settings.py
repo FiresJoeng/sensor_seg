@@ -16,9 +16,20 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 # --- API Configuration ---
 # 从环境变量获取 API 密钥
-LLM_API_KEY = os.getenv("LLM_API_KEY") # Use DeepSeek key if available, else fallback
+# 明确尝试加载 OPENAI_API_KEY，如果不存在则回退到 LLM_API_KEY
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ZHIPUAI_API_KEY = os.getenv("ZHIPUAI_API_KEY")
+ZHIPUAI_MODEL_NAME = os.getenv("ZHIPUAI_MODEL_NAME") # 默认模型名称
 
-# 如果未设置环境变量，发出警告
+# DeepSeek Configuration for AccurateLLMStandardizer
+DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL")
+DEEPSEEK_MODEL_NAME = os.getenv("DEEPSEEK_MODEL_NAME")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+
+# 通用 LLM 配置 (如果需要，可以根据具体使用决定使用哪个 API Key/URL/Model)
+LLM_API_KEY = OPENAI_API_KEY if OPENAI_API_KEY else os.getenv("LLM_API_KEY") # Use DeepSeek key if available, else fallback
+
+# 如果通用 LLM API Key 未设置，发出警告
 if not LLM_API_KEY:
     # 使用 print 因为 logging 可能尚未配置
     print("警告: 未在 .env 文件中找到 OPENAI_API_KEY 或 LLM_API_KEY。信息提取功能可能无法使用。") # Updated message
