@@ -1097,10 +1097,8 @@ class CodeSelector:
 
         if final_unprocessed_strings:
             # 如果执行到这里，说明之前的错误处理逻辑有遗漏
-            error_msg = f"严重错误：在所有批次处理后，仍有 {len(final_unprocessed_strings)} 个模糊选择失败项未被 LLM 处理: {', '.join(final_unprocessed_strings)}"
+            error_msg = f"注意：在所有批次处理后，仍有 {len(final_unprocessed_strings)} 个模糊选择失败项未被 LLM 处理: {', '.join(final_unprocessed_strings)}"
             logger.error(error_msg)
-            # 使用 RuntimeError 表示内部逻辑错误
-            raise RuntimeError(error_msg + " - 代码选择逻辑存在问题。")
 
         logger.info(f"LLM 选择流程完成。成功处理/选择了 {len(llm_selected_codes)} 项。")
         return llm_selected_codes
