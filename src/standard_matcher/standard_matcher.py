@@ -294,7 +294,7 @@ class ModelMatcher:
 
         self.csv_list_map = csv_list_map
         self.input_json_path = Path(input_json_path)
-        self.fuzzy_threshold = 0.6  # 模糊匹配相似度阈值
+        self.fuzzy_threshold = 0.9  # 模糊匹配相似度阈值
 
         self.input_data: Dict[str, str] = self._load_input_json()
         # 结构: {'model_name': {'rows': [row_dict, ...], 'used': False}}
@@ -814,7 +814,7 @@ class CodeSelector:
             raise ImportError("缺少 thefuzz 库")
 
         self.matched_models_dict = matched_models_dict
-        self.fuzzy_select_threshold = 0.6  # 模糊选择相似度阈值 (与 ModelMatcher 一致)
+        self.fuzzy_select_threshold = 0.8  # 模糊选择相似度阈值
 
         # 最终选择结果: {original_input_key_str: selected_row_dict}
         self.selected_codes: Dict[str, Dict[str, Any]] = {}
@@ -1650,20 +1650,20 @@ class CodeGenerator:
                             source = "rule_7_thermowell_from_armored"
 
 
-                elif target_model_str == "传感器附加规格":
-                    transmitter_additional_spec_code = model_to_code_map.get("变送器附加规格")
+                elif target_model_str == "传感器防爆规格":
+                    transmitter_additional_spec_code = model_to_code_map.get("变送器防爆规格")
                     if transmitter_additional_spec_code == "/NF2":
                         code_to_use = "/N1"
                         logger.info(
-                            f"规则 8 触发：变送器附加规格 code 为 /NF2，强制传感器附加规格 code 为 /N1")
+                            f"规则 8 触发：变送器附加规格 code 为 /NF2，强制传感器防爆规格 code 为 /N1")
                         handled_by_rule = True
-                        source = "rule_new_1_override"
+                        source = "rule_8_override"
                     elif transmitter_additional_spec_code in ["/NS2", "/NS25"]:
                         code_to_use = "/N2"
                         logger.info(
-                            f"规则 8 触发：变送器附加规格 code 为 /NS2 或 /NS25，强制传感器附加规格 code 为 /N2")
+                            f"规则 8 触发：变送器附加规格 code 为 /NS2 或 /NS25，强制传感器防爆规格 code 为 /N2")
                         handled_by_rule = True
-                        source = "rule_new_2_override"
+                        source = "rule_8_override"
 
                 # --- 3. 标准代码查找 (仅当未被规则处理时) ---
                 if not handled_by_rule:

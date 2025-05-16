@@ -9,11 +9,21 @@ model,code,description,param,is_default
 铠套外径(d),8,Ø8mm,8；8mm；φ8；φ8mm,0
 铠套外径(d),10,Ø10mm,10；10mm；φ10；φ10mm,0
 铠套外径(d),Z,其它,其他,0
-铠套材质,PN,304SS,304SS；AISI 304；304；30408；S30408；06Cr19Ni10,0
-铠套材质,SN,321SS,321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti,1
-铠套材质,RN,316SS,316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2,0
 铠套材质,GH,GH3030,GH3030,0
-铠套材质,Z,其它,其他,0
+铠套材质,GN,GH3039,GH3039,0
+铠套材质,HC,Hastelloy C-276,Hastelloy C-276；哈氏C276；HC276,0
+铠套材质,JN,Inconel 625,Inconel 625,0
+铠套材质,N1,碳钢（SA-105）,SA-105,0
+铠套材质,N2,碳钢（15CrMo）,15CrMo,0
+铠套材质,PN,304不锈钢,304SS；AISI 304；304；30408；S30408；06Cr19Ni10;0Cr18Ni9,0
+铠套材质,QN,310不锈钢,S31008；310S；310；310SS；06Cr25Ni20,0
+铠套材质,RN,316不锈钢,316SS；316；SS316；316S.S；316SST；S.S316；S31608；06Cr17Ni12Mo2；0Cr17Ni12Mo2,0
+铠套材质,RH,316H不锈钢,316H,0
+铠套材质,RL,316L不锈钢,316L；316LSS；SS316L；S31603；022Cr17Ni12Mo2；00Cr17Ni14Mo2,0
+铠套材质,SN,321不锈钢,321SS；1Cr18Ni9Ti；321；S32168；06Cr18Ni11Ti；0Cr18Ni10Ti,0
+铠套材质,TA,钛(TA2),TA2；钛,0
+铠套材质,DP,2205双相不锈钢,2205；S22053；022Cr25Ni5Mo3N,0
+铠套材质,Z,其它,其它,0
 加强管长度（N）,%int%,指定长度，单位mm,3位代码，全长-插深,1
 分度号,3,PT100 三线,RTD Pt100 三线制；Pt100（三线制）；三线制；Pt100；Pt100（A级 三线制)；CLASS A/三线制；IEC60751 CLASS A / 三线制；RTD Pt100 三线制；三线制 Three wire；热电阻Pt100三线制；Pt100（A级 三线制）；3线制；3线制RTD；Pt100(3-wire) IEC60751 Class A；3 wires；3线RTD；PT100 3线； PT100 AT 0℃ 3WIRE (DIN TYPE)；3-wire；3线 IEC 60751；PT100-3WIRE；Pt100 ohm，3W，Class B；3 WIRE,0
 分度号,4,PT100 四线,四线制；Pt100（四线制）；4WIRE；4线；,0
@@ -41,10 +51,10 @@ model,code,description,param,is_default
 连接螺纹,5,M20×1.5,M20；M20*1.5；M20×1.5；M20*1.5(M)；M20×1.5(M)；M20X1.5；M20x1.5(M)；固定外螺纹M20x1.5,0
 连接螺纹,6,1/2NPT,1/2NPT；1/2"NPT；NPT1/2；NPT1/2"；1/2NPT(M)；1/2"NPT(M)；NPT1/2(M)；NPT1/2"(M)；1/2"NPT(外螺纹)；1/2"NPT螺纹；热电阻(弹簧式1/2”NPT外螺纹连接)；固定外螺纹 1/2"NPT；MFR STD,1
 插入长度（L）,-%int%,单位mm,铠套热电阻/热点偶；带外保护套管时，此项可省略。,1
+传感器防爆规格,/N1,一体化温度变送器隔爆证书,需一体化温度变送器与变送器NEPSI选项为NF2同时生效,0
+传感器防爆规格,/N2,一体化温度变送器本安证书,需一体化温度变送器与变送器NEPSI选项为NS2或NS25同时生效,0
 传感器附加规格,NaN,默认,若甲方未提供，则选择此项,1
-传感器附加规格,/N1,一体化温度变送器隔爆证书,需一体化温度变送器与变送器NEPSI选项为NF2同时生效,0
-传感器附加规格,/N2,一体化温度变送器本安证书,需一体化温度变送器与变送器NEPSI选项为NS2或NS25同时生效,0
-传感器附加规格,/w,电气接口弯头,电气接口弯头；带,0
+传感器附加规格,/w,电气接口弯头,带电气接口弯头,0
 传感器附加规格,/A1,焊接座,材质□□□ 长□□□mm；□□□焊接安装座，长□□□mm,0
 传感器附加规格,/B11,防水接线盒，材质铝合金,"合金铝；Aluminum；铸铝合金；防爆铝合金；铝；Aluminum-Alloy；铝合金＋聚氨酯涂层；低铜铝合金；聚氨酯烤漆低铜铸铝合金；铝合金喷塑；aluminium alloy；铸铝镁合金；静电喷涂铝合金；Aluminium Alloy；Epoxy coated aluminum；环氧涂层铝；铸铝(Cast Aluminum)；铸铝+防腐喷涂；铝合金（防腐处理）；铝制；铸铝+环氧涂层；铝合金(环氧树脂烤漆)；铝覆聚氨酯涂层；铝覆聚氨脂；AL&Polyyurethane paint； Epoxy Coated Aluminium；Aluminum Alloy w/ Coating；铝、覆聚氨酯涂层；Low-copper aluminum with polyurethane painting;聚氨酯涂层低铜铝合金；",0
 传感器附加规格,/B12,防水接线盒，材质不锈钢,不锈钢；316SS；304SS；316；不锈钢SS；316SST；S.S 316；304SS不锈钢,0
