@@ -798,7 +798,7 @@ class CodeSelector:
   ...
 }}
 ```
-确保每个输入参数都有一个对应的选中行索引。
+特别注意：所有的输入参数都必须选中一个最优索引！不允许不选择！返回的项一定要是完整的！！
 """
 
     def __init__(self, matched_models_dict: Dict[str, List[Dict[str, Any]]]):
@@ -814,7 +814,7 @@ class CodeSelector:
             raise ImportError("缺少 thefuzz 库")
 
         self.matched_models_dict = matched_models_dict
-        self.fuzzy_select_threshold = 0.8  # 模糊选择相似度阈值
+        self.fuzzy_select_threshold = 0.6  # 模糊选择相似度阈值
 
         # 最终选择结果: {original_input_key_str: selected_row_dict}
         self.selected_codes: Dict[str, Dict[str, Any]] = {}
@@ -1082,8 +1082,6 @@ class CodeSelector:
                     # missing_in_batch_internal_keys 已经是内部格式的字符串列表
                     error_msg = f"LLM 在批次 {batch_number} 未对以下 {len(missing_in_batch_internal_keys)} 项返回结果: {', '.join([f'{k}' for k in missing_in_batch_internal_keys])}"
                     logger.error(error_msg)
-                    # 决定是否继续？这里选择抛出异常
-                    raise ValueError(error_msg + " - 无法继续选择。")
 
             except Exception as e:
                 error_msg = f"处理批次 {batch_number}/{total_batches} 的 LLM 响应时出错: {e}"
