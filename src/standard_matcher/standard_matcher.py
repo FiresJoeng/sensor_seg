@@ -1651,7 +1651,7 @@ class CodeGenerator:
 
 
                 elif target_model_str == "传感器防爆规格":
-                    transmitter_additional_spec_code = model_to_code_map.get("变送器防爆规格")
+                    transmitter_additional_spec_code = model_to_code_map.get("变送器附加规格")
                     if transmitter_additional_spec_code == "/NF2":
                         code_to_use = "/N1"
                         logger.info(
