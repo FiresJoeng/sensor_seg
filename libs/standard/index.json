@@ -34,13 +34,13 @@
         "法兰安装保护套管": [
             "libs/standard/tg/TG_3.csv"
         ],
-        "PT1型(无固定装置钢管保护管)": [
+        "PT1型": [
             "libs/standard/tg/TG_PT-1.csv"
         ],
-        "PT2型(螺纹安装钢管保护管)": [
+        "PT2型": [
             "libs/standard/tg/TG_PT-2.csv"
         ],
-        "PT3型(法兰安装钢管保护管)": [
+        "PT3型": [
             "libs/standard/tg/TG_PT-3.csv"
         ]
     }
