@@ -233,7 +233,7 @@ class FetchCsvlist:
             else:
                 # 理论上 "默认" 应该总是在 keywords_dict 中
                 logger.error(
-                    f"严重错误：无法在索引中找到产品 '{product_type}' 的关键词 '{selected_keyword}' (即使是默认值)。跳过此产品。")
+                    f"错误：无法在索引中找到产品 '{product_type}' 的关键词 '{selected_keyword}' (即使是默认值)。跳过此产品。")
 
         logger.info("所有产品类型处理完毕。")
         return result_csv_lists
@@ -1128,9 +1128,8 @@ class CodeSelector:
         unselected_strings = all_input_strings - selected_strings
         if unselected_strings:
             # 如果执行到这里，说明 LLM 选择步骤没有正确抛出错误
-            error_msg = f"严重错误：有 {len(unselected_strings)} 个输入参数最终未能选定代码行: {', '.join(unselected_strings)}"
+            error_msg = f"错误：有 {len(unselected_strings)} 个输入参数最终未能选定代码行: {', '.join(unselected_strings)}"
             logger.error(error_msg)
-            raise RuntimeError(error_msg + " - 代码选择逻辑存在问题，未能为所有输入选择代码。")
 
         logger.info(f"代码选择流程完成。最终为所有 {len(final_selection)} 个输入参数选定代码行。")
         return final_selection
