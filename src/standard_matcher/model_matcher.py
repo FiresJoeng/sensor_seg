@@ -190,15 +190,13 @@ class ModelMatcher:
                                 df_semi_gbk = pd.read_csv(
                                     csv_path, sep=';', encoding='gbk', dtype=str).fillna('')
                                 if required_columns.issubset(df_semi_gbk.columns):
-                                    df = df_semi_gbb
+                                    df = df_semi_gbk
                                 else:
                                     logger.error(
                                         f"尝试多种编码和分隔符后，CSV 文件 {csv_path} 仍缺少必需的列。")
-                                    continue  # 跳过此文件
                             except Exception as e_gbk_semi:
                                 logger.error(
                                     f"尝试多种编码和分隔符后，读取 CSV 文件 {csv_path} 失败: {e_gbk_semi}")
-                                continue  # 跳过此文件
 
                     # 检查必需的列 (再次确认)
                     if df is None or not required_columns.issubset(df.columns):
