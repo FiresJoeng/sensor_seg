@@ -155,4 +155,4 @@ prompts.md
 .clinerules
 src/parameter_standardizer/embedding_generator.py
 src/pipeline/main_pipeline.py
-data/input/温变规格书.pdf
+temp_*/
