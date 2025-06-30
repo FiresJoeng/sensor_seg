@@ -459,7 +459,6 @@ class MockOpenAI:
             # 移除 reasoning_effort 参数，使其与 _call_llm_api 中的调用匹配
             def create(self, model, messages, temperature, timeout, **kwargs): # 添加 **kwargs 以处理其他可能的参数
                 # 模拟 API 调用延迟
-                time.sleep(0.1) # 添加短暂延迟模拟网络请求
 
                 print(f"MockOpenAI: 接收到 Prompt (部分): {messages[0]['content'][:100]}...")
                 # 返回一个假的、符合预期的 JSON 响应字符串

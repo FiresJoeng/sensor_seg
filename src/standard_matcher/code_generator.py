@@ -442,6 +442,7 @@ class CodeGenerator:
 
         # 4. 按产品顺序处理并拼接代码块
         product_code_strings = []
+        input_requests = []  # 初始化输入请求列表
         product_order = ["transmitter", "sensor", "tg"]  # 预定义的产品处理顺序
         missing_models_log = {}  # 记录每个产品类型在 selected_codes_data 中缺失的 model
 
@@ -628,57 +629,22 @@ class CodeGenerator:
                                 code_to_use = "?"
                                 source = "missing_details"
 
-                # --- 统一处理代码添加和 %int% (无论代码来源) ---
-                final_code_part = code_to_use  # 初始值
-
-                # 只有当 code_to_use 不是 None (即没有被跳过) 时才处理
-                if code_to_use is not None:
-                    code_to_use_str = str(code_to_use)  # 确保是字符串
-                    final_code_part = code_to_use_str  # 更新 final_code_part
-
-                    if "%int%" in code_to_use_str:
-                        # 确定提示信息中的产品类型
-                        prompt_product_type = product_type_origin if source == "default" else product_type
-                        prompt_model_name = target_model_str
-                        # ... (现有 %int% 输入和替换逻辑) ...
-                        while True:
-                            try:
-                                prompt_message = (
-                                    f"请为 {prompt_product_type} - '{prompt_model_name}' 输入一个整数值 "
-                                    f"(代码模板: {code_to_use_str}, 直接回车跳过使用 '?'): "
-                                )
-                                user_input_str = input(
-                                    prompt_message).strip()  # 获取输入并去空格
-
-                                if not user_input_str:  # 用户直接按回车
-                                    final_code_part = "?"
-                                    logger.info(
-                                        f"用户跳过了为 {prompt_product_type} - '{prompt_model_name}' 输入整数，使用 '?' 占位。")
-                                    break  # 跳出循环
-
-                                # 用户有输入，尝试转换为整数
-                                user_int = int(user_input_str)
-                                # 替换占位符
-                                final_code_part = code_to_use_str.replace(
-                                    "%int%", str(user_int))
-                                logger.info(
-                                    f"用户为 {prompt_product_type} - '{prompt_model_name}' 输入了整数 {user_int}，替换占位符得到代码: '{final_code_part}'")
-                                break  # 输入有效，跳出循环
-                            except ValueError:
-                                print("输入无效，请输入一个整数或直接回车跳过。")
-                                logger.warning(
-                                    f"用户为 {prompt_product_type} - '{prompt_model_name}' 输入了非整数值 '{user_input_str}'，要求重新输入。")
-
-                    # 将最终处理后的代码部分添加到列表 (确保不为空)
-                    if final_code_part:  # 只有非空代码才添加
-                        codes_for_this_product.append(final_code_part)
+                    # 收集需要用户输入的参数
+                    if code_to_use is not None and "%int%" in str(code_to_use):
+                        input_requests.append({
+                            "product_type": product_type_origin if source == "default" else product_type,
+                            "model_name": target_model_str,
+                            "code_template": str(code_to_use),
+                            "position": len(codes_for_this_product)  # 记录在代码块中的位置
+                        })
+                        # 使用临时占位符
+                        codes_for_this_product.append("%INT_PLACEHOLDER%")
+                        logger.debug(f"为 {target_model_str} 添加输入请求，使用临时占位符")
+                    elif code_to_use is not None:
+                        codes_for_this_product.append(str(code_to_use))
+                        logger.debug(f"添加 {target_model_str} 的代码: {code_to_use}")
                     else:
-                        logger.debug(
-                            f"Model '{target_model_str}' (来源: {source}) 生成了空代码部分，已跳过添加。")
-
-                else:  # code_to_use is None (被跳过)
-                    logger.debug(
-                        f"Model '{target_model_str}' (来源: {source}) 被跳过，不生成代码。")
+                        logger.debug(f"Model '{target_model_str}' 被跳过，不生成代码。")
 
             if missing_models_for_product:
                 missing_models_log[product_type] = missing_models_for_product
@@ -700,8 +666,11 @@ class CodeGenerator:
         # 5. 将不同产品的代码字符串用空格连接
         final_code = " ".join(product_code_strings)
 
-        # 6. 格式化输出
-        output_string = f"{final_code}"
-        logger.info(f"最终生成的产品代码字符串: {output_string}")
-
-        return output_string
+        # 6. 返回结果和输入请求
+        result = {
+            "final_code": " ".join(product_code_strings),
+            "input_requests": input_requests,
+            "ordered_models": model_order_by_product
+        }
+        logger.info(f"代码生成完成，等待用户输入")
+        return result

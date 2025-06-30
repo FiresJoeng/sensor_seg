@@ -407,7 +407,6 @@ class ModelMatcher:
 
         # 调用 LLM 前添加延时
         logger.info("模型匹配：等待 5 秒以避免 LLM 速率限制...")
-        time.sleep(5)
         llm_response = call_llm_for_match(
             system_prompt_formatted, user_prompt_formatted, expect_json=True)
 
@@ -537,11 +536,10 @@ class ModelMatcher:
 
         logger.info(f"所有匹配流程完成。总共匹配 {len(self.matched_results)} 项。")
         if self.unmatched_inputs:
-            # 修改日志记录，逐条输出未匹配的键
-            logger.warning(f"有 {len(self.unmatched_inputs)} 个输入项最终未能匹配。")
-            for unmatched_key, unmatched_value in self.unmatched_inputs.items():
-                logger.warning(
-                    f"  - 未匹配输入键: '{unmatched_key}' (值: '{unmatched_value}')")
+            # 只记录未匹配项，不提示用户输入
+            sorted_unmatched = sorted(self.unmatched_inputs.items(),
+                                     key=lambda x: x[0])  # 按键(位号)排序
+            logger.warning(f"{len(sorted_unmatched)} 个输入项在 LLM 匹配后仍未匹配。")
 
         # 记录未被匹配的标准模型组
         unmatched_models = [name for name,

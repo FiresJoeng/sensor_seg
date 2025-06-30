@@ -251,7 +251,6 @@ class CodeSelector:
 
             # 调用 LLM 处理当前批次前添加延时
             logger.info(f"代码选择 (批次 {batch_number}/{total_batches})：等待 5 秒以避免 LLM 速率限制...")
-            time.sleep(5)
             llm_response = call_llm_for_match(
                 self.SELECTOR_SYSTEM_PROMPT, user_prompt, expect_json=True)
 
