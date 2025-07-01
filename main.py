@@ -29,8 +29,10 @@ try:
     from src.parameter_standardizer.accurate_llm_standardizer import AccurateLLMStandardizer
     # Import OpenAI for Gemini compatibility
     from openai import OpenAI
-    # Import the refactored standard matching function
-    from src.standard_matcher.standard_matcher import execute_standard_matching
+    # Import the new CodeAssembler
+    from src.code_assembler.assembler import CodeAssembler
+    # The refactored standard matching function (execute_standard_matching) will be replaced
+    # from src.standard_matcher.standard_matcher import execute_standard_matching
 
     # Now setup the full logging configuration from the utils module
     # Re-get logger after full setup to apply configured handlers/formatters
@@ -297,60 +299,129 @@ def main():
     # 用户要求始终处理，不再询问是否跳过提取，也不再需要 skip_extraction 标志
     logger.info(f"将始终执行提取和标准化流程。")
 
-    standardized_file_path = process_document(input_file) # 调用修改后的 process_document (无 skip_extraction)
+    standardized_file_path = process_document(input_file)
 
     # Get the base name from the initial input file for cleanup later
     input_file_stem = input_file.stem
     base_name_for_cleanup = input_file_stem.replace('_analysis', '').replace('_standardized_all', '')
     extracted_file_to_clean = settings.OUTPUT_DIR / f"{base_name_for_cleanup}_extracted_parameters_with_remarks.json"
-    standardized_file_to_clean = settings.OUTPUT_DIR / f"{base_name_for_cleanup}_standardized_all.json"
 
     if standardized_file_path is not None:
-        # 阶段一和阶段二的完成信息已在 process_document 内部打印
-        # logger.info(f"第一阶段：参数提取与标准化（包含人工检查点）成功完成。") # 已由 process_document 内部打印替代
-        # print(f"\n--- 第一阶段成功：参数提取与标准化（包含人工检查点）---") # 已由 process_document 内部打印替代
-        # print(f"已处理并确认的标准化文件: {standardized_file_path}") # 已由 process_document 内部打印替代
+        logger.info(f"\n--- 开始阶段三：型号代码组装 ---")
+        print(f"\n--- 开始阶段三：型号代码组装 ---")
+        print(f"输入文件进行代码组装: {standardized_file_path}")
 
-        # --- 调用标准匹配流程 ---
-        logger.info(f"\n===== 开始阶段三：标准匹配与型号代码生成 =====") # 修改日志
-        print(f"\n--- 开始阶段三：标准匹配与型号代码生成 ---") # 修改打印
-        print(f"输入文件进行标准匹配: {standardized_file_path}")
-        
-        # 调用 execute_standard_matching
-        # 注意：execute_standard_matching 内部会处理用户输入 %int% 的情况
-        final_results_path = execute_standard_matching(standardized_file_path)
+        try:
+            # 重新加载标准化后的数据
+            logger.info(f"加载标准化文件进行代码组装: {standardized_file_path}")
+            with open(standardized_file_path, 'r', encoding='utf-8') as f:
+                standardized_data = json.load(f)
+            logger.info("标准化文件加载成功。")
 
-        if final_results_path:
-            logger.info(f"阶段三：标准匹配与型号代码生成成功完成。最终型号代码结果文件: {final_results_path}") # 修改日志
-            print(f"\n--- 阶段三：标准匹配与型号代码生成 完成 ---") # 修改打印
-            print(f"最终型号代码结果已保存至: {final_results_path}")
+            # 重新初始化 LLM 客户端，确保在 main 函数作用域内可用
+            llm_client = OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.LLM_API_URL, timeout=settings.LLM_REQUEST_TIMEOUT)
+            code_assembler = CodeAssembler(client=llm_client)
+            logger.info("CodeAssembler 初始化成功。")
+
+            # 调用 CodeAssembler 进行代码组装
+            logger.info("开始调用LLM组装型号代码...")
+            assembled_results = code_assembler.assemble_code(standardized_data)
+            logger.info("LLM型号代码组装完成。")
+
+            # --- 人工输入缺失代码 (新版) ---
+            final_results = []
+            for result in assembled_results:
+                # 确保位号是字符串
+                tag_no_raw = result.get("位号")
+                tag_no = ", ".join(tag_no_raw) if isinstance(tag_no_raw, list) else str(tag_no_raw)
+
+                assembled_code = result.get("型号代码", "组装失败")
+                missing_params = result.get("缺失参数", [])
+                
+                # 检查是否有占位符 '□' 并且有缺失参数列表
+                if "□" in assembled_code and missing_params:
+                    print(f"\n--- 人工输入：位号 {tag_no} 型号代码不完整 ---")
+                    
+                    # 循环直到所有占位符都被处理
+                    while "□" in assembled_code:
+                        print(f"当前型号代码: {assembled_code}")
+                        
+                        # 找出当前第一个 '□' 对应的缺失参数
+                        # 注意：这个逻辑假设 '□' 的出现顺序与 missing_params 列表的顺序一致
+                        # 这是一个合理的简化假设
+                        current_missing_param = next((p for p in missing_params if p), None)
+                        
+                        if not current_missing_param:
+                            # 如果没有更多具体的缺失参数名，但仍有 '□'，说明逻辑可能不匹配
+                            # 此时退回到旧的通用提示
+                            print(f"警告: 无法确定下一个缺失参数的名称。")
+                            prompt_text = f"请为位号 '{tag_no}' 输入下一个缺失的代码: "
+                        else:
+                            prompt_text = f"请输入 '{current_missing_param}' 的代码 (留空则使用'-'): "
+
+                        # 打印出所有剩余的缺失参数
+                        print(f"剩余待输入参数: {', '.join(p for p in missing_params if p)}")
+                        
+                        user_input = input(prompt_text).strip()
+                        
+                        # 根据用户输入进行替换
+                        replacement = user_input if user_input else "-"
+                        assembled_code = assembled_code.replace("□", replacement, 1)
+                        
+                        # 从 missing_params 列表中移除已处理的参数
+                        if current_missing_param:
+                            try:
+                                missing_params.remove(current_missing_param)
+                            except ValueError:
+                                # 如果参数不在列表中，忽略错误，继续
+                                pass
+                        
+                        print(f"更新后型号代码: {assembled_code}\n")
+
+                final_results.append({
+                    "位号": tag_no,
+                    "最终型号代码": assembled_code,
+                    "剩余未填参数": [p for p in missing_params if p] # 记录最终还缺哪些
+                })
+
+            # 保存最终结果
+            final_result_path = settings.OUTPUT_DIR / f"{input_file_stem}_results.json" # 统一命名为 _results.json
+            with open(final_result_path, 'w', encoding='utf-8') as f:
+                json.dump(final_results, f, ensure_ascii=False, indent=4)
+            
+            logger.info(f"--- 阶段三：型号代码组装与人工输入 完成 ---")
+            print(f"\n--- 阶段三：型号代码组装与人工输入 完成 ---")
+            logger.info(f"最终型号代码结果已保存至: {final_result_path}")
+            print(f"最终型号代码结果已保存至: {final_result_path}")
+
+            logger.info(f"\n===== 完整流程处理成功 =====")
             print(f"\n===== 完整流程处理成功 =====")
             sys.exit(0)
-        else:
-            logger.error("阶段三：标准匹配与型号代码生成失败或未生成结果文件。") # 修改日志
-            print(f"\n--- 阶段三：标准匹配与型号代码生成 失败 ---") # 修改打印
-            print("未能生成最终型号代码结果文件。请检查日志。")
+
+        except Exception as e:
+            logger.error(f"型号代码组装流程失败: {e}", exc_info=True)
+            print("\n--- 型号代码组装流程失败 ---")
+            print("未能完成型号代码组装。请检查日志文件获取详细信息。")
             sys.exit(1)
     else:
-        # 如果 process_document 返回 None，意味着阶段一或阶段二失败
-        logger.error("参数提取或标准化阶段失败，未能生成后续处理所需的文件。")
-        print("\n--- 参数提取或标准化阶段失败 ---")
-        print("未能完成参数提取或标准化。请检查日志文件获取详细信息。")
+        logger.error("标准化流程失败，无法进行型号代码组装。")
+        print("\n--- 标准化流程失败 ---")
+        print("未能完成标准化。请检查日志文件获取详细信息。")
         sys.exit(1)
 
-    # --- 清理阶段一和阶段二的临时文件 ---
-    logger.info("开始清理阶段一和阶段二的临时文件...")
-    files_to_clean = [extracted_file_to_clean, standardized_file_to_clean]
+    # --- 清理临时文件 ---
+    logger.info("开始清理临时文件...")
+    files_to_clean = [extracted_file_to_clean, standardized_file_path] # 清理提取阶段和标准化阶段的中间文件
     for file_path in files_to_clean:
         try:
-            if file_path.is_file():
+            if file_path and file_path.is_file(): # 检查 file_path 是否为 None
                 file_path.unlink()
                 logger.info(f"成功删除临时文件: {file_path}")
             else:
-                logger.debug(f"临时文件不存在，无需删除: {file_path}")
+                logger.debug(f"临时文件不存在或路径无效，无需删除: {file_path}")
         except OSError as e:
             logger.error(f"删除临时文件 '{file_path}' 时出错: {e}", exc_info=True)
-    logger.info("阶段一和阶段二临时文件清理完成。")
+    logger.info("临时文件清理完成。")
 
 
 if __name__ == "__main__":

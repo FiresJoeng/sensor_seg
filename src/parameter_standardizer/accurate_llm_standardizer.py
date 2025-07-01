@@ -347,46 +347,48 @@ class AccurateLLMStandardizer:
             if standardized_group_list_from_llm and isinstance(standardized_group_list_from_llm, list) and len(standardized_group_list_from_llm) > 0:
                 standardized_group_entry = standardized_group_list_from_llm[0]
                 if isinstance(standardized_group_entry, dict):
-                    if "标准化共用参数" in standardized_group_entry or "标准化不同参数" in standardized_group_entry:
-                         logger.info(f"成功从 LLM 获取设备组 {', '.join(group_tags)} 的标准化结果。")
-                         return standardized_group_entry
+                    if "标准化参数" in standardized_group_entry:
+                         logger.info(f"成功从 LLM 获取设备组 {', '.join(group_tags)} 的标准化参数。")
+                         # 返回包含位号和标准化参数的字典
+                         return {"位号": group_tags, "标准化参数": standardized_group_entry.get("标准化参数", {})}
                     else:
-                         logger.warning(f"LLM 返回的设备组 {', '.join(group_tags)} 结果未包含预期的标准化参数键。返回内容: {standardized_group_entry}")
+                         logger.warning(f"LLM 返回的设备组 {', '.join(group_tags)} 结果未包含预期的 '标准化参数' 键。返回内容: {standardized_group_entry}")
                          failed_group_entry = device_group.copy()
-                         failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "标准化结果格式异常。"
+                         failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "LLM返回结果格式异常，缺少标准化参数。"
                          return failed_group_entry
                 else:
                      logger.error(f"LLM 返回的设备组列表第一项格式不正确: {standardized_group_entry}")
                      failed_group_entry = device_group.copy()
-                     failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "标准化结果格式错误。"
+                     failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "LLM返回结果格式错误。"
                      return failed_group_entry
             else:
                 logger.error(f"LLM 响应中设备组 {', '.join(group_tags)} 未返回有效的 '设备列表' 或列表为空。响应: {llm_response_json}")
                 failed_group_entry = device_group.copy()
-                failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "标准化结果列表为空或格式错误。"
+                failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "LLM返回结果列表为空或格式错误。"
                 return failed_group_entry
         else:
-            logger.error(f"未能从 LLM 获取设备组 {', '.join(group_tags)} 的有效标准化结果或解析失败。")
+            logger.error(f"未能从 LLM 获取设备组 {', '.join(group_tags)} 的有效标准化参数结果或解析失败。")
             failed_group_entry = device_group.copy()
-            failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "未能获取有效标准化结果。"
+            failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "未能获取有效标准化参数结果。"
             return failed_group_entry
 
 
     def standardize(self, extracted_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         对提取的（人工核对后的）完整数据进行标准化，按设备组分批并行处理。
+        现在，此方法将生成标准化参数。
 
         Args:
             extracted_data: 包含设备组列表和备注的字典，格式来自 InfoExtractor 输出。
                             例如: {'设备列表': [...], '备注': {...}}
 
         Returns:
-            Optional[Dict[str, Any]]: 包含标准化后设备组列表和原始备注的字典。
+            Optional[Dict[str, Any]]: 包含标准化参数的设备组列表和原始备注的字典。
                                       例如: {'设备列表': [...], 备注: {...}}
-                                      其中每个设备组包含 "位号", "标准化共用参数", "标准化不同参数"。
+                                      其中每个设备组包含 "位号", "标准化参数"。
                                       如果处理失败则返回 None。
         """
-        logger.info("--- 开始对提取的完整数据进行分批并行标准化 ---")
+        logger.info("--- 开始对提取的完整数据进行分批并行生成标准化参数 ---")
 
         if '设备列表' not in extracted_data or not isinstance(extracted_data['设备列表'], list):
             logger.error("输入数据中缺少'设备列表'或格式不正确，无法执行标准化。")

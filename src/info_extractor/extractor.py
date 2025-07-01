@@ -1,4 +1,3 @@
-
 import sys
 from pathlib import Path
 
@@ -358,14 +357,11 @@ class InfoExtractor:
             for device_group in data['设备列表']:
                 tag_nos = device_group.get('位号', []) # 获取位号列表
 
-                # 优先获取标准化后的共用参数，如果不存在，则获取原始共用参数
-                standardized_common_params = device_group.get('标准化共用参数')
-                common_params_to_merge = standardized_common_params if isinstance(standardized_common_params, dict) else device_group.get('共用参数', {})
-
-                # 优先获取标准化后的不同参数，如果不存在，则获取原始不同参数
-                standardized_diff_params = device_group.get('标准化不同参数')
-                diff_params_to_merge = standardized_diff_params if isinstance(standardized_diff_params, dict) else device_group.get('不同参数', {})
-
+                # 获取标准化参数，这是 AccurateLLMStandardizer 的输出
+                standardized_params = device_group.get('标准化参数', {})
+                if not isinstance(standardized_params, dict):
+                    logger.warning(f"设备组 '{', '.join(tag_nos)}' 的 '标准化参数' 格式不正确，跳过处理。")
+                    continue
 
                 if not tag_nos:
                     logger.warning(f"设备组缺少'位号'信息，跳过处理: {device_group}")
@@ -376,31 +372,8 @@ class InfoExtractor:
                 # 遍历该组中的每个位号
                 for tag_no in tag_nos:
                     # 为每个位号创建一个新的设备字典
-                    individual_device_params = {} # 初始化参数字典
-
-                    # 合并共用参数
-                    if common_params_to_merge:
-                        individual_device_params.update(common_params_to_merge)
-                    elif standardized_common_params is None and '共用参数' in device_group:
-                         # 标准化失败且原始共用参数存在
-                         logger.debug(f"位号 '{tag_no}' 所在组共用参数标准化失败，使用原始共用参数。")
-                    else:
-                         logger.debug(f"位号 '{tag_no}' 所在组无有效共用参数或标准化共用参数。")
-
-
-                    # 遍历不同参数，并将对应位号的值合并进来 (覆盖共用参数中的同名项)
-                    if diff_params_to_merge:
-                        for param_name, tag_value_map in diff_params_to_merge.items():
-                            if isinstance(tag_value_map, dict) and tag_no in tag_value_map:
-                                individual_device_params[param_name] = tag_value_map[tag_no] # 添加或覆盖特定参数值
-                            else:
-                                # 如果不同参数的值不是字典或者当前位号不在其中，记录一个调试信息（可选）
-                                logger.debug(f"位号 '{tag_no}' 在不同参数 '{param_name}' 中未找到特定值或格式错误。")
-                    elif standardized_diff_params is None and '不同参数' in device_group:
-                         # 标准化失败且原始不同参数存在
-                         logger.debug(f"位号 '{tag_no}' 所在组不同参数标准化失败，使用原始不同参数。")
-                    else:
-                        logger.debug(f"设备组 '{', '.join(tag_nos)}' 无有效不同参数或标准化不同参数。")
+                    # 直接使用标准化参数作为参数
+                    individual_device_params = standardized_params
 
 
                     # 将合并后的设备信息添加到结果列表
@@ -437,3 +410,6 @@ class InfoExtractor:
             else:
                 # 如果 "备注" 键不存在
                 logger.info("未在数据中找到'备注'信息。")
+
+            return None # 返回 None 表示未找到备注信息
+            
