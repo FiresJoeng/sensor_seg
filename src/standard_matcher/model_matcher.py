@@ -142,7 +142,8 @@ class ModelMatcher:
         for category, paths in self.csv_list_map.items():
             logger.debug(f"开始加载类别 '{category}' 的 CSV 文件: {paths}")
             for csv_path_str in paths:
-                csv_path = Path(csv_path_str)
+                # --- FIX: Construct absolute path from project root ---
+                csv_path = project_root / csv_path_str
                 if not csv_path.is_file():
                     logger.warning(f"CSV 文件未找到，跳过: {csv_path}")
                     continue

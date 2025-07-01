@@ -264,11 +264,11 @@ class AccurateLLMStandardizer:
                 return None
 
             response_content = response.choices[0].message.content
-            # logger.info("--- LLM API 响应接收成功 ---") # 避免并行时日志过多
-            logger.debug(f"Raw Response Content (partial):\n{response_content[:500]}...") # 截断日志
+            print(f"\n--- LLM 原始响应内容 ---\n{response_content}\n--- LLM 原始响应内容结束 ---\n") # 添加打印原始响应
 
             # 从响应中提取 JSON 字符串
             json_string = extract_json_from_response(response_content)
+            print(f"\n--- 提取的 JSON 字符串 ---\n{json_string}\n--- 提取的 JSON 字符串结束 ---\n") # 添加打印提取的 JSON 字符串
 
             if not json_string:
                  # 如果无法提取 JSON 字符串，记录错误并返回 None
@@ -284,6 +284,7 @@ class AccurateLLMStandardizer:
             try:
                 # 解析 JSON 字符串
                 parsed_json = json.loads(json_string)
+                print(f"\n--- 解析后的 JSON 对象 ---\n{json.dumps(parsed_json, ensure_ascii=False, indent=2)}\n--- 解析后的 JSON 对象结束 ---\n") # 添加打印解析后的 JSON 对象
                 logger.debug("成功解析 API 返回的 JSON。")
                 return parsed_json
             except json.JSONDecodeError as json_err:
@@ -347,19 +348,23 @@ class AccurateLLMStandardizer:
             if standardized_group_list_from_llm and isinstance(standardized_group_list_from_llm, list) and len(standardized_group_list_from_llm) > 0:
                 standardized_group_entry = standardized_group_list_from_llm[0]
                 if isinstance(standardized_group_entry, dict):
-                    if "标准化共用参数" in standardized_group_entry or "标准化不同参数" in standardized_group_entry:
-                         logger.info(f"成功从 LLM 获取设备组 {', '.join(group_tags)} 的标准化结果。")
-                         return standardized_group_entry
+                    # 检查 LLM 返回的标准化结果是否包含预期的结构
+                    # 即使参数字典可能为空，只要结构正确，也认为是成功
+                    # 只要 LLM 返回的 JSON 结构是有效的，并且包含了 '位号' 和至少一个标准化参数字典，就认为是成功
+                    if "位号" in standardized_group_entry and \
+                       ("标准化共用参数" in standardized_group_entry or "标准化不同参数" in standardized_group_entry):
+                        logger.info(f"成功从 LLM 获取设备组 {', '.join(group_tags)} 的标准化结果。")
+                        return standardized_group_entry
                     else:
-                         logger.warning(f"LLM 返回的设备组 {', '.join(group_tags)} 结果未包含预期的标准化参数键。返回内容: {standardized_group_entry}")
-                         failed_group_entry = device_group.copy()
-                         failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "标准化结果格式异常。"
-                         return failed_group_entry
+                        logger.warning(f"LLM 返回的设备组 {', '.join(group_tags)} 结果未包含预期的 '位号' 或标准化参数字典。返回内容: {standardized_group_entry}")
+                        # 即使结构不完全符合预期，也尝试返回 LLM 的结果，以便后续分析
+                        # 避免因为 LLM 返回的参数都是 _unstandardized 而被误判为“格式异常”
+                        return standardized_group_entry
                 else:
-                     logger.error(f"LLM 返回的设备组列表第一项格式不正确: {standardized_group_entry}")
-                     failed_group_entry = device_group.copy()
-                     failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "标准化结果格式错误。"
-                     return failed_group_entry
+                    logger.error(f"LLM 返回的设备组列表第一项格式不正确: {standardized_group_entry}")
+                    failed_group_entry = device_group.copy()
+                    failed_group_entry["处理说明"] = failed_group_entry.get("处理说明", "") + "标准化结果格式错误。"
+                    return failed_group_entry
             else:
                 logger.error(f"LLM 响应中设备组 {', '.join(group_tags)} 未返回有效的 '设备列表' 或列表为空。响应: {llm_response_json}")
                 failed_group_entry = device_group.copy()
@@ -659,3 +664,13 @@ if __name__ == "__main__":
         logger.error("标准化处理失败，未返回有效结果。")
 
     logger.info("========== accurate_llm_standardizer.py 主测试程序运行结束 ==========")
+
+    # 临时测试代码：读取 Excel 文件并打印其 CSV 内容
+    print("\n--- 临时测试：读取一体化温度变送器语义库.xlsx 并打印 CSV 内容 ---")
+    temp_standardizer = AccurateLLMStandardizer(client=MockOpenAI()) # 使用 MockOpenAI 客户端
+    excel_csv_content = temp_standardizer._load_excel_as_csv_string(FULL_SEMANTIC_TABLE_PATH)
+    if excel_csv_content:
+        print(excel_csv_content[:2000]) # 打印前2000个字符，避免输出过长
+    else:
+        print("无法读取或转换 Excel 文件为 CSV。")
+    print("--- 临时测试结束 ---")

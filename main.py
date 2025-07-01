@@ -61,11 +61,11 @@ def prompt_for_manual_check(prompt_message: str) -> bool:
         elif response == 'skip':
             logger.warning("人工确认：跳过当前项。")
             return False # 跳过当前项（例如设备）
-        elif response == 'abort':
+        elif response == 'q':
             logger.error("人工确认：中止流程。")
             raise KeyboardInterrupt("用户中止流程") # 使用异常中断流程
         else:
-            print("无效输入。请按 Enter, 输入 'skip', 或 'abort'。")
+            print("无效输入。请按 Enter, 输入 'skip', 或 'q'。")
 
 def save_and_verify_json(data: Dict[str, Any], file_path: Path, prompt_prefix: str) -> Optional[Dict[str, Any]]:
     """保存 JSON 数据，提示用户核对/修改，然后重新加载"""
@@ -173,9 +173,10 @@ def process_document(input_file_path: Path) -> Optional[Path]: # 移除了 skip_
     # --- 2. 信息提取 ---
     try:
         logger.info("开始信息提取...")
-        extracted_data = info_extractor.extract_parameters_from_pdf(input_file_path)
+        # FIX: Call the unified 'extract_parameters' method instead of the old one.
+        extracted_data = info_extractor.extract_parameters(input_file_path)
         if extracted_data is None:
-            logger.error("从PDF提取参数失败。")
+            logger.error("从文档提取参数失败。")
             return None
         logger.info("信息提取成功。")
 

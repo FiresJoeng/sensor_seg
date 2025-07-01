@@ -102,7 +102,7 @@ class CodeGenerator:
             if product_type in csv_list_map and csv_list_map[product_type]:
                 # 只取该产品类型的第一个CSV文件来确定顺序
                 csv_path_str = csv_list_map[product_type][0]
-                csv_path = Path(csv_path_str)  # 转换为 Path 对象
+                csv_path = project_root / csv_path_str  # FIX: Construct absolute path
                 logger.info(f"正在处理产品 '{product_type}' 的CSV文件以确定顺序: {csv_path}")
                 try:
                     # --- 重用 ModelMatcher 的 CSV 读取逻辑 ---
@@ -212,7 +212,7 @@ class CodeGenerator:
                         continue  # 跳过已处理的文件
                     processed_files.add(csv_path_str)
 
-                    csv_path_default = Path(csv_path_str)
+                    csv_path_default = project_root / csv_path_str # FIX: Construct absolute path
                     logger.info(
                         f"正在为产品 '{product_type_default}' 从 {csv_path_default} 预加载模型详情...")
                     try:

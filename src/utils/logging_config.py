@@ -38,6 +38,9 @@ def setup_logging():
     if root_logger.hasHandlers():
         root_logger.handlers.clear()
 
+    # 恢复 pdfminer.pdfinterp 记录器的级别为 INFO，以便在终端查看其输出
+    logging.getLogger('pdfminer.pdfinterp').setLevel(logging.INFO)
+
     # 创建格式化器
     formatter = logging.Formatter(log_format, datefmt=log_date_format)
 
