@@ -45,21 +45,34 @@ class CodeAssembler:
         if not self.prompt_template:
             raise ValueError("无法加载组装 Prompt 模板，CodeAssembler 无法初始化。")
         
-        # 定义固定的组装顺序
-        self.assembly_order = [
-            "温度变送器", "输出信号", "壳体代码", "接线口", "内置指示器", "安装支架", "NEPSI",
-            "元件类型", "元件数量", "铠套外径(d)", "铠套材质", "分度号", "接线盒形式",
-            "接头结构", "连接螺纹", "插入长度（L）", "过程连接", "TG套管形式",
-            "传感器连接螺纹（S）", "过程连接（P）", "材质", "根部直径（Q）", "端部直径（V）",
-            "插入深度（U）", "外保护套管材质报告", "外保护套管着色渗透报告",
-            "外保护套管接液部分禁油处理", "外保护管水压测试", "外保护套管接液部分抛光处理"
+        # 定义三段式组装顺序
+        self.transmitter_order = [
+            "温度变送器", "输出信号", "说明书语言", "传感器输入", "壳体代码", 
+            "接线口", "内置指示器", "安装支架", "NEPSI"
         ]
+        self.sensor_order = [
+            "元件类型", "元件数量", "铠套外径(d)", "铠套材质", "加强管长度", 
+            "分度号", "接线盒形式", "接头结构", "连接螺纹", "插入长度（L）", "过程连接"
+        ]
+        self.tg_order = [
+            "TG套管形式", "传感器连接螺纹（S）", "过程连接（P）", "套管材质", 
+            "根部直径（Q）", "端部直径（V）", "插入深度（U）", "套管附加规格"
+        ]
+        # 合并成一个完整的顺序列表，用于计算缺失参数
+        self.assembly_order = self.transmitter_order + self.sensor_order + self.tg_order
 
     def _construct_llm_prompt(self, standardized_params: Dict[str, Any]) -> str:
-        """为单个设备构建 LLM Prompt。"""
-        # 构建包含组装顺序和标准化参数的 Prompt
+        """为单个设备构建三段式 LLM Prompt。"""
+        # 构建包含分段组装顺序和标准化参数的 Prompt
         prompt = self.prompt_template
-        prompt += f"\n\n## 组装顺序：\n{json.dumps(self.assembly_order, ensure_ascii=False, indent=2)}"
+        
+        assembly_structure = {
+            "变送器 (Transmitter)": self.transmitter_order,
+            "传感器 (Sensor)": self.sensor_order,
+            "热保护套管 (TG)": self.tg_order
+        }
+        
+        prompt += f"\n\n## 组装结构与顺序：\n{json.dumps(assembly_structure, ensure_ascii=False, indent=2)}"
         prompt += f"\n\n## 标准化参数：\n{json.dumps(standardized_params, ensure_ascii=False, indent=2)}"
         return prompt
 
@@ -209,7 +222,7 @@ def main():
 class MockOpenAI:
     """
     一个模拟的 OpenAI 客户端，用于在没有真实 API 密钥的情况下进行测试。
-    它会根据输入的参数结构，模拟一个简化的组装逻辑。
+    它会根据输入的参数结构，模拟一个三段式的组装逻辑。
     """
     def __init__(self):
         self.chat = self.MockChat()
@@ -220,31 +233,35 @@ class MockOpenAI:
 
         class MockCompletions:
             def create(self, model, messages, temperature, timeout, **kwargs):
-                # 提取标准化参数
+                # 提取标准化参数和组装结构
                 prompt_content = messages[0]['content']
                 params_match = re.search(r'## 标准化参数：\s*(\{.*?\})\s*$', prompt_content, re.DOTALL)
+                structure_match = re.search(r'## 组装结构与顺序：\s*(\{.*?\})\s*## 标准化参数', prompt_content, re.DOTALL)
+                
                 params = {}
                 if params_match:
                     try:
-                        params_data = json.loads(params_match.group(1))
-                        params = params_data
+                        params = json.loads(params_match.group(1))
                     except json.JSONDecodeError:
                         pass
                 
-                # 定义一个固定的组装顺序用于模拟
-                assembly_order = [
-                    "温度变送器", "输出信号", "壳体代码", "接线口", "内置指示器", "安装支架", "NEPSI",
-                    "元件类型", "元件数量", "铠套外径(d)", "铠套材质", "分度号", "接线盒形式",
-                    "接头结构", "连接螺纹", "插入长度（L）", "过程连接", "TG套管形式",
-                    "传感器连接螺纹（S）", "过程连接（P）", "材质", "根部直径（Q）", "端部直径（V）",
-                    "插入深度（U）", "外保护套管材质报告", "外保护套管着色渗透报告",
-                    "外保护套管接液部分禁油处理", "外保护管水压测试", "外保护套管接液部分抛光处理"
-                ]
-                
-                # 根据顺序和可用参数模拟组装代码
-                assembled_parts = [str(params.get(key, "□")) for key in assembly_order if key in params]
-                final_code = "-".join(part for part in assembled_parts if part != "□")
+                structure = {}
+                if structure_match:
+                    try:
+                        structure = json.loads(structure_match.group(1))
+                    except json.JSONDecodeError:
+                        pass
 
+                # 根据三段式结构模拟组装
+                assembled_parts = []
+                # 确保按正确的键顺序处理
+                part_keys = ["变送器 (Transmitter)", "传感器 (Sensor)", "热保护套管 (TG)"]
+                for key in part_keys:
+                    order_list = structure.get(key, [])
+                    part_code = "-".join([str(params.get(p, "□")) for p in order_list])
+                    assembled_parts.append(part_code)
+                
+                final_code = " ".join(assembled_parts)
 
                 class MockMessage:
                     def __init__(self, content):

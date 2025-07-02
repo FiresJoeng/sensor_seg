@@ -113,16 +113,16 @@ def get_dict_hash(data: Dict[str, Any]) -> Hashable:
     # 排序字典项以确保一致性，然后转换为元组
     return tuple(sorted(data.items()))
 
-def process_document(input_file_path: Path) -> Optional[Path]: # 移除了 skip_extraction 参数
+def process_document(input_file_path: Path) -> Optional[Dict[str, Any]]:
     """
-    处理单个输入文档，生成标准化参数文件。
+    处理单个输入文档，提取参数并进行人工核对。
     (始终执行提取和标准化流程)
 
     Args:
         input_file_path: 输入文档的路径 (例如 PDF)。
 
     Returns:
-        Optional[Path]: 成功时返回标准化参数文件的 Path 对象，失败时返回 None。
+        Optional[Dict[str, Any]]: 成功时返回经过验证的、提取出的数据字典，失败时返回 None。
     """
     logger.info(f"===== 开始处理文档: {input_file_path.name} (始终执行完整提取流程) =====")
     combined_standardized_path = settings.OUTPUT_DIR / f"{input_file_path.stem}_standardized_all.json"
@@ -257,13 +257,119 @@ def process_document(input_file_path: Path) -> Optional[Path]: # 移除了 skip_
         print(f"\n--- 阶段二：参数标准化与人工核对 完成 ---")
         print(f"已标准化并核对的文件: {combined_standardized_path}")
 
-        logger.info(f"===== 文档处理完成 (包含人工检查): {input_file_path.name} =====")
-        return combined_standardized_path
+        logger.info(f"===== 提取和初步核对完成: {input_file_path.name} =====")
+        # 返回经过验证的提取数据，而不是文件路径
+        return verified_extracted_data
     except Exception as e:
         logger.error(f"保存最终合并标准化 JSON 数据到 {combined_standardized_path} 时出错: {e}", exc_info=True)
         print(f"错误：无法保存最终的 JSON 文件。")
         return None
 
+def run_standardization_and_assembly(verified_extracted_data: Dict[str, Any], input_file_stem: str):
+    """
+    执行标准流程：参数标准化和代码组装。
+    """
+    try:
+        # --- 3. 参数标准化 ---
+        logger.info("开始使用 AccurateLLMStandardizer 标准化提取并核对后的完整分组数据...")
+        llm_client = OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.LLM_API_URL, timeout=settings.LLM_REQUEST_TIMEOUT)
+        standardizer = AccurateLLMStandardizer(client=llm_client)
+        standardized_grouped_data = standardizer.standardize(verified_extracted_data)
+
+        if standardized_grouped_data is None:
+            logger.error("完整分组数据标准化失败。")
+            return
+        logger.info("完整分组数据标准化完成。")
+
+        # --- 4. 参数合并 ---
+        info_extractor = InfoExtractor() # 需要一个实例来调用json_proc
+        final_merged_data = info_extractor.json_proc.merge_parameters(standardized_grouped_data)
+
+        if final_merged_data is None or "设备列表" not in final_merged_data:
+            logger.error("合并标准化后的参数失败或结果格式不正确。")
+            return
+        logger.info(f"标准化参数合并完成。")
+
+        # --- 5. 保存并进行代码组装 ---
+        combined_standardized_path = settings.OUTPUT_DIR / f"{input_file_stem}_standardized_all.json"
+        with open(combined_standardized_path, 'w', encoding='utf-8') as f:
+            json.dump(final_merged_data, f, ensure_ascii=False, indent=4)
+        logger.info(f"最终合并标准化参数数据已成功保存至: {combined_standardized_path}")
+
+        # --- 手动检查点 ---
+        print(f"\n--- 人工检查点：检查标准化文件 ---")
+        print(f"标准化参数已保存至: {combined_standardized_path}")
+        input("检查或修改完毕后，请按 Enter键 继续...")
+
+        # --- 开始代码组装 ---
+        run_assembly(combined_standardized_path, input_file_stem)
+
+    except Exception as e:
+        logger.error(f"标准化或组装流程中发生错误: {e}", exc_info=True)
+        print("\n--- 标准化或组装流程失败 ---")
+
+def run_assembly(standardized_file_path: Path, input_file_stem: str):
+    """
+    执行代码组装和人工输入流程。
+    """
+    logger.info(f"\n--- 开始阶段三：型号代码组装 ---")
+    print(f"\n--- 开始阶段三：型号代码组装 ---")
+    print(f"输入文件进行代码组装: {standardized_file_path}")
+
+    try:
+        with open(standardized_file_path, 'r', encoding='utf-8') as f:
+            standardized_data = json.load(f)
+        
+        llm_client = OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.LLM_API_URL, timeout=settings.LLM_REQUEST_TIMEOUT)
+        code_assembler = CodeAssembler(client=llm_client)
+        
+        assembled_results = code_assembler.assemble_code(standardized_data)
+        
+        # ... (人工输入缺失代码的逻辑) ...
+        final_results = []
+        for result in assembled_results:
+            tag_no_raw = result.get("位号")
+            tag_no = ", ".join(tag_no_raw) if isinstance(tag_no_raw, list) else str(tag_no_raw)
+            assembled_code = result.get("型号代码", "组装失败")
+            missing_params = result.get("缺失参数", [])
+            
+            if "□" in assembled_code and missing_params:
+                print(f"\n--- 人工输入：位号 {tag_no} 型号代码不完整 ---")
+                while "□" in assembled_code:
+                    print(f"当前型号代码: {assembled_code}")
+                    current_missing_param = next((p for p in missing_params if p), None)
+                    if not current_missing_param:
+                        print(f"警告: 无法确定下一个缺失参数的名称。")
+                        prompt_text = f"请为位号 '{tag_no}' 输入下一个缺失的代码: "
+                    else:
+                        prompt_text = f"请输入 '{current_missing_param}' 的代码 (留空则使用'-'): "
+                    print(f"剩余待输入参数: {', '.join(p for p in missing_params if p)}")
+                    user_input = input(prompt_text).strip()
+                    replacement = user_input if user_input else "-"
+                    assembled_code = assembled_code.replace("□", replacement, 1)
+                    if current_missing_param:
+                        try:
+                            missing_params.remove(current_missing_param)
+                        except ValueError:
+                            pass
+                    print(f"更新后型号代码: {assembled_code}\n")
+            final_results.append({
+                "位号": tag_no,
+                "最终型号代码": assembled_code,
+                "剩余未填参数": [p for p in missing_params if p]
+            })
+
+        final_result_path = settings.OUTPUT_DIR / f"{input_file_stem}_results.json"
+        with open(final_result_path, 'w', encoding='utf-8') as f:
+            json.dump(final_results, f, ensure_ascii=False, indent=4)
+        
+        logger.info(f"--- 阶段三：型号代码组装与人工输入 完成 ---")
+        print(f"\n--- 阶段三：型号代码组装与人工输入 完成 ---")
+        print(f"最终型号代码结果已保存至: {final_result_path}")
+
+    except Exception as e:
+        logger.error(f"型号代码组装流程失败: {e}", exc_info=True)
+        print("\n--- 型号代码组装流程失败 ---")
 
 def main():
     """主函数：提示用户输入文件路径并启动处理流程。""" # Docstring updated
@@ -299,115 +405,58 @@ def main():
     # 用户要求始终处理，不再询问是否跳过提取，也不再需要 skip_extraction 标志
     logger.info(f"将始终执行提取和标准化流程。")
 
-    standardized_file_path = process_document(input_file)
+    # --- 调用核心处理流程 ---
+    # process_document 现在返回的是提取和核对后的数据，而不是文件路径
+    verified_extracted_data = process_document(input_file) # 重命名返回值以反映其内容
+
+    if verified_extracted_data is None:
+        logger.error("文档处理在提取或初步核对阶段失败，流程中止。")
+        sys.exit(1)
+
+    # --- 新增：检查是否存在完整规格代码的快捷通道 ---
+    pre_assembled_results = []
+    has_pre_assembled_code = False
+    if '设备列表' in verified_extracted_data:
+        for device in verified_extracted_data['设备列表']:
+            # 检查 '共用参数' 和 '不同参数' 中是否存在 '完整规格代码'
+            full_code = None
+            if '共用参数' in device and '完整规格代码' in device['共用参数']:
+                full_code = device['共用参数']['完整规格代码']
+            # 如果不同参数中也有，这里可以添加更复杂的逻辑，但目前简化处理
+            
+            if full_code:
+                has_pre_assembled_code = True
+                tag_no = ", ".join(device.get("位号", ["未知位号"]))
+                logger.info(f"检测到快捷通道：位号 {tag_no} 已提供完整规格代码: {full_code}")
+                pre_assembled_results.append({
+                    "位号": tag_no,
+                    "最终型号代码": full_code,
+                    "备注": "直接使用文档中提供的完整规格代码"
+                })
+
+    if has_pre_assembled_code:
+        logger.info("检测到至少一个设备提供了完整规格代码，将跳过标准化和组装流程。")
+        final_result_path = settings.OUTPUT_DIR / f"{input_file.stem}_results.json"
+        try:
+            with open(final_result_path, 'w', encoding='utf-8') as f:
+                json.dump(pre_assembled_results, f, ensure_ascii=False, indent=4)
+            logger.info(f"完整规格代码已直接保存至: {final_result_path}")
+            print(f"\n--- 流程结束（快捷通道） ---")
+            print(f"检测到预提供的完整规格代码，结果已保存至: {final_result_path}")
+            sys.exit(0)
+        except Exception as e:
+            logger.error(f"保存快捷通道结果时出错: {e}", exc_info=True)
+            sys.exit(1)
+            
+    # --- 如果没有快捷通道，则继续执行标准化和组装 ---
+    logger.info("未检测到完整规格代码，继续执行完整的标准化和组装流程。")
+    run_standardization_and_assembly(verified_extracted_data, input_file.stem)
 
     # Get the base name from the initial input file for cleanup later
     input_file_stem = input_file.stem
     base_name_for_cleanup = input_file_stem.replace('_analysis', '').replace('_standardized_all', '')
     extracted_file_to_clean = settings.OUTPUT_DIR / f"{base_name_for_cleanup}_extracted_parameters_with_remarks.json"
-
-    if standardized_file_path is not None:
-        logger.info(f"\n--- 开始阶段三：型号代码组装 ---")
-        print(f"\n--- 开始阶段三：型号代码组装 ---")
-        print(f"输入文件进行代码组装: {standardized_file_path}")
-
-        try:
-            # 重新加载标准化后的数据
-            logger.info(f"加载标准化文件进行代码组装: {standardized_file_path}")
-            with open(standardized_file_path, 'r', encoding='utf-8') as f:
-                standardized_data = json.load(f)
-            logger.info("标准化文件加载成功。")
-
-            # 重新初始化 LLM 客户端，确保在 main 函数作用域内可用
-            llm_client = OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.LLM_API_URL, timeout=settings.LLM_REQUEST_TIMEOUT)
-            code_assembler = CodeAssembler(client=llm_client)
-            logger.info("CodeAssembler 初始化成功。")
-
-            # 调用 CodeAssembler 进行代码组装
-            logger.info("开始调用LLM组装型号代码...")
-            assembled_results = code_assembler.assemble_code(standardized_data)
-            logger.info("LLM型号代码组装完成。")
-
-            # --- 人工输入缺失代码 (新版) ---
-            final_results = []
-            for result in assembled_results:
-                # 确保位号是字符串
-                tag_no_raw = result.get("位号")
-                tag_no = ", ".join(tag_no_raw) if isinstance(tag_no_raw, list) else str(tag_no_raw)
-
-                assembled_code = result.get("型号代码", "组装失败")
-                missing_params = result.get("缺失参数", [])
-                
-                # 检查是否有占位符 '□' 并且有缺失参数列表
-                if "□" in assembled_code and missing_params:
-                    print(f"\n--- 人工输入：位号 {tag_no} 型号代码不完整 ---")
-                    
-                    # 循环直到所有占位符都被处理
-                    while "□" in assembled_code:
-                        print(f"当前型号代码: {assembled_code}")
-                        
-                        # 找出当前第一个 '□' 对应的缺失参数
-                        # 注意：这个逻辑假设 '□' 的出现顺序与 missing_params 列表的顺序一致
-                        # 这是一个合理的简化假设
-                        current_missing_param = next((p for p in missing_params if p), None)
-                        
-                        if not current_missing_param:
-                            # 如果没有更多具体的缺失参数名，但仍有 '□'，说明逻辑可能不匹配
-                            # 此时退回到旧的通用提示
-                            print(f"警告: 无法确定下一个缺失参数的名称。")
-                            prompt_text = f"请为位号 '{tag_no}' 输入下一个缺失的代码: "
-                        else:
-                            prompt_text = f"请输入 '{current_missing_param}' 的代码 (留空则使用'-'): "
-
-                        # 打印出所有剩余的缺失参数
-                        print(f"剩余待输入参数: {', '.join(p for p in missing_params if p)}")
-                        
-                        user_input = input(prompt_text).strip()
-                        
-                        # 根据用户输入进行替换
-                        replacement = user_input if user_input else "-"
-                        assembled_code = assembled_code.replace("□", replacement, 1)
-                        
-                        # 从 missing_params 列表中移除已处理的参数
-                        if current_missing_param:
-                            try:
-                                missing_params.remove(current_missing_param)
-                            except ValueError:
-                                # 如果参数不在列表中，忽略错误，继续
-                                pass
-                        
-                        print(f"更新后型号代码: {assembled_code}\n")
-
-                final_results.append({
-                    "位号": tag_no,
-                    "最终型号代码": assembled_code,
-                    "剩余未填参数": [p for p in missing_params if p] # 记录最终还缺哪些
-                })
-
-            # 保存最终结果
-            final_result_path = settings.OUTPUT_DIR / f"{input_file_stem}_results.json" # 统一命名为 _results.json
-            with open(final_result_path, 'w', encoding='utf-8') as f:
-                json.dump(final_results, f, ensure_ascii=False, indent=4)
-            
-            logger.info(f"--- 阶段三：型号代码组装与人工输入 完成 ---")
-            print(f"\n--- 阶段三：型号代码组装与人工输入 完成 ---")
-            logger.info(f"最终型号代码结果已保存至: {final_result_path}")
-            print(f"最终型号代码结果已保存至: {final_result_path}")
-
-            logger.info(f"\n===== 完整流程处理成功 =====")
-            print(f"\n===== 完整流程处理成功 =====")
-            sys.exit(0)
-
-        except Exception as e:
-            logger.error(f"型号代码组装流程失败: {e}", exc_info=True)
-            print("\n--- 型号代码组装流程失败 ---")
-            print("未能完成型号代码组装。请检查日志文件获取详细信息。")
-            sys.exit(1)
-    else:
-        logger.error("标准化流程失败，无法进行型号代码组装。")
-        print("\n--- 标准化流程失败 ---")
-        print("未能完成标准化。请检查日志文件获取详细信息。")
-        sys.exit(1)
+    standardized_file_path = settings.OUTPUT_DIR / f"{input_file_stem}_standardized_all.json"
 
     # --- 清理临时文件 ---
     logger.info("开始清理临时文件...")
