@@ -640,10 +640,7 @@ if __name__ == "__main__":
                     }
                 }
             }
-        ],
-        "备注": { # 顶层备注
-            "原始备注": "一些备注信息"
-        }
+        ]
     }
     logger.info(f"准备使用以下示例数据进行标准化:\n{json.dumps(sample_extracted_data, ensure_ascii=False, indent=2)}")
 
